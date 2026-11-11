@@ -36,6 +36,24 @@ Part 2:
 - Guardrail tests: refused without the flag, refuses non-drafts, nothing else reaches SMTP.
 - README: configuring the client to always ask before `send_draft`.
 
+## Installation
+
+Part of a working product: a user sets it up without editing files by hand, on Windows, macOS and Linux. Design and research: [docs/installation-research.md](docs/installation-research.md).
+
+- `proton-mail-mcp setup` (#30):
+  - detect Bridge;
+  - pin its certificate (no export);
+  - ask for the Bridge password with hidden input, and keep it in the OS credential store;
+  - register the server in Claude.
+- `proton-mail-mcp check` and clear startup errors (#31).
+
+## Distribution
+
+Only once the product works (the milestones above).
+
+- Signed Windows binary (Azure Artifact Signing) and a winget package (#32).
+- Homebrew tap, Linux `.deb`/`.rpm`, a Claude Desktop extension (MCPB) (#33).
+
 ## Later (ideas, not commitments)
 
 - Labels (Proton's `Labels/` folders).
