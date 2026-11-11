@@ -139,10 +139,17 @@
         },
         "note": {
           "type": "string"
+        },
+        "uidvalidity": {
+          "description": "identifies this numbering of the folder's uids; pass it to read_message with a uid so a renumbered folder is detected",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "required": [
         "folder",
+        "uidvalidity",
         "messages",
         "note"
       ],
@@ -166,6 +173,12 @@
         },
         "uid": {
           "description": "the message's uid, as list_messages returns it",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "uidvalidity": {
+          "description": "the uidvalidity that list_messages or search_messages returned with the uid; if the folder has been renumbered since, the call fails instead of reading another message",
           "maximum": 4294967295,
           "minimum": 0,
           "type": "integer"
@@ -406,10 +419,17 @@
         },
         "note": {
           "type": "string"
+        },
+        "uidvalidity": {
+          "description": "identifies this numbering of the folder's uids; pass it to read_message with a uid so a renumbered folder is detected",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "required": [
         "folder",
+        "uidvalidity",
         "messages",
         "note"
       ],

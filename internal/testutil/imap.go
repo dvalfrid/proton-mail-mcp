@@ -124,6 +124,18 @@ func (s *IMAPServer) AddMessageAt(t testing.TB, mailbox, raw string, internal ti
 	}
 }
 
+// Resync empties mailbox and gives it a new UIDVALIDITY, as Bridge does when
+// it resyncs from scratch: the next messages added get UIDs from 1 again.
+func (s *IMAPServer) Resync(t testing.TB, mailbox string) {
+	t.Helper()
+	if err := s.user.Delete(mailbox); err != nil {
+		t.Fatalf("delete %s: %v", mailbox, err)
+	}
+	if err := s.user.Create(mailbox, nil); err != nil {
+		t.Fatalf("create %s: %v", mailbox, err)
+	}
+}
+
 // Unseen returns the number of messages without \Seen in mailbox, read
 // directly from the backend.
 func (s *IMAPServer) Unseen(t testing.TB, mailbox string) uint32 {
