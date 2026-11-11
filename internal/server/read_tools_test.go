@@ -60,6 +60,48 @@ func TestListMessages(t *testing.T) {
 	}
 }
 
+func TestReadMessage(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.imap.AddMessage(t, "INBOX", msgFromBob)
+
+	var out ReadMessageOutput
+	e.callOK(t, "read_message", map[string]any{"folder": "INBOX", "uid": 1}, &out)
+	m := out.UntrustedContent
+	if out.Folder != "INBOX" || out.UID != 1 || m == nil {
+		t.Fatalf("result = %+v", out)
+	}
+	if m.Subject != "Lunch on Friday?" || m.Body != "Are you free?" || len(m.From) != 1 || m.From[0] != "Bob Example <bob@example.org>" {
+		t.Errorf("message = %+v", m)
+	}
+	if out.Note != untrustedMessageNote {
+		t.Errorf("note = %q", out.Note)
+	}
+}
+
+func TestReadMessageErrors(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.imap.AddMessage(t, "INBOX", msgFromBob)
+	tests := []struct {
+		name string
+		args map[string]any
+		want string
+	}{
+		{"no folder", map[string]any{"uid": 1}, "folder"},
+		{"no uid", map[string]any{"folder": "INBOX"}, "uid"},
+		{"uid zero", map[string]any{"folder": "INBOX", "uid": 0}, "list_messages"},
+		{"unknown uid", map[string]any{"folder": "INBOX", "uid": 99}, "message not found"},
+		{"unknown folder", map[string]any{"folder": "Nope", "uid": 1}, "Nope"},
+	}
+	for _, tt := range tests {
+		res := e.call(t, "read_message", tt.args)
+		if !res.IsError || !strings.Contains(text(res), tt.want) {
+			t.Errorf("%s: IsError=%v text=%q, want an error mentioning %q", tt.name, res.IsError, text(res), tt.want)
+		}
+	}
+}
+
 func TestListMessagesErrors(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

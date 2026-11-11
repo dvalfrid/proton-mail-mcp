@@ -151,6 +151,79 @@ func TestListingIsReadOnly(t *testing.T) {
 	}
 }
 
+const multipartMessage = "From: Bob Example <bob@example.org>\nTo: alice@example.com\nSubject: Report\n" +
+	"Date: Mon, 02 Nov 2026 10:00:00 +0000\nMessage-ID: <report@example.org>\nMIME-Version: 1.0\n" +
+	"Content-Type: multipart/mixed; boundary=b1\n\n" +
+	"--b1\nContent-Type: text/plain; charset=utf-8\n\nThe report is attached.\n" +
+	"--b1\nContent-Type: application/pdf; name=report.pdf\nContent-Disposition: attachment; filename=report.pdf\nContent-Transfer-Encoding: base64\n\nJVBERi0xLjQK\n" +
+	"--b1--\n"
+
+func TestReadMessage(t *testing.T) {
+	t.Parallel()
+	c, srv, _ := newClient(t)
+	srv.AddMessage(t, "INBOX", message("carol@example.net", "First", "Mon, 02 Nov 2026 09:00:00 +0000"))
+	srv.AddMessage(t, "INBOX", multipartMessage)
+
+	m, err := c.ReadMessage(context.Background(), "INBOX", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Subject != "Report" || len(m.From) != 1 || m.From[0] != "Bob Example <bob@example.org>" {
+		t.Errorf("headers = %+v", m)
+	}
+	if m.Body != "The report is attached." || m.BodyFormat != "text" {
+		t.Errorf("body = %q (%s)", m.Body, m.BodyFormat)
+	}
+	want := Attachment{Name: "report.pdf", Type: "application/pdf", Size: 9}
+	if len(m.Attachments) != 1 || m.Attachments[0] != want {
+		t.Errorf("attachments = %+v, want %+v", m.Attachments, want)
+	}
+	if m.Truncated {
+		t.Error("truncated = true for a small message")
+	}
+}
+
+func TestReadMessageNotFound(t *testing.T) {
+	t.Parallel()
+	c, srv, _ := newClient(t)
+	srv.AddMessage(t, "INBOX", message("bob@example.org", "Only", "Mon, 02 Nov 2026 10:00:00 +0000"))
+
+	if _, err := c.ReadMessage(context.Background(), "INBOX", 99); !errors.Is(err, ErrMessageNotFound) {
+		t.Fatalf("err = %v, want ErrMessageNotFound", err)
+	}
+	var imapErr *imap.Error
+	if _, err := c.ReadMessage(context.Background(), "Nope", 1); !errors.As(err, &imapErr) {
+		t.Fatalf("unknown folder: err = %v, want an IMAP NO error", err)
+	}
+	// Neither a missing message nor a NO breaks the connection.
+	if _, err := c.ReadMessage(context.Background(), "INBOX", 1); err != nil {
+		t.Fatalf("after errors: %v", err)
+	}
+}
+
+// Guardrail: reading a message never marks it as read.
+func TestReadMessageIsReadOnly(t *testing.T) {
+	t.Parallel()
+	c, srv, _ := newClient(t)
+	srv.AddMessage(t, "INBOX", message("bob@example.org", "Unread", "Mon, 02 Nov 2026 10:00:00 +0000"))
+
+	if _, err := c.ReadMessage(context.Background(), "INBOX", 1); err != nil {
+		t.Fatal(err)
+	}
+	if n := srv.Unseen(t, "INBOX"); n != 1 {
+		t.Fatalf("unseen = %d after reading, want 1", n)
+	}
+	tr := srv.Transcript()
+	if !strings.Contains(tr, " EXAMINE ") || !strings.Contains(tr, "BODY.PEEK[]") {
+		t.Errorf("message was not read with EXAMINE and BODY.PEEK:\n%s", tr)
+	}
+	for _, cmd := range []string{" SELECT ", " STORE ", " EXPUNGE"} {
+		if strings.Contains(tr, cmd) {
+			t.Errorf("transcript contains %q", strings.TrimSpace(cmd))
+		}
+	}
+}
+
 func TestSenderControlledTextIsCleaned(t *testing.T) {
 	t.Parallel()
 	c, srv, _ := newClient(t)
