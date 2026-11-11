@@ -24,7 +24,7 @@ macOS and Linux work too (Go, Git, `pwsh` and `gh` from your package manager); t
 ```powershell
 git clone git@github.com:dvalfrid/proton-mail-mcp.git   # contributors: clone your fork
 cd proton-mail-mcp
-./tools/task.ps1 setup     # git hooks: fmt + lint before commit, commit-message check
+./tools/task.ps1 setup     # git hooks: signing, fmt + lint before commit, commit-message check
 ./tools/task.ps1 verify    # everything should pass
 ```
 
@@ -32,7 +32,7 @@ The git hooks live in `.git/hooks`, which is not part of the repository: run `se
 
 ### 3. Sign your commits
 
-Commits on `main` must be signed, and the ruleset checks every commit in a pull request: one unsigned commit in your branch blocks the merge, even though pull requests are squash-merged. Set up signing before your first commit on a new machine, with a separate SSH key per machine:
+Commits on `main` must be signed, and the ruleset checks every commit in a pull request: one unsigned commit in your branch blocks the merge, even though pull requests are squash-merged. The pre-commit hook and `setup` refuse until signing is configured, so set it up before your first commit on a new machine, with a separate SSH key per machine:
 
 ```powershell
 ssh-keygen -t ed25519 -C "git signing" -f "$HOME\.ssh\id_ed25519_signing"
