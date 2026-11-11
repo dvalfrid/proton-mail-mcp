@@ -22,7 +22,14 @@ Full rules and threat model: [STANDARDS.md](STANDARDS.md#security-guardrails), [
 
 ## Status
 
-Pre-release: the project foundation is in place, the mail tools are not yet. See [ROADMAP.md](ROADMAP.md).
+Pre-release. Claude can list folders and messages (read-only). Reading messages, organizing, drafts and sending follow: see [ROADMAP.md](ROADMAP.md).
+
+## Tools
+
+| Tool | What it does | Changes the mailbox |
+|---|---|---|
+| `list_folders` | Folders with message and unread counts | No |
+| `list_messages` | Newest messages in a folder: uid, date, sender, subject, read/flagged | No (messages stay unread) |
 
 ## Requirements
 
@@ -33,10 +40,29 @@ Pre-release: the project foundation is in place, the mail tools are not yet. See
 
 ## Setup
 
-```powershell
-copy .env.example .env      # then fill in Bridge user + password
-./tools/task.ps1 build      # → bin/proton-mail-mcp.exe
-```
+1. In Proton Mail Bridge, note the IMAP **username** and the **Bridge password** (Bridge → your account → Mailbox details). The Bridge password is not your Proton account password.
+2. Export Bridge's TLS certificate (Bridge → Settings → Advanced → Export TLS certificates) and keep the `cert.pem` file. It is required: the server only talks to the Bridge that presents this certificate, so no other program can pose as Bridge and capture the password.
+3. Put the program and a `.env` next to each other, e.g. in `C:\Tools\proton-mail-mcp\`:
+
+   ```powershell
+   ./tools/task.ps1 build                    # or download a release
+   copy bin\proton-mail-mcp.exe C:\Tools\proton-mail-mcp\
+   copy .env.example C:\Tools\proton-mail-mcp\.env   # then fill it in
+   ```
+
+The server reads `.env` next to the executable, or the file named by `PROTON_MCP_ENV_FILE`. Environment variables override the file.
+
+| Setting | Default | |
+|---|---|---|
+| `PROTON_BRIDGE_USER` | — | Bridge username (your address) |
+| `PROTON_BRIDGE_PASSWORD` | — | Bridge password |
+| `PROTON_BRIDGE_HOST` | `127.0.0.1` | Only `127.0.0.1`, `::1` or `localhost` are accepted |
+| `PROTON_BRIDGE_IMAP_PORT` | `1143` | |
+| `PROTON_BRIDGE_SMTP_PORT` | `1025` | |
+| `PROTON_BRIDGE_CERT` | — | Path to the certificate exported from Bridge (PEM). Required |
+| `PROTON_ALLOW_SEND` | `0` | Sending is not implemented yet |
+
+Check the program: `proton-mail-mcp --version`.
 
 ## Development
 
@@ -49,7 +75,25 @@ How to contribute, commit format, CI and releases: [CONTRIBUTING.md](CONTRIBUTIN
 
 ## Connecting to Claude
 
-_Added with the first tools (milestone 0.1)._
+**Claude Desktop** — Settings → Developer → Edit Config, then add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "proton-mail": {
+      "command": "C:\\Tools\\proton-mail-mcp\\proton-mail-mcp.exe"
+    }
+  }
+}
+```
+
+**Claude Code** — from any folder:
+
+```powershell
+claude mcp add --scope user proton-mail -- C:\Tools\proton-mail-mcp\proton-mail-mcp.exe
+```
+
+Restart the client; the tools appear under `proton-mail`. Keep the password in `.env`, not in the client's config: client configs are often synced or shared.
 
 ## License
 

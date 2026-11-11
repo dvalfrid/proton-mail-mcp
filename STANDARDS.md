@@ -159,7 +159,7 @@ The repository is public, so everything committed is published: code, tests, tes
 ### Transport
 
 - Connect only to Bridge on `127.0.0.1` / `localhost`. A non-local host is refused at start-up.
-- STARTTLS is required. Certificate verification uses the certificate exported from Bridge (`PROTON_BRIDGE_CERT`); skipping verification is allowed **only** for `127.0.0.1`/`localhost`, and only with a logged warning.
+- STARTTLS is required, and the server is always verified against the certificate exported from Bridge (`PROTON_BRIDGE_CERT`, required). Verification is **never** skipped, not even on localhost: when Bridge isn't running, any local program can listen on its port, and without verification it would receive the Bridge password at login. No `InsecureSkipVerify` in production code.
 
 ---
 
@@ -184,7 +184,7 @@ Standard library first. Approved:
 | Module | For |
 |---|---|
 | `github.com/modelcontextprotocol/go-sdk` | MCP server (official SDK) |
-| `github.com/emersion/go-imap/v2` | IMAP client, in-memory IMAP server for tests |
+| `github.com/emersion/go-imap/v2` | IMAP client, in-memory IMAP server for tests. Still tagged beta upstream, but it is the maintained line (v1 is not); pinned in `go.mod`, upgrades go through the full test suite |
 | `github.com/emersion/go-message` | MIME parsing |
 | `github.com/emersion/go-smtp`, `github.com/emersion/go-sasl` | SMTP client, SMTP server for tests |
 

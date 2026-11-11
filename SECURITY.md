@@ -37,7 +37,8 @@ proton-mail-mcp runs as a local process started by an MCP client (Claude). It ho
 |---|---|---|
 | Owner's outgoing mail | An AI assistant, possibly steered by a malicious email, sends mail the owner didn't approve | Only existing drafts can be sent (`send_draft`), only with `PROTON_ALLOW_SEND=1`, and the MCP client asks the owner before every send |
 | Owner's mailbox | Mail permanently deleted | No expunge anywhere; "delete" moves to Trash. Enforced by lint (`forbidigo`) and tests |
-| Bridge password | Leaked through logs, tool output, errors or the repo | Read only from `.env`/environment; never logged or returned; `.env` git-ignored and denied to Claude Code |
+| Bridge password | Leaked through logs, tool output, errors or the repo | Read only from `.env`/environment; held as a type that never prints; never logged or returned; `.env` git-ignored and denied to Claude Code |
+| Bridge password | A local program listens on Bridge's port (Bridge not running) and impersonates it to capture the login | TLS always verified against the certificate exported from Bridge; the handshake fails before the password is sent |
 | Mail content | Sent off the machine | Bridge only on `127.0.0.1`/`localhost`; non-local hosts refused at start-up. Content goes to the AI only when a tool returns it |
 | The AI's instructions | Prompt injection inside an email | Mail content is returned marked as untrusted data; HTML reduced to text; no remote content fetched; attachments never opened |
 

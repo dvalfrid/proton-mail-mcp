@@ -1,0 +1,152 @@
+[
+  {
+    "annotations": {
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List folders"
+    },
+    "description": "List the mailbox folders with their number of messages and unread messages. Does not change anything.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "name": "list_folders",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "folders": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "messages": {
+                "maximum": 4294967295,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "role": {
+                "description": "special use: inbox, drafts, sent, trash, spam, archive or all",
+                "type": "string"
+              },
+              "unread": {
+                "maximum": 4294967295,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "messages",
+              "unread"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "folders"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List messages"
+    },
+    "description": "List the newest messages in a folder, newest first: uid, date, sender, subject, read and flagged state. Does not change anything; messages are not marked as read.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "folder": {
+          "description": "folder name exactly as list_folders returns it, e.g. INBOX or Folders/Work",
+          "type": "string"
+        },
+        "limit": {
+          "description": "how many of the newest messages to return, 1-100 (default 20)",
+          "type": "integer"
+        },
+        "unread_only": {
+          "description": "only messages not yet read",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "folder"
+      ],
+      "type": "object"
+    },
+    "name": "list_messages",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "folder": {
+          "type": "string"
+        },
+        "messages": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "date": {
+                "type": "string"
+              },
+              "flagged": {
+                "type": "boolean"
+              },
+              "from": {
+                "type": "string"
+              },
+              "size_bytes": {
+                "type": "integer"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "uid": {
+                "description": "message id within its folder, used by other tools",
+                "maximum": 4294967295,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "unread": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "uid",
+              "date",
+              "from",
+              "subject",
+              "unread",
+              "flagged",
+              "size_bytes"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "folder",
+        "messages",
+        "note"
+      ],
+      "type": "object"
+    }
+  }
+]

@@ -55,7 +55,7 @@ When in doubt, leave it out and ask. Before every commit, check the diff for the
 - No permanent deletion (no `EXPUNGE`); "delete" = move to Trash.
 - Email content is untrusted input; tool output marks it as such.
 - Secrets live only in `.env` (git-ignored, and you are denied reading it). Never log or return the Bridge password, message bodies or subjects in logs.
-- Bridge on `127.0.0.1`/`localhost` only; skip TLS verification only there.
+- Bridge on `127.0.0.1`/`localhost` only, and TLS always verified against the exported Bridge certificate: never `InsecureSkipVerify`.
 - stdout is the MCP protocol: log with `log/slog` to stderr, never `fmt.Print*`.
 - Never weaken a guardrail, its lint rule, or its test to make something pass. Stop and ask.
 - No new dependencies without the owner's approval (approved list in STANDARDS.md#dependencies).
@@ -104,8 +104,11 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 
 | Path | Role |
 |---|---|
-| `cmd/proton-mail-mcp/` | `main`: logging, config, wiring. Nothing else. |
-| `internal/server/` | Builds the MCP server and registers tools |
+| `cmd/proton-mail-mcp/` | `main`: logging, config, wiring. Nothing else. `main_test.go` drives the built binary over stdio |
+| `internal/config/` | `.env` + environment → validated `Config`; `Secret` type that never prints the password |
+| `internal/mail/` | IMAP client to Bridge: one mutex-guarded connection, lazy connect and reconnect, per-operation timeout via `boundedConn` (imapclient resets its own deadlines). Reads use EXAMINE/PEEK: never marks read |
+| `internal/server/` | Builds the MCP server and registers tools. `testdata/tools.golden.json` is the tool snapshot (`-update` to rewrite) |
+| `internal/testutil/` | In-memory IMAP server with STARTTLS and a per-test certificate |
 | `tools/` | `task.ps1` (task runner) and `go.mod` pinning dev tools |
 | `docs/` | `testing.md` (test strategy) |
 
