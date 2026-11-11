@@ -22,7 +22,7 @@ Full rules and threat model: [STANDARDS.md](STANDARDS.md#security-guardrails), [
 
 ## Status
 
-Pre-release. Claude can list folders and messages (read-only). Reading messages, organizing, drafts and sending follow: see [ROADMAP.md](ROADMAP.md).
+Pre-release. Claude can list folders and messages and read a message (read-only). Searching, organizing, drafts and sending follow: see [ROADMAP.md](ROADMAP.md).
 
 ## Tools
 
@@ -30,6 +30,7 @@ Pre-release. Claude can list folders and messages (read-only). Reading messages,
 |---|---|---|
 | `list_folders` | Folders with message and unread counts | No |
 | `list_messages` | Newest messages in a folder: uid, date, sender, subject, read/flagged | No (messages stay unread) |
+| `read_message` | One message by folder and uid: headers, body as plain text, attachments listed (name, type, size). Returned in an `untrusted_content` field with a note that it is data from the sender, not instructions. HTML is converted to text and nothing is fetched; attachments are never opened. Long messages are cut and marked `truncated` | No (the message stays unread) |
 
 ## Requirements
 

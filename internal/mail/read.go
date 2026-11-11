@@ -1,8 +1,10 @@
 package mail
 
 import (
+	"bytes"
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -142,6 +144,57 @@ func (c *Client) ListMessages(ctx context.Context, folder string, opts ListOptio
 		return nil
 	})
 	return out, err
+}
+
+// ErrMessageNotFound means the folder has no message with the given UID.
+var ErrMessageNotFound = errors.New("message not found")
+
+// ReadMessage fetches one message by UID and parses it with ParseMessage.
+// Like ListMessages it never marks anything as read: the folder is opened
+// read-only and the body is fetched with BODY.PEEK. At most MaxMessageBytes
+// are fetched; a larger message is parsed from that prefix and marked
+// truncated.
+func (c *Client) ReadMessage(ctx context.Context, folder string, uid uint32) (*Message, error) {
+	var (
+		raw   []byte
+		size  int64
+		found bool
+	)
+	section := &imap.FetchItemBodySection{Peek: true, Partial: &imap.SectionPartial{Size: MaxMessageBytes}}
+	err := c.do(ctx, func(ic *imapclient.Client) error {
+		if _, err := ic.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait(); err != nil {
+			return fmt.Errorf("open folder %q: %w", folder, err)
+		}
+		msgs, err := ic.Fetch(imap.UIDSetNum(imap.UID(uid)), &imap.FetchOptions{
+			UID: true, RFC822Size: true, BodySection: []*imap.FetchItemBodySection{section},
+		}).Collect()
+		if err != nil {
+			return fmt.Errorf("fetch message %d in %q: %w", uid, folder, err)
+		}
+		// A UID that doesn't exist gives an empty result, not an IMAP error.
+		// It's reported after do returns: do treats any other error as a
+		// broken connection.
+		if len(msgs) == 0 {
+			return nil
+		}
+		found = true
+		raw, size = msgs[0].FindBodySection(section), msgs[0].RFC822Size
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, ErrMessageNotFound
+	}
+	m, err := ParseMessage(bytes.NewReader(raw))
+	if err != nil {
+		return nil, err
+	}
+	if size > MaxMessageBytes {
+		m.Truncated = true
+	}
+	return m, nil
 }
 
 func summarize(m *imapclient.FetchMessageBuffer) Summary {

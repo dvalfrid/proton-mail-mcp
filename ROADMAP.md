@@ -15,8 +15,9 @@ Part 1 (#3):
 
 Part 2:
 
-- Tools: `read_message`, `search_messages`.
-- Untrusted-content block around message text, HTML → text, attachments listed only, size caps. Fuzz test for message parsing.
+- ✅ Message parsing (#12): HTML → text, attachments listed only, size caps, fuzz test.
+- ✅ Tool: `read_message` (#13), message returned in an untrusted-content block.
+- Tool: `search_messages` (#14).
 
 ## 0.2 — Organize
 
