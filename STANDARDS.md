@@ -186,6 +186,7 @@ Standard library first. Approved:
 | `github.com/modelcontextprotocol/go-sdk` | MCP server (official SDK) |
 | `github.com/emersion/go-imap/v2` | IMAP client, in-memory IMAP server for tests. Still tagged beta upstream, but it is the maintained line (v1 is not); pinned in `go.mod`, upgrades go through the full test suite |
 | `github.com/emersion/go-message` | MIME parsing |
+| `golang.org/x/net/html` | HTML → text for message bodies: the Go team's HTML5 tokenizer, because sender-written HTML is untrusted and a hand-written parser would be the weak spot |
 | `github.com/emersion/go-smtp`, `github.com/emersion/go-sasl` | SMTP client, SMTP server for tests |
 
 Anything else needs explicit approval from the owner, with a reason in the PR. `go mod tidy` must leave `go.mod` and `go.sum` unchanged (checked in CI).

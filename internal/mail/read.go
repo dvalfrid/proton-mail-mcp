@@ -165,8 +165,14 @@ func summarize(m *imapclient.FetchMessageBuffer) Summary {
 }
 
 func formatAddress(a imap.Address) string {
-	addr := clean(a.Addr(), maxNameRunes)
-	name := clean(a.Name, maxNameRunes)
+	return formatNameAddr(a.Name, a.Addr())
+}
+
+// formatNameAddr renders a sender-controlled address as "Name <addr>",
+// cleaned and capped.
+func formatNameAddr(name, addr string) string {
+	addr = clean(addr, maxNameRunes)
+	name = clean(name, maxNameRunes)
 	if name == "" || name == addr {
 		return addr
 	}
