@@ -22,20 +22,19 @@ Claude ──MCP──► proton-mail-mcp ──IMAP/SMTP (127.0.0.1)──► P
 
 - Proton plan that includes Bridge (Mail Plus, Unlimited, …)
 - Proton Mail Bridge installed and signed in
-- Python 3.11+
+- Go 1.27+ (only to build; the result is a single `.exe` with no runtime dependencies)
 
 ## Setup
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 copy .env.example .env   # then fill in Bridge user + password
+go build -o bin/proton-mail-mcp.exe ./cmd/proton-mail-mcp
 ```
 
 Run tests:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest
+go test ./...
 ```
 
 ## Connecting to Claude
