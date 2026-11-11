@@ -41,7 +41,7 @@ Part 2:
 
 Part of a working product: a user sets it up without editing files by hand, on Windows, macOS and Linux. Design and research: [docs/installation-research.md](docs/installation-research.md).
 
-- `proton-mail-mcp setup` (#30):
+- ✅ `proton-mail-mcp setup` (#30):
   - detect Bridge;
   - pin its certificate (no export);
   - ask for the Bridge password with hidden input, and keep it in the OS credential store;

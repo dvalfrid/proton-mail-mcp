@@ -54,7 +54,7 @@ func TestBinaryOverStdio(t *testing.T) {
 	}
 
 	cmd := exec.CommandContext(ctx, bin)
-	cmd.Env = append(cleanEnv(), "PROTON_MCP_ENV_FILE="+envFile)
+	cmd.Env = append(cleanEnv(), "PROTON_MCP_ENV_FILE="+envFile, "PROTON_MCP_CONFIG_DIR="+t.TempDir()) // never the developer's own setup
 	// The process writes stderr from another goroutine while the test reads
 	// it: the buffer must be synchronised.
 	stderr := &syncBuffer{}
