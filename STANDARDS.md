@@ -147,6 +147,15 @@ Anyone can send the owner an email, so mail content can contain instructions aim
 - Claude Code in this repo is denied reading `.env` (`.claude/settings.json`).
 - Tests use generated credentials against in-memory servers.
 
+### Public repository
+
+The repository is public, so everything committed is published: code, tests, test data, docs, commit messages, issues and pull requests.
+
+- No secrets of any kind (passwords, tokens, keys, certificates, `.env` contents). GitHub secret scanning with push protection is on as a last line of defence, not as the first.
+- No real email: test messages, addresses and names are invented (use the reserved `example.com` / `example.org` / `example.net` domains) or fully anonymised before commit.
+- No personal details: real addresses, local paths with user names, machine names, unreviewed logs from a real run.
+- Bug reports and issues describe a message instead of quoting it (the issue template says so).
+
 ### Transport
 
 - Connect only to Bridge on `127.0.0.1` / `localhost`. A non-local host is refused at start-up.

@@ -32,7 +32,7 @@ Each hard rule has a test that fails if the rule breaks. They live in `internal/
 ## Conventions
 
 - Tests sit next to the code: `foo.go` → `foo_test.go`, same package unless the test is about the public API.
-- Test data in `testdata/` next to the test (Go ignores the directory in builds). Real-world `.eml` samples are anonymised before they are committed.
+- Test data in `testdata/` next to the test (Go ignores the directory in builds). The repo is public: test messages are invented, with addresses on the reserved `example.com` / `example.org` domains. A real-world `.eml` that reproduces a bug is rewritten (names, addresses, subject, body, `Message-ID`, `Received` headers) before it is committed.
 - Helpers that start the in-memory servers live in `internal/testutil/`.
 - `t.Parallel()` where tests don't share state.
 - Golden files are updated with `-update`, never by hand.

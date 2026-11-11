@@ -39,6 +39,16 @@ Go is at `C:\Program Files\Go\bin`; if a shell doesn't find `go`, prepend it to 
 - Lint is zero issues. Every `//nolint` names the linter and says why.
 - If `fmt` modifies files, include those changes in the same commit.
 
+## Public repository
+
+This repo is **public**. Everything committed — code, tests, test data, docs, commit messages, issues, PR bodies and comments — is published. Never include:
+
+- Secrets: passwords (the Bridge password above all), tokens, keys, certificates, `.env` contents.
+- Real email: messages, subjects, bodies, headers, attachments, addresses or contact names from the owner's mailbox. Test data is invented (`alice@example.com`, `example.org`) or anonymised before commit.
+- Personal details: the owner's addresses, local paths with user names (`C:\Users\…`), machine names, logs from a real run without reviewing them first.
+
+When in doubt, leave it out and ask. Before every commit, check the diff for these.
+
 ## Hard rules (details: STANDARDS.md#security-guardrails)
 
 - Sending: only `send_draft` (sends an existing draft), refused unless `PROTON_ALLOW_SEND=1`, and the client must "always ask". Never add a tool that sends free-form text directly.
