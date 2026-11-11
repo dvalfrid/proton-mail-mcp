@@ -56,7 +56,7 @@ func concurrentCall(s *mcp.ClientSession, w, messages int) error {
 		return decode(res, out)
 	}
 
-	switch w % 3 {
+	switch w % 4 {
 	case 0:
 		var out ListFoldersOutput
 		return call("list_folders", map[string]any{}, &out)
@@ -67,6 +67,14 @@ func concurrentCall(s *mcp.ClientSession, w, messages int) error {
 		}
 		if len(out.Messages) != 5 || out.Messages[0].Subject != fmt.Sprintf("Message %d", messages) {
 			return fmt.Errorf("list_messages = %+v", out.Messages)
+		}
+	case 2:
+		var out SearchMessagesOutput
+		if err := call("search_messages", map[string]any{"folder": "INBOX", "body": "Body", "limit": 3}, &out); err != nil {
+			return err
+		}
+		if len(out.Messages) != 3 || out.Messages[0].Subject != fmt.Sprintf("Message %d", messages) {
+			return fmt.Errorf("search_messages = %+v", out.Messages)
 		}
 	default:
 		uid := w%messages + 1

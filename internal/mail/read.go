@@ -149,8 +149,15 @@ func (c *Client) SearchMessages(ctx context.Context, folder string, opts SearchO
 	return c.summaries(ctx, folder, criteria, opts.Limit)
 }
 
-// summaries searches folder, keeps the limit highest UIDs and returns their
-// summaries, highest UID first.
+// summaries searches folder and returns the limit newest matches, newest
+// first.
+//
+// "Newest" means by INTERNALDATE (the date received), not by UID: Bridge's
+// initial sync gives the newest messages the lowest UIDs, and Bridge has no
+// SORT extension (docs/bridge.md, sections 1 and 3). So the dates of all
+// matches are fetched, which Bridge serves from its database without
+// loading messages, and sorted here. Only the newest are fetched in full.
+// Equal dates fall back to the higher UID first, so the order is stable.
 func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.SearchCriteria, limit int) ([]Summary, error) {
 	if limit <= 0 {
 		limit = DefaultListLimit
@@ -170,24 +177,59 @@ func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.Se
 		if len(uids) == 0 {
 			return nil
 		}
-		slices.Sort(uids)
-		if len(uids) > limit {
-			uids = uids[len(uids)-limit:]
+
+		dated, err := ic.Fetch(imap.UIDSetNum(uids...), &imap.FetchOptions{UID: true, InternalDate: true, Envelope: true}).Collect()
+		if err != nil {
+			return fmt.Errorf("fetch dates in %q: %w", folder, err)
+		}
+		newestFirst := func(a, b *imapclient.FetchMessageBuffer) int {
+			if c := sortDate(b).Compare(sortDate(a)); c != 0 {
+				return c
+			}
+			return cmp.Compare(b.UID, a.UID)
+		}
+		slices.SortFunc(dated, newestFirst)
+		dated = dated[:min(limit, len(dated))]
+		rank := make(map[imap.UID]int, len(dated))
+		keep := make([]imap.UID, 0, len(dated))
+		for i, m := range dated {
+			rank[m.UID] = i
+			keep = append(keep, m.UID)
 		}
 
-		msgs, err := ic.Fetch(imap.UIDSetNum(uids...), &imap.FetchOptions{
+		// Responses can arrive in any order; Collect matches them by UID.
+		msgs, err := ic.Fetch(imap.UIDSetNum(keep...), &imap.FetchOptions{
 			UID: true, Envelope: true, Flags: true, InternalDate: true, RFC822Size: true,
 		}).Collect()
 		if err != nil {
 			return fmt.Errorf("fetch messages in %q: %w", folder, err)
 		}
+		slices.SortFunc(msgs, func(a, b *imapclient.FetchMessageBuffer) int { return cmp.Compare(rank[a.UID], rank[b.UID]) })
 		for _, m := range msgs {
 			out = append(out, summarize(m))
 		}
-		slices.SortFunc(out, func(a, b Summary) int { return cmp.Compare(b.UID, a.UID) })
 		return nil
 	})
 	return out, err
+}
+
+// sortDate is the date a message is ordered by: the earlier of its received
+// date (INTERNALDATE) and its Date header.
+//
+//   - The received date alone isn't enough: on a real Bridge, a batch of
+//     synced messages carried the sync time as their received date, years
+//     after they were sent.
+//   - The Date header alone isn't safe: the sender writes it, and a future
+//     date would keep a message at the top.
+//
+// Taking the earlier of the two means a sender can make a message look
+// older, never newer.
+func sortDate(m *imapclient.FetchMessageBuffer) time.Time {
+	d := m.InternalDate
+	if env := m.Envelope; env != nil && !env.Date.IsZero() && (d.IsZero() || env.Date.Before(d)) {
+		d = env.Date
+	}
+	return d
 }
 
 // ErrMessageNotFound means the folder has no message with the given UID.

@@ -24,7 +24,7 @@ Full rules and threat model: [STANDARDS.md](STANDARDS.md#security-guardrails), [
 
 Pre-release. Claude can list, search and read messages (read-only). Organizing, drafts and sending follow: see [ROADMAP.md](ROADMAP.md).
 
-Known limitation: "newest" means highest IMAP uid, and Proton Mail Bridge doesn't number messages by date (it syncs newest first and has no IMAP `SORT`; see [gluon#378](https://github.com/ProtonMail/gluon/issues/378)). Until the server sorts by date itself, `list_messages` and `search_messages` can return older messages first.
+"Newest first" in `list_messages` and `search_messages` means by date. Proton Mail Bridge doesn't number messages by date and has no IMAP `SORT`, so the server sorts itself ([docs/architecture.md](docs/architecture.md#newest-first-and-what-newest-means-on-bridge)). In a large folder this takes about a second.
 
 ## Tools
 

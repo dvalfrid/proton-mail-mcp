@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapserver"
@@ -101,15 +102,23 @@ func (s *IMAPServer) CertFile(t testing.TB) string {
 // Line endings are normalised to CRLF.
 func (s *IMAPServer) AddMessage(t testing.TB, mailbox, raw string, flags ...imap.Flag) {
 	t.Helper()
-	raw = strings.ReplaceAll(strings.ReplaceAll(raw, "\r\n", "\n"), "\n", "\r\n")
-	opts := &imap.AppendOptions{Flags: flags}
 	// The internal (received) date follows the Date header, as Bridge's does
-	// for synced mail; without one it is now.
+	// for almost all synced mail; without one it is now.
+	var internal time.Time
 	if m, err := netmail.ReadMessage(strings.NewReader(raw)); err == nil {
 		if d, err := m.Header.Date(); err == nil {
-			opts.Time = d
+			internal = d
 		}
 	}
+	s.AddMessageAt(t, mailbox, raw, internal, flags...)
+}
+
+// AddMessageAt is AddMessage with an explicit internal (received) date, for
+// tests where it differs from the Date header. A zero time means now.
+func (s *IMAPServer) AddMessageAt(t testing.TB, mailbox, raw string, internal time.Time, flags ...imap.Flag) {
+	t.Helper()
+	raw = strings.ReplaceAll(strings.ReplaceAll(raw, "\r\n", "\n"), "\n", "\r\n")
+	opts := &imap.AppendOptions{Flags: flags, Time: internal}
 	if _, err := s.user.Append(mailbox, literal{bytes.NewReader([]byte(raw))}, opts); err != nil {
 		t.Fatalf("append to %s: %v", mailbox, err)
 	}
