@@ -4,13 +4,19 @@ Each milestone is one release. Later milestones widen what Claude may do, so eac
 
 ## 0.1 — Foundation and read-only
 
-- `internal/config`: load `.env` / environment, validate (local host only, port ranges, cert path), never log the password.
-- `internal/mail`: IMAP client over STARTTLS to Bridge, timeouts, one connection with a mutex, reconnect on drop.
-- `internal/testutil`: in-memory IMAP (`imapmemserver`) and SMTP servers for tests.
-- Tools: `list_folders`, `list_messages` (folder, limit, unread only), `search_messages`, `read_message`.
-- Untrusted-content block, HTML → text, size caps. Fuzz test for message parsing.
-- Guardrail tests: tool list snapshot, untrusted marking, no secrets in output/logs, local only.
-- README: connecting to Claude Desktop and Claude Code.
+Part 1 (#3):
+
+- ✅ `internal/config`: load `.env` / environment, validate (local host only, port ranges), password as a never-printing `Secret`.
+- ✅ `internal/mail`: IMAP client over STARTTLS to Bridge, per-operation timeout and cancellation, one connection with a mutex, reconnect on drop, read-only (EXAMINE).
+- ✅ `internal/testutil`: in-memory IMAP server with STARTTLS.
+- ✅ Tools: `list_folders`, `list_messages` (folder, limit, unread only).
+- ✅ Guardrail tests: tool list snapshot, read-only annotations, no send tools, never marks read, no secrets or mail content in output/logs, local only.
+- ✅ README: setup and connecting to Claude Desktop and Claude Code.
+
+Part 2:
+
+- Tools: `read_message`, `search_messages`.
+- Untrusted-content block around message text, HTML → text, attachments listed only, size caps. Fuzz test for message parsing.
 
 ## 0.2 — Organize
 

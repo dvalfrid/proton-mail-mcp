@@ -184,7 +184,7 @@ Standard library first. Approved:
 | Module | For |
 |---|---|
 | `github.com/modelcontextprotocol/go-sdk` | MCP server (official SDK) |
-| `github.com/emersion/go-imap/v2` | IMAP client, in-memory IMAP server for tests |
+| `github.com/emersion/go-imap/v2` | IMAP client, in-memory IMAP server for tests. Still tagged beta upstream, but it is the maintained line (v1 is not); pinned in `go.mod`, upgrades go through the full test suite |
 | `github.com/emersion/go-message` | MIME parsing |
 | `github.com/emersion/go-smtp`, `github.com/emersion/go-sasl` | SMTP client, SMTP server for tests |
 

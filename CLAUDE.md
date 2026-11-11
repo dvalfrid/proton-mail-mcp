@@ -104,8 +104,11 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 
 | Path | Role |
 |---|---|
-| `cmd/proton-mail-mcp/` | `main`: logging, config, wiring. Nothing else. |
-| `internal/server/` | Builds the MCP server and registers tools |
+| `cmd/proton-mail-mcp/` | `main`: logging, config, wiring. Nothing else. `main_test.go` drives the built binary over stdio |
+| `internal/config/` | `.env` + environment → validated `Config`; `Secret` type that never prints the password |
+| `internal/mail/` | IMAP client to Bridge: one mutex-guarded connection, lazy connect and reconnect, per-operation timeout via `boundedConn` (imapclient resets its own deadlines). Reads use EXAMINE/PEEK: never marks read |
+| `internal/server/` | Builds the MCP server and registers tools. `testdata/tools.golden.json` is the tool snapshot (`-update` to rewrite) |
+| `internal/testutil/` | In-memory IMAP server with STARTTLS and a per-test certificate |
 | `tools/` | `task.ps1` (task runner) and `go.mod` pinning dev tools |
 | `docs/` | `testing.md` (test strategy) |
 
