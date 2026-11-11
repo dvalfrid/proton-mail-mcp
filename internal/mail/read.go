@@ -160,7 +160,7 @@ func (c *Client) ReadMessage(ctx context.Context, folder string, uid uint32) (*M
 		size  int64
 		found bool
 	)
-	section := &imap.FetchItemBodySection{Peek: true, Partial: &imap.SectionPartial{Size: MaxMessageBytes}}
+	section := &imap.FetchItemBodySection{Peek: true, Partial: &imap.SectionPartial{Size: c.maxFetch}}
 	err := c.do(ctx, func(ic *imapclient.Client) error {
 		if _, err := ic.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait(); err != nil {
 			return fmt.Errorf("open folder %q: %w", folder, err)
@@ -191,7 +191,7 @@ func (c *Client) ReadMessage(ctx context.Context, folder string, uid uint32) (*M
 	if err != nil {
 		return nil, err
 	}
-	if size > MaxMessageBytes {
+	if size > c.maxFetch {
 		m.Truncated = true
 	}
 	return m, nil
