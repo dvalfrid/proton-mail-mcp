@@ -102,7 +102,56 @@ func role(mb *imap.ListData) string {
 // ListMessages returns the newest messages in folder, newest first. The
 // folder is opened read-only: listing never marks anything as read.
 func (c *Client) ListMessages(ctx context.Context, folder string, opts ListOptions) ([]Summary, error) {
-	limit := opts.Limit
+	criteria := &imap.SearchCriteria{}
+	if opts.UnreadOnly {
+		criteria.NotFlag = []imap.Flag{imap.FlagSeen}
+	}
+	return c.summaries(ctx, folder, criteria, opts.Limit)
+}
+
+// SearchOptions are the criteria of SearchMessages, combined with AND. Text
+// criteria match case-insensitive substrings, as IMAP SEARCH defines them.
+type SearchOptions struct {
+	From       string    // From header contains
+	To         string    // To header contains
+	Subject    string    // Subject contains
+	Body       string    // body text contains
+	Since      time.Time // received on or after this day (only the date counts)
+	Before     time.Time // received before this day (only the date counts)
+	UnreadOnly bool
+	Limit      int // newest first; DefaultListLimit if zero, capped at MaxListLimit
+}
+
+// ErrNoSearchCriteria means SearchMessages got nothing to search for.
+var ErrNoSearchCriteria = errors.New("no search criteria")
+
+// SearchMessages runs an IMAP SEARCH in folder and returns the newest
+// matches. The terms are sent as IMAP search arguments (quoted or as
+// literals by the client library), never spliced into a command line. The
+// folder is opened read-only.
+func (c *Client) SearchMessages(ctx context.Context, folder string, opts SearchOptions) ([]Summary, error) {
+	criteria := &imap.SearchCriteria{Since: opts.Since, Before: opts.Before}
+	for _, h := range []struct{ key, value string }{{"From", opts.From}, {"To", opts.To}, {"Subject", opts.Subject}} {
+		if h.value != "" {
+			criteria.Header = append(criteria.Header, imap.SearchCriteriaHeaderField{Key: h.key, Value: h.value})
+		}
+	}
+	if opts.Body != "" {
+		criteria.Body = []string{opts.Body}
+	}
+	if opts.UnreadOnly {
+		criteria.NotFlag = []imap.Flag{imap.FlagSeen}
+	}
+	if len(criteria.Header) == 0 && len(criteria.Body) == 0 && len(criteria.NotFlag) == 0 &&
+		criteria.Since.IsZero() && criteria.Before.IsZero() {
+		return nil, ErrNoSearchCriteria
+	}
+	return c.summaries(ctx, folder, criteria, opts.Limit)
+}
+
+// summaries searches folder, keeps the limit highest UIDs and returns their
+// summaries, highest UID first.
+func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.SearchCriteria, limit int) ([]Summary, error) {
 	if limit <= 0 {
 		limit = DefaultListLimit
 	}
@@ -112,11 +161,6 @@ func (c *Client) ListMessages(ctx context.Context, folder string, opts ListOptio
 	err := c.do(ctx, func(ic *imapclient.Client) error {
 		if _, err := ic.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait(); err != nil {
 			return fmt.Errorf("open folder %q: %w", folder, err)
-		}
-
-		criteria := &imap.SearchCriteria{}
-		if opts.UnreadOnly {
-			criteria.NotFlag = []imap.Flag{imap.FlagSeen}
 		}
 		data, err := ic.UIDSearch(criteria, nil).Wait()
 		if err != nil {

@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
+	netmail "net/mail"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -101,7 +102,15 @@ func (s *IMAPServer) CertFile(t testing.TB) string {
 func (s *IMAPServer) AddMessage(t testing.TB, mailbox, raw string, flags ...imap.Flag) {
 	t.Helper()
 	raw = strings.ReplaceAll(strings.ReplaceAll(raw, "\r\n", "\n"), "\n", "\r\n")
-	if _, err := s.user.Append(mailbox, literal{bytes.NewReader([]byte(raw))}, &imap.AppendOptions{Flags: flags}); err != nil {
+	opts := &imap.AppendOptions{Flags: flags}
+	// The internal (received) date follows the Date header, as Bridge's does
+	// for synced mail; without one it is now.
+	if m, err := netmail.ReadMessage(strings.NewReader(raw)); err == nil {
+		if d, err := m.Header.Date(); err == nil {
+			opts.Time = d
+		}
+	}
+	if _, err := s.user.Append(mailbox, literal{bytes.NewReader([]byte(raw))}, opts); err != nil {
 		t.Fatalf("append to %s: %v", mailbox, err)
 	}
 }

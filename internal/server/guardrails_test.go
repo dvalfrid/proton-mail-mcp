@@ -59,7 +59,7 @@ func TestReadToolsAreAnnotatedReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readTools := map[string]bool{"list_folders": true, "list_messages": true, "read_message": true}
+	readTools := map[string]bool{"list_folders": true, "list_messages": true, "read_message": true, "search_messages": true}
 	for _, tool := range res.Tools {
 		if readTools[tool.Name] && (tool.Annotations == nil || !tool.Annotations.ReadOnlyHint) {
 			t.Errorf("%s is not annotated read-only", tool.Name)
@@ -97,12 +97,14 @@ func TestToolsDoNotMarkAsRead(t *testing.T) {
 	e.callOK(t, "list_folders", map[string]any{}, &folders)
 	var msgs ListMessagesOutput
 	e.callOK(t, "list_messages", map[string]any{"folder": "INBOX"}, &msgs)
+	var found SearchMessagesOutput
+	e.callOK(t, "search_messages", map[string]any{"folder": "INBOX", "body": "free"}, &found)
 	var msg ReadMessageOutput
 	e.callOK(t, "read_message", map[string]any{"folder": "INBOX", "uid": 1}, &msg)
 	e.callOK(t, "read_message", map[string]any{"folder": "INBOX", "uid": 2}, &msg)
 
 	if n := e.imap.Unseen(t, "INBOX"); n != 2 {
-		t.Fatalf("unseen = %d after listing and reading, want 2", n)
+		t.Fatalf("unseen = %d after listing, searching and reading, want 2", n)
 	}
 }
 
@@ -171,6 +173,8 @@ func TestNoSecretsInOutputOrLogs(t *testing.T) {
 		{"list_messages", map[string]any{"folder": "Nope"}}, // error path
 		{"read_message", map[string]any{"folder": "INBOX", "uid": 1}},
 		{"read_message", map[string]any{"folder": "INBOX", "uid": 99}}, // error path
+		{"search_messages", map[string]any{"folder": "INBOX", "from": "bob"}},
+		{"search_messages", map[string]any{"folder": "Nope", "from": "bob"}}, // error path
 	} {
 		res := e.call(t, c.tool, c.args)
 		all.WriteString(text(res))
