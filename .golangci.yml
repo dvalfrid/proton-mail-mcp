@@ -1,0 +1,86 @@
+# golangci-lint v2. Version pinned in tools/go.mod; run via ./tools/task.ps1 lint.
+# Every rule that encodes a guardrail says so (STANDARDS.md#security-guardrails).
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - contextcheck   # I/O functions take and pass on a context
+    - depguard       # banned packages, see settings
+    - errname        # ErrX sentinels, XError types
+    - errorlint      # errors.Is/As, %w wrapping
+    - exhaustive     # switches over enums cover every case
+    - forbidigo      # guardrails, see settings
+    - gocritic
+    - gosec          # security
+    - misspell
+    - noctx          # network calls carry a context
+    - nolintlint     # every //nolint names the linter and says why
+    - revive         # Go style (naming, doc comments)
+    - sloglint       # consistent log/slog calls
+    - unconvert
+    - unparam
+    - usestdlibvars
+
+  settings:
+    forbidigo:
+      forbid:
+        # stdout is the MCP protocol: a stray print breaks the connection.
+        - pattern: ^(fmt\.Print(|f|ln)|print|println)$
+          msg: "stdout carries the MCP protocol; log with log/slog to stderr"
+        # Guardrail: no permanent deletion.
+        - pattern: ^.+\.(UID)?Expunge$
+          msg: "no permanent deletion: move to Trash instead (STANDARDS.md#deletion)"
+        # Guardrail: only the send package talks SMTP.
+        - pattern: ^(smtp\.SendMail|.+\.SendMail)$
+          msg: "sending goes through send_draft only (STANDARDS.md#sending)"
+    depguard:
+      rules:
+        main:
+          deny:
+            - pkg: "github.com/emersion/go-imap$"
+              desc: "use github.com/emersion/go-imap/v2"
+            - pkg: "io/ioutil"
+              desc: "deprecated: use io and os"
+            - pkg: "log$"
+              desc: "use log/slog (to stderr)"
+            - pkg: "github.com/pkg/errors"
+              desc: "use the standard errors package and fmt.Errorf with %w"
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+        - name: var-naming
+        - name: error-strings
+        - name: error-naming
+        - name: receiver-naming
+        - name: context-as-argument
+        - name: unused-parameter
+    sloglint:
+      no-mixed-args: true
+      static-msg: true
+
+  exclusions:
+    rules:
+      # The send package is the one place allowed to send (STANDARDS.md#sending).
+      - path: internal/send/
+        linters: [forbidigo]
+        text: "send_draft only"
+      # Tests drive in-memory servers with throwaway credentials and certificates.
+      - path: _test\.go
+        linters: [gosec]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/dvalfrid/proton-mail-mcp

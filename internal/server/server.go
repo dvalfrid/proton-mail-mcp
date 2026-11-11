@@ -5,6 +5,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// Name is the server name reported to MCP clients.
 const Name = "proton-mail"
 
 // New returns an MCP server with all tools registered.

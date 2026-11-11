@@ -1,0 +1,51 @@
+name: Bug report
+description: Something doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never paste email content, addresses or your Bridge password here.** Describe the message instead ("a reply with an HTML body and two attachments").
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you ask Claude to do, which tool ran, and what came back?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+  - type: input
+    id: version
+    attributes:
+      label: proton-mail-mcp version
+      placeholder: "0.1.0 (from the release, or 'dev' for a local build)"
+    validations:
+      required: true
+  - type: input
+    id: bridge
+    attributes:
+      label: Proton Mail Bridge version and OS
+      placeholder: "Bridge 3.x on Windows 11"
+  - type: input
+    id: client
+    attributes:
+      label: MCP client
+      placeholder: "Claude Desktop / Claude Code, version"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log (stderr)
+      description: The server logs metadata only, but check before pasting.
+      render: text
