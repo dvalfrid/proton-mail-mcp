@@ -29,8 +29,12 @@ func NewCert(t testing.TB) *Cert {
 		t.Fatal(err)
 	}
 	tmpl := &x509.Certificate{
-		SerialNumber:          big.NewInt(time.Now().UnixNano()),
-		Subject:               pkix.Name{CommonName: "127.0.0.1"},
+		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		// The same subject as Bridge's own certificate.
+		Subject: pkix.Name{
+			Country: []string{"CH"}, Organization: []string{"Proton AG"},
+			OrganizationalUnit: []string{"Proton Mail"}, CommonName: "127.0.0.1",
+		},
 		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().Add(24 * time.Hour),
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,

@@ -46,7 +46,7 @@ Part of a working product: a user sets it up without editing files by hand, on W
   - pin its certificate (no export);
   - ask for the Bridge password with hidden input, and keep it in the OS credential store;
   - register the server in Claude.
-- `proton-mail-mcp check` and clear startup errors (#31).
+- ✅ `proton-mail-mcp check` and clear startup errors (#31).
 
 ## Distribution
 
