@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"sync"
 	"testing"
@@ -75,13 +76,22 @@ func (e *env) callOK(t *testing.T, name string, args, out any) {
 	if res.IsError {
 		t.Fatalf("%s returned an error: %s", name, text(res))
 	}
+	if err := decode(res, out); err != nil {
+		t.Fatalf("decode %s result: %v", name, err)
+	}
+}
+
+// decode decodes a result's structured content into out. It returns an error
+// instead of failing the test, so it can be used from other goroutines.
+func decode(res *mcp.CallToolResult, out any) error {
 	raw, err := json.Marshal(res.StructuredContent)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	if err := json.Unmarshal(raw, out); err != nil {
-		t.Fatalf("decode %s result: %v\n%s", name, err, raw)
+		return fmt.Errorf("%w\n%s", err, raw)
 	}
+	return nil
 }
 
 // text joins a result's text content.

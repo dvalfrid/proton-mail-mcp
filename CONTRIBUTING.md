@@ -1,6 +1,6 @@
 # Contributing
 
-This is a small personal project, but it is run like a real one: issues, branches, pull requests, CI and releases. This guide is the short version; the rules are in [STANDARDS.md](STANDARDS.md).
+This is a small personal project, but it is run like a real one: issues, branches, pull requests, CI and releases. This guide is the short version; the rules are in [STANDARDS.md](STANDARDS.md), and how the code is built and why is in [docs/architecture.md](docs/architecture.md).
 
 ## Setting up a development machine
 
