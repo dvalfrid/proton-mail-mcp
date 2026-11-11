@@ -47,6 +47,10 @@ type Options struct {
 type Client struct {
 	opts Options
 
+	// maxFetch caps the bytes ReadMessage fetches: MaxMessageBytes, lowered
+	// only by tests so they needn't move 32 MiB.
+	maxFetch int64
+
 	mu   sync.Mutex
 	conn *boundedConn
 	imap *imapclient.Client
@@ -60,7 +64,7 @@ func New(opts Options) *Client {
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
 	}
-	return &Client{opts: opts}
+	return &Client{opts: opts, maxFetch: MaxMessageBytes}
 }
 
 // TLSConfig builds the TLS configuration for a Bridge on host, verifying the
