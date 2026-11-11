@@ -1,0 +1,127 @@
+name: Release
+
+# Builds the binaries for a release tag and attaches them, with checksums, to
+# the GitHub release. Dispatched by release-please.yml; can be re-run by hand
+# for an existing tag (assets are replaced).
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, e.g. v0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 }
+          - { goos: darwin, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+
+    steps:
+      - name: Validate tag
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$TAG' is not a vX.Y.Z tag"; exit 1
+          fi
+
+      - name: Checkout tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tools/go.sum
+
+      - name: Verify
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        shell: pwsh
+        run: ./tools/task.ps1 verify -Race
+
+      - name: Build and package
+        shell: pwsh
+        env:
+          TAG: ${{ inputs.tag }}
+          GOOS_T: ${{ matrix.goos }}
+          GOARCH_T: ${{ matrix.goarch }}
+        run: |
+          $version = $env:TAG.TrimStart('v')
+          $name = "proton-mail-mcp_${version}_${env:GOOS_T}_${env:GOARCH_T}"
+          $exe = if ($env:GOOS_T -eq 'windows') { '.exe' } else { '' }
+          New-Item -ItemType Directory -Force "dist/$name" | Out-Null
+          ./tools/task.ps1 build -Version $version -GOOS $env:GOOS_T -GOARCH $env:GOARCH_T -Out "dist/$name/proton-mail-mcp$exe"
+          Copy-Item LICENSE, README.md, .env.example "dist/$name/"
+          if ($env:GOOS_T -eq 'windows') {
+            Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
+          } else {
+            tar -C dist -czf "dist/$name.tar.gz" $name
+            if ($LASTEXITCODE -ne 0) { throw 'tar failed' }
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: Publish to GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      # Build provenance (who built what, from which commit). GitHub supports
+      # attestations on public repositories, or private ones on Enterprise Cloud.
+      - name: Attest build provenance
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: gh release upload "$TAG" dist/* --clobber

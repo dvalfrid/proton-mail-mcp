@@ -1,0 +1,18 @@
+# Installed by ./tools/task.ps1 setup. The fast half of verify; tests run in CI.
+pre-commit:
+  parallel: true
+  commands:
+    fmt-check:
+      glob: "*.go"
+      run: pwsh -NoProfile -File tools/task.ps1 fmt-check
+    lint:
+      glob: "*.go"
+      run: pwsh -NoProfile -File tools/task.ps1 lint
+    tidy:
+      glob: "{go.mod,go.sum,tools/go.mod,tools/go.sum}"
+      run: pwsh -NoProfile -File tools/task.ps1 tidy-check
+
+commit-msg:
+  commands:
+    conventional:
+      run: pwsh -NoProfile -File tools/check-commit-msg.ps1 {1}

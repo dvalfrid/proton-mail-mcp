@@ -1,0 +1,30 @@
+name: Feature request
+description: Something Claude should be able to do with the mailbox
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What should be possible
+      description: The user-visible change, e.g. "Claude can label messages".
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+    validations:
+      required: true
+  - type: dropdown
+    id: level
+    attributes:
+      label: Permission level
+      description: See STANDARDS.md — Security guardrails. Higher levels get more scrutiny.
+      options:
+        - Read
+        - Organize (undoable)
+        - Draft
+        - Send
+        - Other / not sure
+    validations:
+      required: true
