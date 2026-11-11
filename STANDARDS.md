@@ -101,6 +101,8 @@ Every `//nolint` names the linter and says why: `//nolint:gosec // G402: Bridge'
 
 The `go` line in `go.mod` is the minimum supported version. Raise it deliberately, not to make one call compile.
 
+The `toolchain` line (in `go.mod` and `tools/go.mod`) is the Go release that builds, tests and ships the binary, and CI installs exactly that. Keep it on the newest patch release: standard-library security fixes arrive as patch releases, and `govulncheck` fails the build when the toolchain has a known vulnerability the code reaches.
+
 ---
 
 ## Security guardrails

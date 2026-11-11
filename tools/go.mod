@@ -2,6 +2,8 @@ module github.com/dvalfrid/proton-mail-mcp/tools
 
 go 1.27.0
 
+toolchain go1.27.4
+
 tool (
 	github.com/evilmartians/lefthook/v2
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
