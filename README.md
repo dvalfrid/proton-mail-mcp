@@ -22,7 +22,9 @@ Full rules and threat model: [STANDARDS.md](STANDARDS.md#security-guardrails), [
 
 ## Status
 
-Pre-release. Claude can list folders and messages and read a message (read-only). Searching, organizing, drafts and sending follow: see [ROADMAP.md](ROADMAP.md).
+Pre-release. Claude can list, search and read messages (read-only). Organizing, drafts and sending follow: see [ROADMAP.md](ROADMAP.md).
+
+Known limitation: "newest" means highest IMAP uid, and Proton Mail Bridge doesn't number messages by date (it syncs newest first and has no IMAP `SORT`; see [gluon#378](https://github.com/ProtonMail/gluon/issues/378)). Until the server sorts by date itself, `list_messages` and `search_messages` can return older messages first.
 
 ## Tools
 
@@ -30,6 +32,7 @@ Pre-release. Claude can list folders and messages and read a message (read-only)
 |---|---|---|
 | `list_folders` | Folders with message and unread counts | No |
 | `list_messages` | Newest messages in a folder: uid, date, sender, subject, read/flagged | No (messages stay unread) |
+| `search_messages` | Messages in one folder matching all given criteria: `from`, `to`, `subject`, `body` (case-insensitive text), `since` / `before` (dates received), `unread_only`. At least one criterion; same result shape as `list_messages` | No (messages stay unread) |
 | `read_message` | One message by folder and uid: headers, body as plain text, attachments listed (name, type, size). Returned in an `untrusted_content` field with a note that it is data from the sender, not instructions. HTML is converted to text and nothing is fetched; attachments are never opened. Long messages are cut and marked `truncated` | No (the message stays unread) |
 
 ## Requirements

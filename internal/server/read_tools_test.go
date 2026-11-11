@@ -1,6 +1,8 @@
 package server
 
 import (
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 
@@ -9,6 +11,7 @@ import (
 
 const (
 	msgFromBob   = "From: Bob Example <bob@example.org>\nTo: alice@example.com\nSubject: Lunch on Friday?\nDate: Mon, 02 Nov 2026 10:00:00 +0000\nMessage-ID: <1@example.org>\n\nAre you free?\n"
+	msgMinutes   = "From: Bob Example <bob@example.org>\nTo: team@example.com\nSubject: Minutes\nDate: Thu, 05 Nov 2026 08:00:00 +0000\n\nNotes from the lunch meeting.\n"
 	msgFromCarol = "From: carol@example.net\nTo: alice@example.com\nSubject: Invoice 42\nDate: Tue, 03 Nov 2026 09:00:00 +0000\nMessage-ID: <2@example.net>\n\nSee attached.\n"
 )
 
@@ -57,6 +60,74 @@ func TestListMessages(t *testing.T) {
 	e.callOK(t, "list_messages", map[string]any{"folder": "Archive"}, &out)
 	if out.Messages == nil || len(out.Messages) != 0 {
 		t.Errorf("empty folder = %#v, want an empty list", out.Messages)
+	}
+}
+
+func TestSearchMessages(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.imap.AddMessage(t, "INBOX", msgFromBob, imap.FlagSeen) // uid 1, 2 Nov
+	e.imap.AddMessage(t, "INBOX", msgFromCarol)              // uid 2, 3 Nov
+	e.imap.AddMessage(t, "INBOX", msgMinutes)                // uid 3, 5 Nov
+
+	tests := []struct {
+		name string
+		args map[string]any
+		want []uint32
+	}{
+		{"from", map[string]any{"from": "bob@example.org"}, []uint32{3, 1}},
+		{"from, any case", map[string]any{"from": "BOB EXAMPLE"}, []uint32{3, 1}},
+		{"to", map[string]any{"to": "team@"}, []uint32{3}},
+		{"subject", map[string]any{"subject": "invoice"}, []uint32{2}},
+		{"body", map[string]any{"body": "lunch meeting"}, []uint32{3}},
+		{"since", map[string]any{"since": "2026-11-03"}, []uint32{3, 2}},
+		{"before", map[string]any{"before": "2026-11-03"}, []uint32{1}},
+		{"unread", map[string]any{"unread_only": true}, []uint32{3, 2}},
+		{"combined", map[string]any{"from": "bob", "unread_only": true}, []uint32{3}},
+		{"date range", map[string]any{"since": "2026-11-03", "before": "2026-11-05"}, []uint32{2}},
+		{"limit", map[string]any{"since": "2026-01-01", "limit": 2}, []uint32{3, 2}},
+		{"no hits", map[string]any{"subject": "nothing like this"}, []uint32{}},
+	}
+	for _, tt := range tests {
+		args := map[string]any{"folder": "INBOX"}
+		maps.Copy(args, tt.args)
+		var out SearchMessagesOutput
+		e.callOK(t, "search_messages", args, &out)
+		got := []uint32{}
+		for _, m := range out.Messages {
+			got = append(got, m.UID)
+		}
+		if !slices.Equal(got, tt.want) {
+			t.Errorf("%s: uids = %v, want %v", tt.name, got, tt.want)
+		}
+		if out.Messages == nil || out.Note == "" {
+			t.Errorf("%s: messages = %#v, note = %q", tt.name, out.Messages, out.Note)
+		}
+	}
+}
+
+func TestSearchMessagesErrors(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	tests := []struct {
+		name string
+		args map[string]any
+		want string
+	}{
+		{"no folder", map[string]any{"from": "bob"}, "folder"},
+		{"no criteria", map[string]any{"folder": "INBOX"}, "at least one"},
+		{"only a limit", map[string]any{"folder": "INBOX", "limit": 5}, "at least one"},
+		{"bad date", map[string]any{"folder": "INBOX", "since": "3 Nov 2026"}, "YYYY-MM-DD"},
+		{"multi-line term", map[string]any{"folder": "INBOX", "subject": "a\r\nb"}, "single line"},
+		{"long term", map[string]any{"folder": "INBOX", "body": strings.Repeat("x", 201)}, "longer than"},
+		{"limit too high", map[string]any{"folder": "INBOX", "from": "bob", "limit": 101}, "limit"},
+		{"unknown folder", map[string]any{"folder": "Nope", "from": "bob"}, "Nope"},
+	}
+	for _, tt := range tests {
+		res := e.call(t, "search_messages", tt.args)
+		if !res.IsError || !strings.Contains(text(res), tt.want) {
+			t.Errorf("%s: IsError=%v text=%q, want an error mentioning %q", tt.name, res.IsError, text(res), tt.want)
+		}
 	}
 }
 

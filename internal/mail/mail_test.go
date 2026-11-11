@@ -224,6 +224,42 @@ func TestReadMessageIsReadOnly(t *testing.T) {
 	}
 }
 
+func TestSearchMessagesNeedsCriteria(t *testing.T) {
+	t.Parallel()
+	c, _, _ := newClient(t)
+	if _, err := c.SearchMessages(context.Background(), "INBOX", SearchOptions{Limit: 5}); !errors.Is(err, ErrNoSearchCriteria) {
+		t.Fatalf("err = %v, want ErrNoSearchCriteria", err)
+	}
+}
+
+// Guardrail: searching never marks a message as read, and a search term is
+// sent as an argument: a term that looks like IMAP syntax can't add commands.
+func TestSearchIsReadOnlyAndQuotesTerms(t *testing.T) {
+	t.Parallel()
+	c, srv, _ := newClient(t)
+	srv.AddMessage(t, "INBOX", message("bob@example.org", "Unread", "Mon, 02 Nov 2026 10:00:00 +0000"))
+
+	got, err := c.SearchMessages(context.Background(), "INBOX", SearchOptions{From: "bob"})
+	if err != nil || len(got) != 1 {
+		t.Fatalf("search = %v, %v", got, err)
+	}
+	if _, err := c.SearchMessages(context.Background(), "INBOX", SearchOptions{Subject: `x") UID STORE 1:* +FLAGS (\Seen) ("`}); err != nil {
+		t.Fatalf("search with IMAP syntax in the term: %v", err)
+	}
+	if n := srv.Unseen(t, "INBOX"); n != 1 {
+		t.Fatalf("unseen = %d after searching, want 1", n)
+	}
+	tr := srv.Transcript()
+	if !strings.Contains(tr, " EXAMINE ") {
+		t.Error("folder was not opened with EXAMINE")
+	}
+	for _, cmd := range []string{" SELECT ", " EXPUNGE"} {
+		if strings.Contains(tr, cmd) {
+			t.Errorf("transcript contains %q", strings.TrimSpace(cmd))
+		}
+	}
+}
+
 func TestSenderControlledTextIsCleaned(t *testing.T) {
 	t.Parallel()
 	c, srv, _ := newClient(t)

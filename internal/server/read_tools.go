@@ -2,7 +2,12 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
+	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -37,6 +42,53 @@ type ListMessagesOutput struct {
 	Folder   string         `json:"folder"`
 	Messages []mail.Summary `json:"messages"`
 	Note     string         `json:"note"`
+}
+
+// maxSearchTermRunes caps each search term.
+const maxSearchTermRunes = 200
+
+// SearchMessagesInput are the arguments of search_messages.
+type SearchMessagesInput struct {
+	Folder     string `json:"folder" jsonschema:"folder name exactly as list_folders returns it, e.g. INBOX or Folders/Work"`
+	From       string `json:"from,omitempty" jsonschema:"sender name or address contains this text"`
+	To         string `json:"to,omitempty" jsonschema:"recipient name or address contains this text"`
+	Subject    string `json:"subject,omitempty" jsonschema:"subject contains this text"`
+	Body       string `json:"body,omitempty" jsonschema:"message text contains this text"`
+	Since      string `json:"since,omitempty" jsonschema:"YYYY-MM-DD: received on or after this day"`
+	Before     string `json:"before,omitempty" jsonschema:"YYYY-MM-DD: received before this day, not including it"`
+	UnreadOnly bool   `json:"unread_only,omitempty" jsonschema:"only messages not yet read"`
+	Limit      int    `json:"limit,omitempty" jsonschema:"how many of the newest matches to return, 1-100 (default 20)"`
+}
+
+// SearchMessagesOutput is the result of search_messages: the same shape as
+// list_messages.
+type SearchMessagesOutput = ListMessagesOutput
+
+func searchOptions(in SearchMessagesInput) (mail.SearchOptions, error) {
+	opts := mail.SearchOptions{From: in.From, To: in.To, Subject: in.Subject, Body: in.Body, UnreadOnly: in.UnreadOnly, Limit: in.Limit}
+	for _, term := range []struct{ name, value string }{{"from", in.From}, {"to", in.To}, {"subject", in.Subject}, {"body", in.Body}} {
+		if utf8.RuneCountInString(term.value) > maxSearchTermRunes {
+			return opts, fmt.Errorf("%s is longer than %d characters", term.name, maxSearchTermRunes)
+		}
+		if strings.ContainsFunc(term.value, unicode.IsControl) {
+			return opts, fmt.Errorf("%s must be a single line of text", term.name)
+		}
+	}
+	for _, d := range []struct {
+		name  string
+		value string
+		into  *time.Time
+	}{{"since", in.Since, &opts.Since}, {"before", in.Before, &opts.Before}} {
+		if d.value == "" {
+			continue
+		}
+		t, err := time.Parse(time.DateOnly, d.value)
+		if err != nil {
+			return opts, fmt.Errorf("%s must be a date as YYYY-MM-DD, got %q", d.name, d.value)
+		}
+		*d.into = t
+	}
+	return opts, nil
 }
 
 // untrustedMessageNote accompanies read_message. The message itself is in
@@ -95,6 +147,35 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 			msgs = []mail.Summary{}
 		}
 		return nil, ListMessagesOutput{Folder: in.Folder, Messages: msgs, Note: untrustedNote}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "search_messages",
+		Description: "Search one folder for messages matching all the given criteria (at least one): sender, recipient, subject, message text, date range, unread. " +
+			"Text matches are case-insensitive substrings. Returns the newest matches in the same shape as list_messages. Does not change anything; messages are not marked as read.",
+		Annotations: readOnly("Search messages"),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in SearchMessagesInput) (*mcp.CallToolResult, SearchMessagesOutput, error) {
+		if in.Folder == "" {
+			return nil, SearchMessagesOutput{}, fmt.Errorf("folder is required; call list_folders to see the names")
+		}
+		if in.Limit < 0 || in.Limit > mail.MaxListLimit {
+			return nil, SearchMessagesOutput{}, fmt.Errorf("limit must be between 1 and %d", mail.MaxListLimit)
+		}
+		opts, err := searchOptions(in)
+		if err != nil {
+			return nil, SearchMessagesOutput{}, err
+		}
+		msgs, err := m.SearchMessages(ctx, in.Folder, opts)
+		if errors.Is(err, mail.ErrNoSearchCriteria) {
+			return nil, SearchMessagesOutput{}, fmt.Errorf("give at least one of from, to, subject, body, since, before or unread_only; list_messages lists a folder without criteria")
+		}
+		if err != nil {
+			return nil, SearchMessagesOutput{}, fmt.Errorf("search messages in %q: %w", in.Folder, err)
+		}
+		if msgs == nil {
+			msgs = []mail.Summary{}
+		}
+		return nil, SearchMessagesOutput{Folder: in.Folder, Messages: msgs, Note: untrustedNote}, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
