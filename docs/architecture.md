@@ -26,7 +26,9 @@ The server is a local process started by the MCP client. Nothing listens on the 
 | `internal/config` | the `.env` file, environment variables, validation | IMAP, MCP |
 | `internal/mail` | IMAP, MIME, Bridge | MCP, tools |
 | `internal/server` | MCP, tool schemas, the mail package's API | IMAP commands |
-| `internal/testutil` | in-memory IMAP server for tests | — |
+| `internal/bridge` | Bridge's greeting and certificate, before login | MCP, mail content |
+| `internal/check` | the diagnostics steps | MCP |
+| `internal/testutil` | in-memory IMAP server and a fake Bridge for tests | — |
 
 The split is deliberate. Mail protocol code can be tested without MCP. A tool can be tested end to end without Bridge.
 
@@ -137,6 +139,7 @@ Bridge uses a self-signed certificate. Most Bridge setups skip verification on l
 
 - **The certificate is pinned.** The certificate exported from Bridge is required (`PROTON_BRIDGE_CERT`), and it is the only trusted root.
 - **Why, even on localhost:** when Bridge isn't running, any program on the machine can listen on port 1143, and without verification it would receive the Bridge password at login. A test runs exactly that impostor and checks that it never sees the password.
+- **Reading Bridge's certificate without trusting it** (`internal/bridge`, for `check` and `setup`): the TLS handshake runs against an empty set of trusted roots, so it always fails verification, and the certificate the server sent is taken from Go's `tls.CertificateVerificationError`. Nothing is sent over that connection. So the rule "never `InsecureSkipVerify`" holds there too.
 - **The host must be local** (checked at start-up and again in `mail.TLSConfig`), and STARTTLS is required.
 
 ## Error model

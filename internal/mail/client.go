@@ -91,6 +91,12 @@ func TLSConfig(host, certFile string) (*tls.Config, error) {
 	return &tls.Config{RootCAs: pool, ServerName: host, MinVersion: tls.VersionTLS12}, nil
 }
 
+// Ping connects and logs in if needed, then sends NOOP: it proves that the
+// pinned certificate and the password both work.
+func (c *Client) Ping(ctx context.Context) error {
+	return c.do(ctx, func(ic *imapclient.Client) error { return ic.Noop().Wait() })
+}
+
 // Close logs out and closes the connection, if one is open.
 func (c *Client) Close() error {
 	c.mu.Lock()
@@ -176,6 +182,10 @@ func (c *Client) connect(ctx context.Context) error {
 	})
 	if err != nil {
 		_ = conn.Close()
+		var verr *tls.CertificateVerificationError
+		if errors.As(err, &verr) {
+			return fmt.Errorf("the server at %s does not present the pinned Bridge certificate (was Bridge reset or reinstalled? run `proton-mail-mcp check`): %w", c.opts.Addr, err)
+		}
 		return fmt.Errorf("start TLS with Bridge: %w", err)
 	}
 	if err := client.Login(c.opts.User, c.opts.Password.Reveal()).Wait(); err != nil {

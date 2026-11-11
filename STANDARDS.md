@@ -188,6 +188,7 @@ Standard library first. Approved:
 | `github.com/emersion/go-message` | MIME parsing |
 | `golang.org/x/net/html` | HTML → text for message bodies: the Go team's HTML5 tokenizer, because sender-written HTML is untrusted and a hand-written parser would be the weak spot |
 | `github.com/emersion/go-smtp`, `github.com/emersion/go-sasl` | SMTP client, SMTP server for tests |
+| `golang.org/x/sys` | Windows system calls for `check` and `setup`: which program owns Bridge's port, and whether it is validly signed. Approved by the owner 2026-11-11. |
 
 Anything else needs explicit approval from the owner, with a reason in the PR. `go mod tidy` must leave `go.mod` and `go.sum` unchanged (checked in CI).
 

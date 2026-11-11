@@ -68,6 +68,8 @@ The server reads `.env` next to the executable, or the file named by `PROTON_MCP
 
 Check the program: `proton-mail-mcp --version`.
 
+Check the whole connection: `proton-mail-mcp check`. It goes through the settings, whether Bridge answers and is really Bridge, the pinned certificate, the login, SMTP, (on Windows) which program owns the port, and whether a Claude client has the server registered. Each line says what is wrong and how to fix it; the exit code is non-zero on failure. It reads no mail and prints no secrets. The server also logs a warning at start-up if Bridge isn't ready.
+
 ## Development
 
 ```powershell

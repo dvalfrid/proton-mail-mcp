@@ -108,8 +108,10 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 | `internal/config/` | `.env` + environment → validated `Config`; `Secret` type that never prints the password |
 | `internal/mail/` | IMAP client to Bridge: one mutex-guarded connection, lazy connect and reconnect, per-operation timeout via `boundedConn` (imapclient resets its own deadlines). Reads use EXAMINE/PEEK: never marks read |
 | `internal/server/` | Builds the MCP server and registers tools. `testdata/tools.golden.json` is the tool snapshot (`-update` to rewrite) |
-| `internal/testutil/` | In-memory IMAP server with STARTTLS and a per-test certificate |
+| `internal/bridge/` | Recognises Bridge (greeting), reads its certificate without trusting it (no InsecureSkipVerify), Windows port-owner check. Never logs in |
+| `internal/check/` | `proton-mail-mcp check` diagnostics and the start-up warning |
+| `internal/testutil/` | In-memory IMAP server with STARTTLS and a per-test certificate; `NewBridge` imitates Bridge's greeting and SMTP |
 | `tools/` | `task.ps1` (task runner) and `go.mod` pinning dev tools |
-| `docs/` | `testing.md` (test strategy), `bridge.md` (how Proton Mail Bridge really behaves over IMAP/SMTP, from its source: read before changing IMAP/SMTP behaviour) |
+| `docs/` | `architecture.md` (design decisions and why), `testing.md` (test strategy), `bridge.md` (how Proton Mail Bridge really behaves over IMAP/SMTP, from its source: read before changing IMAP/SMTP behaviour) |
 
 Planned packages and milestones: [ROADMAP.md](ROADMAP.md). Testing: [docs/testing.md](docs/testing.md) — no test needs Proton or Bridge.

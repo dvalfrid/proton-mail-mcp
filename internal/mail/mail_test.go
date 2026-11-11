@@ -424,8 +424,8 @@ func TestTLSVerificationRejectsOtherCertificate(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := New(Options{Addr: srv.Addr(), User: testutil.User, Password: config.Secret(testutil.Password), TLSConfig: tlsCfg, Timeout: 5 * time.Second, Logger: slog.New(slog.DiscardHandler)})
-	if _, err := c.Folders(context.Background()); err == nil || !strings.Contains(err.Error(), "TLS") {
-		t.Fatalf("err = %v, want a TLS error", err)
+	if _, err := c.Folders(context.Background()); err == nil || !strings.Contains(err.Error(), "pinned Bridge certificate") {
+		t.Fatalf("err = %v, want an error naming the pinned certificate", err)
 	}
 }
 
