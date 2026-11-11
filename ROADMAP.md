@@ -18,7 +18,7 @@ Part 2:
 - ✅ Message parsing (#12): HTML → text, attachments listed only, size caps, fuzz test.
 - ✅ Tool: `read_message` (#13), message returned in an untrusted-content block.
 - ✅ Tool: `search_messages` (#14).
-- Order `list_messages` and `search_messages` by date, not uid: Bridge's uids don't follow dates.
+- ✅ Order `list_messages` and `search_messages` by date, not uid (#18): Bridge's uids don't follow dates.
 
 ## 0.2 — Organize
 

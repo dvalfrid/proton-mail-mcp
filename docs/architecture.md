@@ -106,9 +106,22 @@ A damaged message gives what could be read, not an error. A fuzz test checks tha
 
 ### Newest first, and what "newest" means on Bridge
 
-IMAP has no "newest" without the `SORT` extension, which Bridge doesn't have ([bridge.md §1](bridge.md#1-capabilities)). Today `list_messages` and `search_messages` keep the highest uids.
+IMAP has no "newest" without the `SORT` extension, which Bridge doesn't have ([bridge.md §1](bridge.md#1-capabilities)). Uids don't help either: Bridge's initial sync numbers messages by descending Proton ID, and new mail continues upward ([bridge.md §3](bridge.md#3-uids-and-dates)). On a real Bridge, uid 1 was the newest message and the order was mixed after that.
 
-On Bridge, uids don't follow dates. The initial sync numbers messages by descending Proton ID, and new mail continues upward ([bridge.md §3](bridge.md#3-uids-and-dates)). Sorting by date on our side is tracked in #18.
+So `list_messages` and `search_messages` sort on our side:
+
+1. `UID SEARCH` for the matches.
+2. Fetch `INTERNALDATE` and `ENVELOPE` for all of them. Bridge serves both from its database without loading message bodies.
+3. Sort newest first by the **sort date**, with the higher uid first on equal dates, so the order is stable.
+4. Fetch the full summaries for the newest `limit` only.
+
+**The sort date is the earlier of the received date (`INTERNALDATE`) and the `Date:` header:**
+
+- **The received date alone isn't enough.** On a real Bridge, a batch of 57 of 23,000 synced messages carried the sync time as their received date, years after they were sent. Why Bridge did that is not known.
+- **The `Date:` header alone isn't safe.** The sender writes it, so a future date would keep a message at the top.
+- **The earlier of the two:** a sender can make a message look older, never newer.
+
+**Cost:** about one second for a 23,000-message folder against a real Bridge. The dates of all matches cross the connection once per call.
 
 ### Secrets
 
