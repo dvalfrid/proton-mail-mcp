@@ -32,7 +32,7 @@ The git hooks live in `.git/hooks`, which is not part of the repository: run `se
 
 ### 3. Sign your commits
 
-Commits on `main` must be signed. Pull requests are squash-merged, and GitHub signs the merge commit, so an unsigned commit in your branch doesn't block a merge — but signing your own commits shows they really come from you. Use a separate SSH key per machine:
+Commits on `main` must be signed, and the ruleset checks every commit in a pull request: one unsigned commit in your branch blocks the merge, even though pull requests are squash-merged. Set up signing before your first commit on a new machine, with a separate SSH key per machine:
 
 ```powershell
 ssh-keygen -t ed25519 -C "git signing" -f "$HOME\.ssh\id_ed25519_signing"
