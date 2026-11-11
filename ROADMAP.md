@@ -24,6 +24,7 @@ Part 2:
 
 - Tools: `move_message`, `mark_read` / `mark_unread`, `flag` / `unflag`, `trash_message` (move to Trash).
 - Guardrail test: no `EXPUNGE` in any scenario.
+- Every tool that changes a message requires the `uidvalidity` its uid came with (#25), so a renumbered folder can't make it act on another message.
 
 ## 0.3 — Drafts
 

@@ -20,7 +20,7 @@ func TestReadMessageOverFetchCap(t *testing.T) {
 	srv.AddMessage(t, "INBOX", "From: bob@example.org\nTo: alice@example.com\nSubject: Long\n"+
 		"Date: Mon, 02 Nov 2026 10:00:00 +0000\nContent-Type: text/plain; charset=utf-8\n\n"+body)
 
-	m, err := c.ReadMessage(context.Background(), "INBOX", 1)
+	m, err := c.ReadMessage(context.Background(), "INBOX", 1, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestListLargeFolder(t *testing.T) {
 	}
 
 	began := time.Now()
-	got, err := c.ListMessages(context.Background(), "INBOX", ListOptions{Limit: MaxListLimit, UnreadOnly: true})
+	got, err := messages(c.ListMessages(context.Background(), "INBOX", ListOptions{Limit: MaxListLimit, UnreadOnly: true}))
 	if err != nil {
 		t.Fatal(err)
 	}

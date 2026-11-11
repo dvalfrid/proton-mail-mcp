@@ -99,9 +99,18 @@ func role(mb *imap.ListData) string {
 	return ""
 }
 
+// Listing is the result of ListMessages and SearchMessages.
+type Listing struct {
+	// UIDValidity is the folder's UIDVALIDITY when the listing was made. A UID
+	// is only meaningful together with it: Bridge renumbers every message,
+	// with a new UIDVALIDITY, when it resyncs from scratch (docs/bridge.md §3).
+	UIDValidity uint32
+	Messages    []Summary // newest first
+}
+
 // ListMessages returns the newest messages in folder, newest first. The
 // folder is opened read-only: listing never marks anything as read.
-func (c *Client) ListMessages(ctx context.Context, folder string, opts ListOptions) ([]Summary, error) {
+func (c *Client) ListMessages(ctx context.Context, folder string, opts ListOptions) (Listing, error) {
 	criteria := &imap.SearchCriteria{}
 	if opts.UnreadOnly {
 		criteria.NotFlag = []imap.Flag{imap.FlagSeen}
@@ -129,7 +138,7 @@ var ErrNoSearchCriteria = errors.New("no search criteria")
 // matches. The terms are sent as IMAP search arguments (quoted or as
 // literals by the client library), never spliced into a command line. The
 // folder is opened read-only.
-func (c *Client) SearchMessages(ctx context.Context, folder string, opts SearchOptions) ([]Summary, error) {
+func (c *Client) SearchMessages(ctx context.Context, folder string, opts SearchOptions) (Listing, error) {
 	criteria := &imap.SearchCriteria{Since: opts.Since, Before: opts.Before}
 	for _, h := range []struct{ key, value string }{{"From", opts.From}, {"To", opts.To}, {"Subject", opts.Subject}} {
 		if h.value != "" {
@@ -144,7 +153,7 @@ func (c *Client) SearchMessages(ctx context.Context, folder string, opts SearchO
 	}
 	if len(criteria.Header) == 0 && len(criteria.Body) == 0 && len(criteria.NotFlag) == 0 &&
 		criteria.Since.IsZero() && criteria.Before.IsZero() {
-		return nil, ErrNoSearchCriteria
+		return Listing{}, ErrNoSearchCriteria
 	}
 	return c.summaries(ctx, folder, criteria, opts.Limit)
 }
@@ -158,17 +167,19 @@ func (c *Client) SearchMessages(ctx context.Context, folder string, opts SearchO
 // matches are fetched, which Bridge serves from its database without
 // loading messages, and sorted here. Only the newest are fetched in full.
 // Equal dates fall back to the higher UID first, so the order is stable.
-func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.SearchCriteria, limit int) ([]Summary, error) {
+func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.SearchCriteria, limit int) (Listing, error) {
 	if limit <= 0 {
 		limit = DefaultListLimit
 	}
 	limit = min(limit, MaxListLimit)
 
-	var out []Summary
+	var out Listing
 	err := c.do(ctx, func(ic *imapclient.Client) error {
-		if _, err := ic.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait(); err != nil {
+		sel, err := ic.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait()
+		if err != nil {
 			return fmt.Errorf("open folder %q: %w", folder, err)
 		}
+		out.UIDValidity = sel.UIDValidity
 		data, err := ic.UIDSearch(criteria, nil).Wait()
 		if err != nil {
 			return fmt.Errorf("search folder %q: %w", folder, err)
@@ -206,7 +217,7 @@ func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.Se
 		}
 		slices.SortFunc(msgs, func(a, b *imapclient.FetchMessageBuffer) int { return cmp.Compare(rank[a.UID], rank[b.UID]) })
 		for _, m := range msgs {
-			out = append(out, summarize(m))
+			out.Messages = append(out.Messages, summarize(m))
 		}
 		return nil
 	})
@@ -235,21 +246,39 @@ func sortDate(m *imapclient.FetchMessageBuffer) time.Time {
 // ErrMessageNotFound means the folder has no message with the given UID.
 var ErrMessageNotFound = errors.New("message not found")
 
+// ErrUIDValidityChanged means the folder's UIDVALIDITY is no longer the one
+// the caller's UID came with: the folder was renumbered (Bridge resynced),
+// and the UID may now name a different message.
+var ErrUIDValidityChanged = errors.New("the folder was renumbered since its uids were listed (Bridge resynced); list it again")
+
 // ReadMessage fetches one message by UID and parses it with ParseMessage.
 // Like ListMessages it never marks anything as read: the folder is opened
 // read-only and the body is fetched with BODY.PEEK. At most MaxMessageBytes
 // are fetched; a larger message is parsed from that prefix and marked
 // truncated.
-func (c *Client) ReadMessage(ctx context.Context, folder string, uid uint32) (*Message, error) {
+//
+// If uidValidity is not zero, it must equal the folder's current
+// UIDVALIDITY, or ErrUIDValidityChanged is returned before any message is
+// fetched.
+func (c *Client) ReadMessage(ctx context.Context, folder string, uid, uidValidity uint32) (*Message, error) {
 	var (
-		raw   []byte
-		size  int64
-		found bool
+		raw     []byte
+		size    int64
+		found   bool
+		stale   bool
+		current uint32
 	)
 	section := &imap.FetchItemBodySection{Peek: true, Partial: &imap.SectionPartial{Size: c.maxFetch}}
 	err := c.do(ctx, func(ic *imapclient.Client) error {
-		if _, err := ic.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait(); err != nil {
+		sel, err := ic.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait()
+		if err != nil {
 			return fmt.Errorf("open folder %q: %w", folder, err)
+		}
+		// Reported after do returns, like a missing UID: do treats any other
+		// error as a broken connection.
+		if uidValidity != 0 && sel.UIDValidity != uidValidity {
+			stale, current = true, sel.UIDValidity
+			return nil
 		}
 		msgs, err := ic.Fetch(imap.UIDSetNum(imap.UID(uid)), &imap.FetchOptions{
 			UID: true, RFC822Size: true, BodySection: []*imap.FetchItemBodySection{section},
@@ -269,6 +298,9 @@ func (c *Client) ReadMessage(ctx context.Context, folder string, uid uint32) (*M
 	})
 	if err != nil {
 		return nil, err
+	}
+	if stale {
+		return nil, fmt.Errorf("%w (uidvalidity %d, now %d)", ErrUIDValidityChanged, uidValidity, current)
 	}
 	if !found {
 		return nil, ErrMessageNotFound

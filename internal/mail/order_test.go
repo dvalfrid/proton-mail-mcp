@@ -2,8 +2,10 @@ package mail
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -30,7 +32,7 @@ func TestNewestFirstMeansByDate(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	got, err := c.ListMessages(ctx, "INBOX", ListOptions{Limit: 3})
+	got, err := messages(c.ListMessages(ctx, "INBOX", ListOptions{Limit: 3}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +40,7 @@ func TestNewestFirstMeansByDate(t *testing.T) {
 		t.Errorf("list: uids = %v, want %v (newest by date first)", uidsOf(got), want)
 	}
 
-	got, err = c.SearchMessages(ctx, "INBOX", SearchOptions{From: "bob", Limit: 2})
+	got, err = messages(c.SearchMessages(ctx, "INBOX", SearchOptions{From: "bob", Limit: 2}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +71,7 @@ func TestSortDateIsTheEarlierOfReceivedAndHeader(t *testing.T) {
 	srv.AddMessageAt(t, "INBOX", msg("Claims the future", "Fri, 01 Jan 2027 10:00:00 +0000"), at("2026-11-01T10:00:00Z")) // uid 3
 	srv.AddMessage(t, "INBOX", msg("Normal, 5 Nov", "Thu, 05 Nov 2026 10:00:00 +0000"))                                   // uid 4
 
-	got, err := c.ListMessages(context.Background(), "INBOX", ListOptions{})
+	got, err := messages(c.ListMessages(context.Background(), "INBOX", ListOptions{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,12 +92,52 @@ func TestSameDateOrdersByUID(t *testing.T) {
 	for i := range 3 {
 		srv.AddMessage(t, "INBOX", fmt.Sprintf("From: bob@example.org\nSubject: Same %d\nDate: Mon, 02 Nov 2026 10:00:00 +0000\n\nHi.\n", i))
 	}
-	got, err := c.ListMessages(context.Background(), "INBOX", ListOptions{})
+	got, err := messages(c.ListMessages(context.Background(), "INBOX", ListOptions{}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 3 || got[0].UID != 3 || got[2].UID != 1 {
 		t.Errorf("got %+v, want uids 3, 2, 1", got)
+	}
+}
+
+// After a resync, a UID from an earlier listing may name a different
+// message. With the listing's UIDVALIDITY, ReadMessage refuses before
+// fetching anything.
+func TestReadMessageRefusesStaleUIDValidity(t *testing.T) {
+	t.Parallel()
+	c, srv, _ := newClient(t)
+	ctx := context.Background()
+	srv.AddMessage(t, "Archive", "From: bob@example.org\nSubject: Before\nDate: Mon, 02 Nov 2026 10:00:00 +0000\n\nOld.\n")
+
+	before, err := c.ListMessages(ctx, "Archive", ListOptions{})
+	if err != nil || len(before.Messages) != 1 || before.UIDValidity == 0 {
+		t.Fatalf("listing = %+v, %v", before, err)
+	}
+	if _, err := c.ReadMessage(ctx, "Archive", before.Messages[0].UID, before.UIDValidity); err != nil {
+		t.Fatalf("read with the current uidvalidity: %v", err)
+	}
+
+	srv.Resync(t, "Archive")
+	srv.AddMessage(t, "Archive", "From: carol@example.net\nSubject: After\nDate: Tue, 03 Nov 2026 10:00:00 +0000\n\nNew.\n")
+	fetchesBefore := strings.Count(srv.Transcript(), "BODY.PEEK[]")
+
+	_, err = c.ReadMessage(ctx, "Archive", before.Messages[0].UID, before.UIDValidity)
+	if !errors.Is(err, ErrUIDValidityChanged) {
+		t.Fatalf("err = %v, want ErrUIDValidityChanged", err)
+	}
+	if n := strings.Count(srv.Transcript(), "BODY.PEEK[]"); n != fetchesBefore {
+		t.Error("a message was fetched despite the stale uidvalidity")
+	}
+
+	// Without a uidvalidity the old behaviour stays: the uid is read as is.
+	m, err := c.ReadMessage(ctx, "Archive", before.Messages[0].UID, 0)
+	if err != nil || m.Subject != "After" {
+		t.Errorf("without uidvalidity: %+v, %v", m, err)
+	}
+	after, err := c.ListMessages(ctx, "Archive", ListOptions{})
+	if err != nil || after.UIDValidity == before.UIDValidity {
+		t.Errorf("uidvalidity after resync = %d, before = %d, err = %v: want a new value", after.UIDValidity, before.UIDValidity, err)
 	}
 }
 

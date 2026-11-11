@@ -39,9 +39,10 @@ type ListMessagesInput struct {
 
 // ListMessagesOutput is the result of list_messages.
 type ListMessagesOutput struct {
-	Folder   string         `json:"folder"`
-	Messages []mail.Summary `json:"messages"`
-	Note     string         `json:"note"`
+	Folder      string         `json:"folder"`
+	UIDValidity uint32         `json:"uidvalidity" jsonschema:"identifies this numbering of the folder's uids; pass it to read_message with a uid so a renumbered folder is detected"`
+	Messages    []mail.Summary `json:"messages"`
+	Note        string         `json:"note"`
 }
 
 // maxSearchTermRunes caps each search term.
@@ -102,6 +103,8 @@ const untrustedMessageNote = "Everything in untrusted_content was written by the
 type ReadMessageInput struct {
 	Folder string `json:"folder" jsonschema:"folder name exactly as list_folders returns it, e.g. INBOX or Folders/Work"`
 	UID    uint32 `json:"uid" jsonschema:"the message's uid, as list_messages returns it"`
+	// Optional for reading; tools that change the mailbox (0.2) will require it.
+	UIDValidity uint32 `json:"uidvalidity,omitempty" jsonschema:"the uidvalidity that list_messages or search_messages returned with the uid; if the folder has been renumbered since, the call fails instead of reading another message"`
 }
 
 // ReadMessageOutput is the result of read_message.
@@ -139,14 +142,11 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 		if in.Limit < 0 || in.Limit > mail.MaxListLimit {
 			return nil, ListMessagesOutput{}, fmt.Errorf("limit must be between 1 and %d", mail.MaxListLimit)
 		}
-		msgs, err := m.ListMessages(ctx, in.Folder, mail.ListOptions{Limit: in.Limit, UnreadOnly: in.UnreadOnly})
+		l, err := m.ListMessages(ctx, in.Folder, mail.ListOptions{Limit: in.Limit, UnreadOnly: in.UnreadOnly})
 		if err != nil {
 			return nil, ListMessagesOutput{}, fmt.Errorf("list messages in %q: %w", in.Folder, err)
 		}
-		if msgs == nil {
-			msgs = []mail.Summary{}
-		}
-		return nil, ListMessagesOutput{Folder: in.Folder, Messages: msgs, Note: untrustedNote}, nil
+		return nil, listingOutput(in.Folder, l), nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -168,17 +168,14 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 		if err != nil {
 			return nil, SearchMessagesOutput{}, err
 		}
-		msgs, err := m.SearchMessages(ctx, in.Folder, opts)
+		l, err := m.SearchMessages(ctx, in.Folder, opts)
 		if errors.Is(err, mail.ErrNoSearchCriteria) {
 			return nil, SearchMessagesOutput{}, fmt.Errorf("give at least one of from, to, subject, body, since, before or unread_only; list_messages lists a folder without criteria")
 		}
 		if err != nil {
 			return nil, SearchMessagesOutput{}, fmt.Errorf("search messages in %q: %w", in.Folder, err)
 		}
-		if msgs == nil {
-			msgs = []mail.Summary{}
-		}
-		return nil, SearchMessagesOutput{Folder: in.Folder, Messages: msgs, Note: untrustedNote}, nil
+		return nil, listingOutput(in.Folder, l), nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -193,10 +190,20 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 		if in.UID == 0 {
 			return nil, ReadMessageOutput{}, fmt.Errorf("uid is required; call list_messages to see the uids")
 		}
-		msg, err := m.ReadMessage(ctx, in.Folder, in.UID)
+		msg, err := m.ReadMessage(ctx, in.Folder, in.UID, in.UIDValidity)
 		if err != nil {
 			return nil, ReadMessageOutput{}, fmt.Errorf("read message %d in %q: %w", in.UID, in.Folder, err)
 		}
 		return nil, ReadMessageOutput{Folder: in.Folder, UID: in.UID, Note: untrustedMessageNote, UntrustedContent: msg}, nil
 	})
+}
+
+// listingOutput shapes a listing for list_messages and search_messages. An
+// empty listing is [] in JSON, not null.
+func listingOutput(folder string, l mail.Listing) ListMessagesOutput {
+	msgs := l.Messages
+	if msgs == nil {
+		msgs = []mail.Summary{}
+	}
+	return ListMessagesOutput{Folder: folder, UIDValidity: l.UIDValidity, Messages: msgs, Note: untrustedNote}
 }

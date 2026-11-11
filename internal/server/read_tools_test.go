@@ -172,6 +172,37 @@ func TestReadMessage(t *testing.T) {
 	}
 }
 
+// The uidvalidity from a listing, passed back with a uid, makes read_message
+// refuse once the folder has been renumbered (Bridge resynced), instead of
+// returning whatever message now has that uid.
+func TestReadMessageWithUIDValidity(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.imap.AddMessage(t, "Archive", msgFromBob)
+
+	var list ListMessagesOutput
+	e.callOK(t, "list_messages", map[string]any{"folder": "Archive"}, &list)
+	if list.UIDValidity == 0 || len(list.Messages) != 1 {
+		t.Fatalf("listing = %+v", list)
+	}
+	args := map[string]any{"folder": "Archive", "uid": list.Messages[0].UID, "uidvalidity": list.UIDValidity}
+	var out ReadMessageOutput
+	e.callOK(t, "read_message", args, &out)
+
+	e.imap.Resync(t, "Archive")
+	e.imap.AddMessage(t, "Archive", msgFromCarol)
+	res := e.call(t, "read_message", args)
+	if !res.IsError || !strings.Contains(text(res), "list it again") || strings.Contains(text(res), "Invoice") {
+		t.Errorf("after resync: IsError=%v text=%q, want a renumbered-folder error without content", res.IsError, text(res))
+	}
+
+	var found SearchMessagesOutput
+	e.callOK(t, "search_messages", map[string]any{"folder": "Archive", "from": "carol"}, &found)
+	if found.UIDValidity == 0 || found.UIDValidity == list.UIDValidity {
+		t.Errorf("search uidvalidity = %d, listed before resync = %d: want a new non-zero value", found.UIDValidity, list.UIDValidity)
+	}
+}
+
 func TestReadMessageErrors(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

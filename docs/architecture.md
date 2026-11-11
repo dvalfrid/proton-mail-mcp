@@ -123,6 +123,14 @@ So `list_messages` and `search_messages` sort on our side:
 
 **Cost:** about one second for a 23,000-message folder against a real Bridge. The dates of all matches cross the connection once per call.
 
+### A uid comes with its uidvalidity
+
+An IMAP uid is only meaningful together with the folder's UIDVALIDITY. Bridge renumbers every message, with a new UIDVALIDITY, when it resyncs from scratch: after a repair, an address-mode switch or a lost database ([bridge.md §3](bridge.md#3-uids-and-dates)). Claude holds uids across tool calls, so after a resync the same uid can name a different message.
+
+- **Listings carry it.** `list_messages` and `search_messages` return the folder's `uidvalidity`, taken from the same `EXAMINE` as the listing.
+- **Reading checks it.** `read_message` takes it as an optional argument. When it doesn't match, the call fails with "list it again" before any message is fetched.
+- **Changing will require it.** Tools that change the mailbox (0.2 and later) will make it required: acting on the wrong message is worse than reading it.
+
 ### Secrets
 
 - **Where the Bridge password lives:** only in `.env` or the environment.
