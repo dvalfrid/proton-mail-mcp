@@ -93,6 +93,8 @@ switch ($Task) {
         $lefthook = Join-Path $root "bin/tools/lefthook$exe"
         Invoke-Native 'go' @('build', $toolsMod, '-o', $lefthook, 'github.com/evilmartians/lefthook/v2')
         Invoke-Native $lefthook @('install', '--force')
+        # The pre-commit hook enforces this too; report it now, not at the first commit.
+        Invoke-Native 'pwsh' @('-NoProfile', '-File', (Join-Path $PSScriptRoot 'check-signing.ps1'))
     }
     'verify' {
         Test-Tidy

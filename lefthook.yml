@@ -2,6 +2,8 @@
 pre-commit:
   parallel: true
   commands:
+    signing:
+      run: pwsh -NoProfile -File tools/check-signing.ps1
     fmt-check:
       glob: "*.go"
       run: pwsh -NoProfile -File tools/task.ps1 fmt-check
