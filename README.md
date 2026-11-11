@@ -72,7 +72,7 @@ Check the program: `proton-mail-mcp --version`.
 ./tools/task.ps1 verify     # tidy, format, lint, tests, vulnerability scan
 ```
 
-How to contribute, commit format, CI and releases: [CONTRIBUTING.md](CONTRIBUTING.md). Test strategy: [docs/testing.md](docs/testing.md).
+How to contribute, commit format, CI and releases: [CONTRIBUTING.md](CONTRIBUTING.md). Test strategy: [docs/testing.md](docs/testing.md). How it is built and why: [docs/architecture.md](docs/architecture.md).
 
 ## Connecting to Claude
 
