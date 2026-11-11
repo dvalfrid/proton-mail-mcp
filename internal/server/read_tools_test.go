@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"maps"
 	"slices"
 	"strings"
@@ -104,6 +105,27 @@ func TestSearchMessages(t *testing.T) {
 			t.Errorf("%s: messages = %#v, note = %q", tt.name, out.Messages, out.Note)
 		}
 	}
+}
+
+// Bridge's SEARCH matches raw, encoded bytes, so non-ASCII terms usually find
+// nothing (docs/bridge.md §2). Claude must be told, or it may conclude that
+// no such mail exists.
+func TestSearchDescribesNonASCIILimitation(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	res, err := e.session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range res.Tools {
+		if tool.Name == "search_messages" {
+			if !strings.Contains(tool.Description, "non-ASCII") || !strings.Contains(tool.Description, "not proof") {
+				t.Errorf("description doesn't explain the non-ASCII limitation: %q", tool.Description)
+			}
+			return
+		}
+	}
+	t.Fatal("search_messages not found")
 }
 
 func TestSearchMessagesErrors(t *testing.T) {

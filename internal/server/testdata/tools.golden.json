@@ -306,7 +306,7 @@
       "readOnlyHint": true,
       "title": "Search messages"
     },
-    "description": "Search one folder for messages matching all the given criteria (at least one): sender, recipient, subject, message text, date range, unread. Text matches are case-insensitive substrings. Returns the newest matches in the same shape as list_messages. Does not change anything; messages are not marked as read.",
+    "description": "Search one folder for messages matching all the given criteria (at least one): sender, recipient, subject, message text, date range, unread. Text matches are case-insensitive substrings. Returns the newest matches in the same shape as list_messages. Does not change anything; messages are not marked as read. Limitation: Proton Mail Bridge matches text against the raw, still-encoded message, so terms with non-ASCII letters (å, ä, ö, é, …) usually find nothing, and a word can be missed where the encoding splits a line. No matches is therefore not proof that no such mail exists: retry with an ASCII part of the word, or narrow by sender, date or folder and read the messages.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -315,7 +315,7 @@
           "type": "string"
         },
         "body": {
-          "description": "message text contains this text",
+          "description": "message text contains this text (ASCII works best, see the tool description)",
           "type": "string"
         },
         "folder": {
@@ -323,7 +323,7 @@
           "type": "string"
         },
         "from": {
-          "description": "sender name or address contains this text",
+          "description": "sender name or address contains this text (ASCII works best, see the tool description)",
           "type": "string"
         },
         "limit": {
@@ -335,11 +335,11 @@
           "type": "string"
         },
         "subject": {
-          "description": "subject contains this text",
+          "description": "subject contains this text (ASCII works best, see the tool description)",
           "type": "string"
         },
         "to": {
-          "description": "recipient name or address contains this text",
+          "description": "recipient name or address contains this text (ASCII works best, see the tool description)",
           "type": "string"
         },
         "unread_only": {

@@ -50,10 +50,10 @@ const maxSearchTermRunes = 200
 // SearchMessagesInput are the arguments of search_messages.
 type SearchMessagesInput struct {
 	Folder     string `json:"folder" jsonschema:"folder name exactly as list_folders returns it, e.g. INBOX or Folders/Work"`
-	From       string `json:"from,omitempty" jsonschema:"sender name or address contains this text"`
-	To         string `json:"to,omitempty" jsonschema:"recipient name or address contains this text"`
-	Subject    string `json:"subject,omitempty" jsonschema:"subject contains this text"`
-	Body       string `json:"body,omitempty" jsonschema:"message text contains this text"`
+	From       string `json:"from,omitempty" jsonschema:"sender name or address contains this text (ASCII works best, see the tool description)"`
+	To         string `json:"to,omitempty" jsonschema:"recipient name or address contains this text (ASCII works best, see the tool description)"`
+	Subject    string `json:"subject,omitempty" jsonschema:"subject contains this text (ASCII works best, see the tool description)"`
+	Body       string `json:"body,omitempty" jsonschema:"message text contains this text (ASCII works best, see the tool description)"`
 	Since      string `json:"since,omitempty" jsonschema:"YYYY-MM-DD: received on or after this day"`
 	Before     string `json:"before,omitempty" jsonschema:"YYYY-MM-DD: received before this day, not including it"`
 	UnreadOnly bool   `json:"unread_only,omitempty" jsonschema:"only messages not yet read"`
@@ -152,7 +152,10 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "search_messages",
 		Description: "Search one folder for messages matching all the given criteria (at least one): sender, recipient, subject, message text, date range, unread. " +
-			"Text matches are case-insensitive substrings. Returns the newest matches in the same shape as list_messages. Does not change anything; messages are not marked as read.",
+			"Text matches are case-insensitive substrings. Returns the newest matches in the same shape as list_messages. Does not change anything; messages are not marked as read. " +
+			"Limitation: Proton Mail Bridge matches text against the raw, still-encoded message, so terms with non-ASCII letters (å, ä, ö, é, …) usually find nothing, " +
+			"and a word can be missed where the encoding splits a line. No matches is therefore not proof that no such mail exists: " +
+			"retry with an ASCII part of the word, or narrow by sender, date or folder and read the messages.",
 		Annotations: readOnly("Search messages"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in SearchMessagesInput) (*mcp.CallToolResult, SearchMessagesOutput, error) {
 		if in.Folder == "" {
