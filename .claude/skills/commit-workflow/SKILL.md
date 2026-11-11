@@ -60,10 +60,18 @@ The `commit-msg` hook rejects a subject that doesn't match.
 ```powershell
 git push -u origin HEAD
 gh pr create --fill          # title = commit subject; body from the PR template, ends with "Closes #N"
-gh pr checks --watch
+gh pr merge --auto --squash  # the owner's standing approval: auto-merge every PR
 ```
 
-The PR is ready when **Verify** is green. The owner merges (squash). Tell them it's ready.
+**Auto-merge is pre-approved** by the owner for every pull request in this repository. Turn it on as soon as the PR is open, without asking. GitHub then squash-merges once the `main` ruleset is satisfied:
+
+- **Verify** and **Test and build (Windows)** are green;
+- every commit is signed;
+- every review thread is resolved.
+
+Never merge around the ruleset: no `gh pr merge --admin`, even though the owner's account could. If a check fails, fix it on the branch. If a guardrail is in the way, stop and ask.
+
+After the merge, delete the local branch: `git switch main; git pull; git branch -d <branch>`. GitHub deletes the remote branch automatically.
 
 ## 7. Docs
 
