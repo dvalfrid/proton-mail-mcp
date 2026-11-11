@@ -159,7 +159,7 @@ The repository is public, so everything committed is published: code, tests, tes
 ### Transport
 
 - Connect only to Bridge on `127.0.0.1` / `localhost`. A non-local host is refused at start-up.
-- STARTTLS is required. Certificate verification uses the certificate exported from Bridge (`PROTON_BRIDGE_CERT`); skipping verification is allowed **only** for `127.0.0.1`/`localhost`, and only with a logged warning.
+- STARTTLS is required, and the server is always verified against the certificate exported from Bridge (`PROTON_BRIDGE_CERT`, required). Verification is **never** skipped, not even on localhost: when Bridge isn't running, any local program can listen on its port, and without verification it would receive the Bridge password at login. No `InsecureSkipVerify` in production code.
 
 ---
 

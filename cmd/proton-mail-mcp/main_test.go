@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -54,8 +55,10 @@ func TestBinaryOverStdio(t *testing.T) {
 
 	cmd := exec.CommandContext(ctx, bin)
 	cmd.Env = append(cleanEnv(), "PROTON_MCP_ENV_FILE="+envFile)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	// The process writes stderr from another goroutine while the test reads
+	// it: the buffer must be synchronised.
+	stderr := &syncBuffer{}
+	cmd.Stderr = stderr
 
 	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "test"}, nil)
 	cs, err := client.Connect(ctx, &mcp.CommandTransport{Command: cmd}, nil)
@@ -78,6 +81,23 @@ func TestBinaryOverStdio(t *testing.T) {
 	if strings.Contains(stderr.String(), testutil.Password) {
 		t.Fatal("the password appears in the server's log output")
 	}
+}
+
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 // cleanEnv is the test's environment without PROTON_* variables, so a

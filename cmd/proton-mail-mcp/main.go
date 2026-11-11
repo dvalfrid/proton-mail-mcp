@@ -57,9 +57,11 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("%w (settings file: %s)", err, envFile)
 	}
-	logger.Info("starting", "version", version, "config", cfg)
+	// Only non-secret fields are logged; the Config itself is never passed to
+	// the logger.
+	logger.Info("starting", "version", version, "imap", cfg.IMAPAddr(), "allow_send", cfg.AllowSend)
 
-	tlsCfg, err := mail.TLSConfig(cfg.Host, cfg.CertFile, logger)
+	tlsCfg, err := mail.TLSConfig(cfg.Host, cfg.CertFile)
 	if err != nil {
 		return err
 	}

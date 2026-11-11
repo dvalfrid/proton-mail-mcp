@@ -41,7 +41,7 @@ Pre-release. Claude can list folders and messages (read-only). Reading messages,
 ## Setup
 
 1. In Proton Mail Bridge, note the IMAP **username** and the **Bridge password** (Bridge → your account → Mailbox details). The Bridge password is not your Proton account password.
-2. Recommended: export Bridge's TLS certificate (Bridge → Settings → Advanced → Export TLS certificates) so the connection is verified.
+2. Export Bridge's TLS certificate (Bridge → Settings → Advanced → Export TLS certificates) and keep the `cert.pem` file. It is required: the server only talks to the Bridge that presents this certificate, so no other program can pose as Bridge and capture the password.
 3. Put the program and a `.env` next to each other, e.g. in `C:\Tools\proton-mail-mcp\`:
 
    ```powershell
@@ -59,7 +59,7 @@ The server reads `.env` next to the executable, or the file named by `PROTON_MCP
 | `PROTON_BRIDGE_HOST` | `127.0.0.1` | Only `127.0.0.1`, `::1` or `localhost` are accepted |
 | `PROTON_BRIDGE_IMAP_PORT` | `1143` | |
 | `PROTON_BRIDGE_SMTP_PORT` | `1025` | |
-| `PROTON_BRIDGE_CERT` | — | Exported Bridge certificate (PEM). Without it the certificate is not verified, with a warning in the log |
+| `PROTON_BRIDGE_CERT` | — | Path to the certificate exported from Bridge (PEM). Required |
 | `PROTON_ALLOW_SEND` | `0` | Sending is not implemented yet |
 
 Check the program: `proton-mail-mcp --version`.

@@ -31,7 +31,7 @@ func newEnv(t *testing.T) *env {
 	logs := &syncBuffer{}
 	logger := slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	tlsCfg, err := mail.TLSConfig(srv.Host, srv.CertFile(t), logger)
+	tlsCfg, err := mail.TLSConfig(srv.Host, srv.CertFile(t))
 	if err != nil {
 		t.Fatal(err)
 	}

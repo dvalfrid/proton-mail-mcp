@@ -42,7 +42,7 @@ type Config struct {
 	Host      string
 	IMAPPort  int
 	SMTPPort  int
-	CertFile  string // PEM certificate exported from Bridge; empty means "skip verification" (local only)
+	CertFile  string // PEM certificate exported from Bridge; required, the server is always verified
 	AllowSend bool
 }
 
@@ -88,6 +88,9 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	}
 	if cfg.Password == "" {
 		errs = append(errs, fmt.Errorf("%s is not set (use the Bridge password, not the Proton account password)", EnvPassword))
+	}
+	if cfg.CertFile == "" {
+		errs = append(errs, fmt.Errorf("%s is not set: export the certificate in Bridge (Settings → Advanced → Export TLS certificates) and give its path", EnvCert))
 	}
 	if !IsLocalHost(cfg.Host) {
 		errs = append(errs, fmt.Errorf("%s=%q: only 127.0.0.1, ::1 or localhost are allowed; Proton Mail Bridge runs on this machine", EnvHost, cfg.Host))

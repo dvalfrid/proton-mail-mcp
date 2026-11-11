@@ -63,20 +63,18 @@ func New(opts Options) *Client {
 	return &Client{opts: opts}
 }
 
-// TLSConfig builds the TLS configuration for a Bridge on host. With a
-// certificate exported from Bridge it verifies against that certificate.
-// Without one, verification is skipped, which is only allowed on a local host
-// and is logged as a warning.
-func TLSConfig(host, certFile string, logger *slog.Logger) (*tls.Config, error) {
+// TLSConfig builds the TLS configuration for a Bridge on host, verifying the
+// server against the certificate exported from Bridge.
+//
+// Verification is never skipped, not even on localhost: when Bridge is not
+// running, any local program can listen on its port, and without
+// verification it would receive the Bridge password at login.
+func TLSConfig(host, certFile string) (*tls.Config, error) {
 	if !config.IsLocalHost(host) {
 		return nil, fmt.Errorf("refusing non-local Bridge host %q", host)
 	}
 	if certFile == "" {
-		logger.Warn("no Bridge certificate configured: TLS certificate is not verified (localhost only); set PROTON_BRIDGE_CERT to verify it")
-		return &tls.Config{
-			InsecureSkipVerify: true, //nolint:gosec // G402: Bridge's self-signed cert on localhost, checked by IsLocalHost above
-			MinVersion:         tls.VersionTLS12,
-		}, nil
+		return nil, fmt.Errorf("no Bridge certificate: export it in Bridge (Settings → Advanced → Export TLS certificates) and set %s", config.EnvCert)
 	}
 	pemBytes, err := os.ReadFile(certFile) //nolint:gosec // G304: the path is the operator's own configured certificate
 	if err != nil {

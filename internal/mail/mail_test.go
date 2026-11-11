@@ -29,7 +29,7 @@ func newClient(t *testing.T) (*Client, *testutil.IMAPServer, *bytes.Buffer) {
 	srv := testutil.NewIMAPServer(t)
 	logs := &bytes.Buffer{}
 	logger := slog.New(slog.NewTextHandler(logs, nil))
-	tlsCfg, err := TLSConfig(srv.Host, srv.CertFile(t), logger)
+	tlsCfg, err := TLSConfig(srv.Host, srv.CertFile(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,11 +225,11 @@ func TestTimeoutOnSilentServer(t *testing.T) {
 		}
 	}()
 
-	tlsCfg, err := TLSConfig("127.0.0.1", "", slog.New(slog.DiscardHandler))
+	tlsCfg, err := TLSConfig("127.0.0.1", testutil.NewIMAPServer(t).CertFile(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := New(Options{Addr: ln.Addr().String(), User: "u", Password: "p", TLSConfig: tlsCfg, Timeout: 200 * time.Millisecond})
+	c := New(Options{Addr: ln.Addr().String(), User: "u", Password: "p", TLSConfig: tlsCfg, Timeout: 200 * time.Millisecond, Logger: slog.New(slog.DiscardHandler)})
 	start := time.Now()
 	if _, err := c.Folders(context.Background()); err == nil {
 		t.Fatal("want a timeout error")
@@ -242,11 +242,11 @@ func TestTimeoutOnSilentServer(t *testing.T) {
 func TestWrongPassword(t *testing.T) {
 	t.Parallel()
 	srv := testutil.NewIMAPServer(t)
-	tlsCfg, err := TLSConfig(srv.Host, srv.CertFile(t), slog.New(slog.DiscardHandler))
+	tlsCfg, err := TLSConfig(srv.Host, srv.CertFile(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := New(Options{Addr: srv.Addr(), User: testutil.User, Password: "wrong-password-123", TLSConfig: tlsCfg, Timeout: 5 * time.Second})
+	c := New(Options{Addr: srv.Addr(), User: testutil.User, Password: "wrong-password-123", TLSConfig: tlsCfg, Timeout: 5 * time.Second, Logger: slog.New(slog.DiscardHandler)})
 	_, err = c.Folders(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "check the Bridge password") {
 		t.Fatalf("err = %v", err)
@@ -258,27 +258,49 @@ func TestWrongPassword(t *testing.T) {
 
 func TestTLSConfig(t *testing.T) {
 	t.Parallel()
-	discard := slog.New(slog.DiscardHandler)
-	if _, err := TLSConfig("192.168.1.2", "", discard); err == nil {
+	srv := testutil.NewIMAPServer(t)
+	cert := srv.CertFile(t)
+
+	if _, err := TLSConfig("192.168.1.2", cert); err == nil {
 		t.Error("non-local host accepted")
 	}
-
-	var logs bytes.Buffer
-	cfg, err := TLSConfig("127.0.0.1", "", slog.New(slog.NewTextHandler(&logs, nil)))
-	if err != nil || !cfg.InsecureSkipVerify {
-		t.Fatalf("no cert: %v, %+v", err, cfg)
-	}
-	if !strings.Contains(logs.String(), "not verified") {
-		t.Error("skipping verification was not logged as a warning")
-	}
-
-	srv := testutil.NewIMAPServer(t)
-	cfg, err = TLSConfig("127.0.0.1", srv.CertFile(t), discard)
+	cfg, err := TLSConfig("127.0.0.1", cert)
 	if err != nil || cfg.InsecureSkipVerify || cfg.RootCAs == nil {
 		t.Fatalf("with cert: %v, %+v", err, cfg)
 	}
-	if _, err := TLSConfig("127.0.0.1", "missing.pem", discard); err == nil {
+	if _, err := TLSConfig("127.0.0.1", "missing.pem"); err == nil {
 		t.Error("missing cert file accepted")
+	}
+}
+
+// Guardrail: certificate verification is never skipped, not even on
+// localhost, because a program squatting on Bridge's port would otherwise
+// receive the Bridge password at login.
+func TestTLSConfigRequiresCertificate(t *testing.T) {
+	t.Parallel()
+	for _, host := range []string{"127.0.0.1", "::1", "localhost"} {
+		if cfg, err := TLSConfig(host, ""); err == nil {
+			t.Errorf("%s without a certificate: got %+v, want an error", host, cfg)
+		}
+	}
+}
+
+// A program pretending to be Bridge with its own certificate never gets the
+// password: the TLS handshake fails before LOGIN is sent.
+func TestImpostorNeverReceivesPassword(t *testing.T) {
+	t.Parallel()
+	bridge := testutil.NewIMAPServer(t)
+	impostor := testutil.NewIMAPServer(t)
+	tlsCfg, err := TLSConfig(impostor.Host, bridge.CertFile(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := New(Options{Addr: impostor.Addr(), User: testutil.User, Password: config.Secret(testutil.Password), TLSConfig: tlsCfg, Timeout: 5 * time.Second, Logger: slog.New(slog.DiscardHandler)})
+	if _, err := c.Folders(context.Background()); err == nil {
+		t.Fatal("connected to the impostor")
+	}
+	if strings.Contains(impostor.Transcript(), testutil.Password) {
+		t.Fatal("the impostor received the password")
 	}
 }
 
@@ -288,11 +310,11 @@ func TestTLSVerificationRejectsOtherCertificate(t *testing.T) {
 	t.Parallel()
 	srv := testutil.NewIMAPServer(t)
 	other := testutil.NewIMAPServer(t)
-	tlsCfg, err := TLSConfig(srv.Host, other.CertFile(t), slog.New(slog.DiscardHandler))
+	tlsCfg, err := TLSConfig(srv.Host, other.CertFile(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := New(Options{Addr: srv.Addr(), User: testutil.User, Password: config.Secret(testutil.Password), TLSConfig: tlsCfg, Timeout: 5 * time.Second})
+	c := New(Options{Addr: srv.Addr(), User: testutil.User, Password: config.Secret(testutil.Password), TLSConfig: tlsCfg, Timeout: 5 * time.Second, Logger: slog.New(slog.DiscardHandler)})
 	if _, err := c.Folders(context.Background()); err == nil || !strings.Contains(err.Error(), "TLS") {
 		t.Fatalf("err = %v, want a TLS error", err)
 	}

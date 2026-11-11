@@ -21,7 +21,7 @@ func lookupMap(m map[string]string) func(string) (string, bool) {
 }
 
 func validEnv() map[string]string {
-	return map[string]string{EnvUser: "alice@example.com", EnvPassword: testPassword}
+	return map[string]string{EnvUser: "alice@example.com", EnvPassword: testPassword, EnvCert: "bridge.pem"}
 }
 
 func TestLoadDefaults(t *testing.T) {
@@ -50,6 +50,7 @@ func TestLoadValidation(t *testing.T) {
 	}{
 		{"missing user", map[string]string{EnvUser: ""}, EnvUser},
 		{"missing password", map[string]string{EnvPassword: ""}, EnvPassword},
+		{"missing certificate", map[string]string{EnvCert: ""}, EnvCert},
 		{"remote host", map[string]string{EnvHost: "192.168.1.10"}, "only 127.0.0.1"},
 		{"remote name", map[string]string{EnvHost: "bridge.example.com"}, "only 127.0.0.1"},
 		{"bad port", map[string]string{EnvIMAPPort: "99999"}, "not a port"},

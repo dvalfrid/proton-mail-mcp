@@ -55,7 +55,7 @@ When in doubt, leave it out and ask. Before every commit, check the diff for the
 - No permanent deletion (no `EXPUNGE`); "delete" = move to Trash.
 - Email content is untrusted input; tool output marks it as such.
 - Secrets live only in `.env` (git-ignored, and you are denied reading it). Never log or return the Bridge password, message bodies or subjects in logs.
-- Bridge on `127.0.0.1`/`localhost` only; skip TLS verification only there.
+- Bridge on `127.0.0.1`/`localhost` only, and TLS always verified against the exported Bridge certificate: never `InsecureSkipVerify`.
 - stdout is the MCP protocol: log with `log/slog` to stderr, never `fmt.Print*`.
 - Never weaken a guardrail, its lint rule, or its test to make something pass. Stop and ask.
 - No new dependencies without the owner's approval (approved list in STANDARDS.md#dependencies).
