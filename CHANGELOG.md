@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0](https://github.com/dvalfrid/proton-mail-mcp/compare/v0.2.0...v0.3.0) (2026-11-12)
+
+
+### Features
+
+* **release:** a Windows installer, so updates keep Claude's registration ([#101](https://github.com/dvalfrid/proton-mail-mcp/issues/101)) ([89a7a2c](https://github.com/dvalfrid/proton-mail-mcp/commit/89a7a2c94deb862040b360501a45b3b146415bd5))
+* **setup:** graphical setup wizard on Windows ([#92](https://github.com/dvalfrid/proton-mail-mcp/issues/92)) ([cb74a86](https://github.com/dvalfrid/proton-mail-mcp/commit/cb74a865f2dc16c3f2a88e3d85d90aceb20a22c8))
+* **setup:** the project icon, in the wizard's window and in the repository ([#99](https://github.com/dvalfrid/proton-mail-mcp/issues/99)) ([1f3c6b6](https://github.com/dvalfrid/proton-mail-mcp/commit/1f3c6b6f9da30c15fd15441942e515a99465bed2))
+
+
+### Bug Fixes
+
+* **setup:** offer to switch Claude to this copy when it starts another ([#104](https://github.com/dvalfrid/proton-mail-mcp/issues/104)) ([cb2bde7](https://github.com/dvalfrid/proton-mail-mcp/commit/cb2bde7a87b86e2c280aea4052f00e1e8e2594d1))
+* **setup:** the setup wizard no longer flashes white ([#95](https://github.com/dvalfrid/proton-mail-mcp/issues/95)) ([512a8d4](https://github.com/dvalfrid/proton-mail-mcp/commit/512a8d448ff55e5502adfa20dada1431540462d2))
+* **setup:** the setup wizard no longer opens a terminal window ([#97](https://github.com/dvalfrid/proton-mail-mcp/issues/97)) ([9b110c5](https://github.com/dvalfrid/proton-mail-mcp/commit/9b110c530090682a25a19ae145727f3b36bad2c4))
+
 ## [0.2.0](https://github.com/dvalfrid/proton-mail-mcp/compare/v0.1.0...v0.2.0) (2026-11-12)
 
 
