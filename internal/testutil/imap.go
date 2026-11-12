@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -50,6 +51,18 @@ type IMAPServer struct {
 	user       *imapmemserver.User
 	cert       *Cert
 	transcript *syncBuffer
+	refuse     *atomic.Pointer[string] // set by RefuseChanges
+}
+
+// RefuseChanges makes the server answer every STORE, COPY and MOVE with NO
+// and text, as Bridge does when it can't reach Proton ("failed request (API
+// unreachable)", docs/bridge.md §10). Nothing is changed. "" stops it.
+func (s *IMAPServer) RefuseChanges(text string) {
+	if text == "" {
+		s.refuse.Store(nil)
+		return
+	}
+	s.refuse.Store(&text)
 }
 
 // NewIMAPServer starts a server on 127.0.0.1 with the test account and
@@ -68,9 +81,10 @@ func NewIMAPServer(t testing.TB) *IMAPServer {
 	mem.AddUser(user)
 
 	transcript := &syncBuffer{}
+	refuse := &atomic.Pointer[string]{}
 	srv := imapserver.New(&imapserver.Options{
 		NewSession: func(*imapserver.Conn) (imapserver.Session, *imapserver.GreetingData, error) {
-			return bridgeList{mem.NewSession()}, nil, nil
+			return bridgeList{Session: mem.NewSession(), refuse: refuse}, nil, nil
 		},
 		TLSConfig:   &tls.Config{Certificates: []tls.Certificate{cert.TLS}, MinVersion: tls.VersionTLS12},
 		Caps:        imap.CapSet{imap.CapIMAP4rev1: {}, imap.CapMove: {}, imap.CapUIDPlus: {}},
@@ -91,6 +105,7 @@ func NewIMAPServer(t testing.TB) *IMAPServer {
 		user:       user,
 		cert:       cert,
 		transcript: transcript,
+		refuse:     refuse,
 	}
 }
 
@@ -237,7 +252,34 @@ func (l *testLogger) Printf(format string, args ...any) {
 // attribute, without SPECIAL-USE being advertised or asked for
 // (docs/bridge.md §1, §4). imapmemserver can't store the attributes, so the
 // folders are listed here from Folders, which tests don't add to.
-type bridgeList struct{ imapserver.Session }
+type bridgeList struct {
+	imapserver.Session
+	refuse *atomic.Pointer[string]
+}
+
+// refused is the NO a refusing server answers a change with, or nil.
+func (s bridgeList) refused() error {
+	if text := s.refuse.Load(); text != nil {
+		return &imap.Error{Type: imap.StatusResponseTypeNo, Text: *text}
+	}
+	return nil
+}
+
+// Store refuses when RefuseChanges is set.
+func (s bridgeList) Store(w *imapserver.FetchWriter, numSet imap.NumSet, flags *imap.StoreFlags, options *imap.StoreOptions) error {
+	if err := s.refused(); err != nil {
+		return err
+	}
+	return s.Session.Store(w, numSet, flags, options)
+}
+
+// Copy refuses when RefuseChanges is set.
+func (s bridgeList) Copy(numSet imap.NumSet, dest string) (*imap.CopyData, error) {
+	if err := s.refused(); err != nil {
+		return nil, err
+	}
+	return s.Session.Copy(numSet, dest)
+}
 
 func (s bridgeList) List(w *imapserver.ListWriter, ref string, patterns []string, options *imap.ListOptions) error {
 	if len(patterns) == 0 {
@@ -263,6 +305,9 @@ func (s bridgeList) List(w *imapserver.ListWriter, ref string, patterns []string
 // Move passes MOVE through: the embedded interface hides the session's own
 // Move, and the server advertises MOVE.
 func (s bridgeList) Move(w *imapserver.MoveWriter, numSet imap.NumSet, dest string) error {
+	if err := s.refused(); err != nil {
+		return err
+	}
 	m, ok := s.Session.(imapserver.SessionMove)
 	if !ok {
 		return errors.New("session does not support MOVE")

@@ -138,3 +138,18 @@ func TestNotSetUpToolsSaySo(t *testing.T) {
 		}
 	}
 }
+
+// A change Bridge refuses because Proton is unreachable tells Claude so,
+// that it may be partly done, and links to its section (issue #64).
+func TestProtonUnreachableExplained(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	l := inboxListing(t, e)
+	e.imap.RefuseChanges("failed request (API unreachable)")
+	res := e.call(t, "trash_message", map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity})
+	for _, want := range []string{"Proton's servers", "partly done", "Help: " + help.URL(help.ChangeFailed)} {
+		if !res.IsError || !strings.Contains(text(res), want) {
+			t.Errorf("IsError=%v text=%q, want %q", res.IsError, text(res), want)
+		}
+	}
+}

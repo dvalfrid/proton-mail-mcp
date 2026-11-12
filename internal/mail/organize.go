@@ -23,6 +23,16 @@ var (
 	ErrMessagesMissing = errors.New("not every uid is in the folder")
 )
 
+// Errors from a change that Bridge refused after the checks passed.
+var (
+	// ErrChangeFailed means Bridge refused or broke off the change itself.
+	// With several messages, some may have changed: list the folder again.
+	ErrChangeFailed = errors.New("the change may be partly done: list the folder again to see which messages changed before retrying")
+	// ErrProtonUnreachable means Bridge couldn't reach Proton for the change
+	// (docs/bridge.md §10). It wraps ErrChangeFailed too.
+	ErrProtonUnreachable = errors.New("no connection from Proton Mail Bridge to Proton's servers; check the internet connection and that Bridge is signed in and synced, then try again")
+)
+
 // Selection names the messages an organize operation changes: uids in one
 // folder, valid only for that folder's uidValidity (docs/bridge.md §3).
 type Selection struct {
@@ -63,6 +73,7 @@ func (c *Client) change(ctx context.Context, s Selection, fn func(*imapclient.Cl
 	var (
 		current uint32
 		missing []uint32
+		started bool
 	)
 	err = c.do(ctx, func(ic *imapclient.Client) error {
 		sel, err := ic.Select(s.Folder, nil).Wait()
@@ -87,9 +98,12 @@ func (c *Client) change(ctx context.Context, s Selection, fn func(*imapclient.Cl
 		if len(missing) > 0 {
 			return nil
 		}
+		started = true
 		return fn(ic, set)
 	})
 	switch {
+	case err != nil && started:
+		return 0, changeFailed(err)
 	case err != nil:
 		return 0, err
 	case current != s.UIDValidity:
@@ -285,4 +299,14 @@ func (c *Client) Trash(ctx context.Context, s Selection) (int, error) {
 		}
 		return nil
 	})
+}
+
+// changeFailed explains a change that failed after the checks passed. A
+// NO that says the API is unreachable is Bridge without Proton.
+func changeFailed(err error) error {
+	var imapErr *imap.Error
+	if errors.As(err, &imapErr) && strings.Contains(strings.ToLower(imapErr.Text), "unreachable") {
+		return fmt.Errorf("%w; %w (%w)", ErrProtonUnreachable, ErrChangeFailed, err)
+	}
+	return fmt.Errorf("%w (%w)", ErrChangeFailed, err)
 }
