@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p _site/assets
-          cp site/index.html _site/
+          cp site/index.html site/robots.txt site/sitemap.xml _site/
           cp -r site/img _site/
           cp assets/icon.svg _site/assets/
           cp -r assets/png _site/assets/
