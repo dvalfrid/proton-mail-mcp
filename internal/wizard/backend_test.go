@@ -25,10 +25,11 @@ type fakeClient struct {
 	got        string
 }
 
-func (c *fakeClient) Name() string              { return c.name }
-func (*fakeClient) Available() bool             { return true }
-func (c *fakeClient) Registered() bool          { return c.registered }
-func (c *fakeClient) Register(exe string) error { c.got = exe; return nil }
+func (c *fakeClient) Name() string                  { return c.name }
+func (*fakeClient) Available() bool                 { return true }
+func (c *fakeClient) Registered() bool              { return c.registered }
+func (c *fakeClient) Register(exe string) error     { c.got = exe; return nil }
+func (*fakeClient) Unregister(string) (bool, error) { return false, nil }
 
 type fixture struct {
 	b      *Backend

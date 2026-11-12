@@ -145,7 +145,7 @@ func Run(b *Backend, title string) error {
 			scale = float64(dpi) / 96
 		}
 	}
-	dataDir, err := dataPath()
+	dataDir, err := DataPath()
 	if err != nil {
 		return err
 	}
@@ -418,16 +418,6 @@ func marshalReply(res any, err error) (string, bool) {
 		return string(data), false
 	}
 	return string(data), true
-}
-
-// dataPath is WebView2's profile folder, under the user's local app data
-// (by default it would go in the roaming profile).
-func dataPath() (string, error) {
-	dir, err := os.UserCacheDir() // %LOCALAPPDATA%
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "proton-mail-mcp", "WebView2"), nil
 }
 
 // dark reports whether Windows apps are set to dark mode.

@@ -7,11 +7,12 @@
     ./tools/task.ps1 verify
     ./tools/task.ps1 test -Race
     ./tools/task.ps1 build -Version 0.2.0
+    ./tools/task.ps1 installer -Version 0.2.0 -GOARCH arm64
 #>
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('fmt', 'fmt-check', 'lint', 'test', 'vuln', 'tidy-check', 'verify', 'build', 'setup')]
+    [ValidateSet('fmt', 'fmt-check', 'lint', 'test', 'vuln', 'tidy-check', 'verify', 'build', 'installer', 'setup')]
     [string]$Task = 'verify',
 
     # Run tests with the race detector (needs cgo and a C compiler; CI on Linux has both).
@@ -24,8 +25,12 @@ param(
     [string]$GOOS = '',
     [string]$GOARCH = '',
 
-    # Output path for `build`.
-    [string]$Out = ''
+    # Output path for `build` and `installer`.
+    [string]$Out = '',
+
+    # For `installer`: a folder that already holds the Windows exes (signed
+    # in a release), LICENSE and README.md. Empty: build them first.
+    [string]$Src = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -103,6 +108,37 @@ function Invoke-Build {
     }
 }
 
+# Builds the Windows installer (installer/proton-mail-mcp.nsi) with NSIS 3:
+# makensis from MAKENSIS, PATH, or its default place on Windows.
+function Invoke-Installer {
+    $makensis = if ($env:MAKENSIS) { $env:MAKENSIS }
+    elseif (Get-Command makensis -ErrorAction SilentlyContinue) { 'makensis' }
+    else { Join-Path ${env:ProgramFiles(x86)} 'NSIS/makensis.exe' }
+    if (-not (Get-Command $makensis -ErrorAction SilentlyContinue)) { throw 'makensis (NSIS 3) not found: install NSIS, or set MAKENSIS' }
+    $arch = if ($GOARCH) { $GOARCH } else { 'amd64' }
+    $nsisArch = @{ amd64 = 'x64'; arm64 = 'arm64' }[$arch]
+    if (-not $nsisArch) { throw "no Windows installer for $arch" }
+
+    $src = $Src
+    if (-not $src) {
+        $src = Join-Path $root "bin/installer-$arch"
+        New-Item -ItemType Directory -Force $src | Out-Null
+        $installerOut = $Out
+        $script:GOOS = 'windows'; $script:GOARCH = $arch; $script:Out = Join-Path $src 'proton-mail-mcp.exe'
+        try { Invoke-Build } finally { $script:Out = $installerOut }
+        Copy-Item LICENSE, README.md $src
+    }
+    foreach ($f in 'proton-mail-mcp.exe', 'proton-mail-mcp-setup.exe', 'LICENSE', 'README.md') {
+        if (-not (Test-Path (Join-Path $src $f))) { throw "$f is missing from $src" }
+    }
+    $output = if ($Out) { $Out } else { "bin/proton-mail-mcp_${Version}_windows_${arch}_setup.exe" }
+    $output = [IO.Path]::GetFullPath((Join-Path $root $output))
+    $fileVersion = if ($Version -match '^(\d+)\.(\d+)\.(\d+)') { "$($Matches[1]).$($Matches[2]).$($Matches[3]).0" } else { '0.0.0.0' }
+    Invoke-Native $makensis @('-V2', "-DVERSION=$Version", "-DFILEVERSION=$fileVersion", "-DARCH=$nsisArch",
+        "-DSRCDIR=$((Resolve-Path $src).Path)", "-DOUTFILE=$output", 'installer/proton-mail-mcp.nsi')
+    Write-Host "Built $output ($Version, $nsisArch)"
+}
+
 switch ($Task) {
     'fmt'        { Invoke-Tool 'golangci-lint' @('fmt') }
     'fmt-check'  { Invoke-Tool 'golangci-lint' @('fmt', '--diff') }
@@ -111,6 +147,7 @@ switch ($Task) {
     'vuln'       { Invoke-Tool 'govulncheck' @('./...') }
     'tidy-check' { Test-Tidy }
     'build'      { Invoke-Build }
+    'installer'  { Invoke-Installer }
     'setup' {
         # Build lefthook to a stable path first: the git hooks it installs
         # remember the binary's location, and `go tool` runs it from the

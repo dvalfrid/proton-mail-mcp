@@ -51,6 +51,15 @@ func (OS) Set(user, password string) error {
 	return nil
 }
 
+// ForgetAll removes every password stored under Service, whatever the
+// username: for uninstalling.
+func ForgetAll() error {
+	if err := keyring.DeleteAll(Service); err != nil {
+		return fmt.Errorf("clear the credential store: %w", err)
+	}
+	return nil
+}
+
 // Memory is a Store for tests.
 type Memory map[string]string
 

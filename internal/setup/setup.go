@@ -35,6 +35,10 @@ type Client interface {
 	Available() bool  // the client is installed
 	Registered() bool // it already has the server
 	Register(exe string) error
+	// Unregister removes the server if it is registered to start exe, and
+	// reports whether it did. A registration for another program is left
+	// alone.
+	Unregister(exe string) (bool, error)
 }
 
 // Options configure a run. Zero ports mean Bridge's defaults.
