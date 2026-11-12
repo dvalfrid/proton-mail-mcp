@@ -119,6 +119,11 @@ Mail is written by whoever sends it, so it can contain text aimed at the AI (pro
 
 A damaged message gives what could be read, not an error. A fuzz test checks that no input panics, hangs, produces invalid UTF-8 or exceeds a cap.
 
+**Known limits** (from the independent review, issue #75), which the untrusted-content marking, not the cleaning, has to cover:
+
+- Hidden-text detection reads only inline styles and attributes (`hidden`, `display:none`, `visibility:hidden`). Text hidden by `<style>` rules, tiny fonts, or text coloured like its background still reaches the model.
+- When a message has both a plain-text and an HTML part, the plain text is used. A sender can make the two differ, so the model can read something other than what the owner sees in a mail client.
+
 ### Newest first, and what "newest" means on Bridge
 
 IMAP has no "newest" without the `SORT` extension, which Bridge doesn't have ([bridge.md §1](bridge.md#1-capabilities)). Uids don't help either: Bridge's initial sync numbers messages by descending Proton ID, and new mail continues upward ([bridge.md §3](bridge.md#3-uids-and-dates)). On a real Bridge, uid 1 was the newest message and the order was mixed after that.

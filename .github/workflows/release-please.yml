@@ -45,6 +45,9 @@ jobs:
     steps:
       - name: Dispatch release workflow
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # Passed as data, not spliced into the script (issue #75).
+          TAG: ${{ needs.release-please.outputs.tag_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -53,5 +56,5 @@ jobs:
               repo: context.repo.repo,
               workflow_id: 'release.yml',
               ref: 'main',
-              inputs: { tag: '${{ needs.release-please.outputs.tag_name }}' },
+              inputs: { tag: process.env.TAG },
             })

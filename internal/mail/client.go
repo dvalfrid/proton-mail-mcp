@@ -13,6 +13,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -149,11 +150,40 @@ func TLSConfigFromPEM(host string, pemBytes []byte) (*tls.Config, error) {
 	if !config.IsLocalHost(host) {
 		return nil, fmt.Errorf("refusing non-local Bridge host %q", host)
 	}
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(pemBytes) {
-		return nil, errors.New("no PEM certificate found")
+	cert, err := oneCertificate(pemBytes)
+	if err != nil {
+		return nil, err
 	}
+	pool := x509.NewCertPool()
+	pool.AddCert(cert)
 	return &tls.Config{RootCAs: pool, ServerName: host, MinVersion: tls.VersionTLS12}, nil
+}
+
+// oneCertificate returns the single certificate in pemBytes. Anything else
+// is refused: trusting every certificate in a bundle would trust whatever a
+// bundled CA signs for 127.0.0.1, while check compares only the first
+// (issue #75). A private key block (Bridge's export writes key.pem next to
+// cert.pem) is refused too.
+func oneCertificate(pemBytes []byte) (*x509.Certificate, error) {
+	var found []*pem.Block
+	for rest := pemBytes; ; {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		if block.Type != "CERTIFICATE" {
+			return nil, fmt.Errorf("the certificate file holds a %q block; it must hold only Bridge's certificate", block.Type)
+		}
+		found = append(found, block)
+	}
+	switch len(found) {
+	case 0:
+		return nil, errors.New("no PEM certificate found")
+	case 1:
+		return x509.ParseCertificate(found[0].Bytes)
+	}
+	return nil, fmt.Errorf("the certificate file holds %d certificates; it must hold only Bridge's", len(found))
 }
 
 // Ping connects and logs in if needed, then sends NOOP: it proves that the

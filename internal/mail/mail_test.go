@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -409,6 +410,34 @@ func TestTLSConfig(t *testing.T) {
 	}
 	if _, err := TLSConfig("127.0.0.1", "missing.pem"); err == nil {
 		t.Error("missing cert file accepted")
+	}
+}
+
+// The certificate file must hold exactly Bridge's certificate: a bundle
+// would trust whatever a bundled CA signs, and a key has no place there
+// (issue #75).
+func TestTLSConfigNeedsExactlyOneCertificate(t *testing.T) {
+	t.Parallel()
+	one, err := os.ReadFile(testutil.NewIMAPServer(t).CertFile(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := os.ReadFile(testutil.NewIMAPServer(t).CertFile(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := TLSConfigFromPEM("127.0.0.1", one); err != nil {
+		t.Fatalf("one certificate: %v", err)
+	}
+	key := []byte("-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n")
+	for name, data := range map[string][]byte{
+		"two certificates":  append(append([]byte{}, one...), other...),
+		"certificate + key": append(append([]byte{}, one...), key...),
+		"no certificate":    []byte("not PEM"),
+	} {
+		if _, err := TLSConfigFromPEM("127.0.0.1", data); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
 	}
 }
 
