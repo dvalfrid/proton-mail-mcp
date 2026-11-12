@@ -165,6 +165,14 @@ So `list_messages` and `search_messages` sort on our side:
 
 **Cost:** about one second for a 23,000-message folder against a real Bridge. The dates of all matches cross the connection once per call.
 
+### Dates and days are the owner's
+
+The server runs on the owner's computer, so its time zone (`time.Local`, `mail.Options.Location` in tests) is the owner's: in the UK it is UK time, in Sweden Swedish time.
+
+- **Shown dates** in `list_messages`, `search_messages` and `read_message` are converted to that zone, not left in whatever offset the sender wrote.
+- **`since` and `before` are local days.** Bridge compares `SINCE`/`BEFORE` with UTC midnight on the received date (docs/bridge.md, section 2), so a message just after local midnight would fall on the wrong day. `SearchMessages` asks Bridge for a day more on each side and then keeps only the messages whose shown date is within the local days, so every result shows a date inside them.
+- **What it can't fix:** the IMAP filter works on the received date. A message whose received date is days from its `Date:` header (Bridge gives some synced messages the sync time) can still be missed by `before`.
+
 ### A uid comes with its uidvalidity
 
 An IMAP uid is only meaningful together with the folder's UIDVALIDITY. Bridge renumbers every message, with a new UIDVALIDITY, when it resyncs from scratch: after a repair, an address-mode switch or a lost database ([bridge.md §3](bridge.md#3-uids-and-dates)). Claude holds uids across tool calls, so after a resync the same uid can name a different message.

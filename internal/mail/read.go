@@ -115,18 +115,21 @@ func (c *Client) ListMessages(ctx context.Context, folder string, opts ListOptio
 	if opts.UnreadOnly {
 		criteria.NotFlag = []imap.Flag{imap.FlagSeen}
 	}
-	return c.summaries(ctx, folder, criteria, opts.Limit, c.opts.Timeout)
+	return c.summaries(ctx, folder, criteria, days{}, opts.Limit, c.opts.Timeout)
 }
 
 // SearchOptions are the criteria of SearchMessages, combined with AND. Text
 // criteria match case-insensitive substrings, as IMAP SEARCH defines them.
 type SearchOptions struct {
-	From       string    // From header contains
-	To         string    // To header contains
-	Subject    string    // Subject contains
-	Body       string    // body text contains
-	Since      time.Time // received on or after this day (only the date counts)
-	Before     time.Time // received before this day (only the date counts)
+	From    string // From header contains
+	To      string // To header contains
+	Subject string // Subject contains
+	Body    string // body text contains
+	// Since and Before are days in the owner's time zone (Options.Location):
+	// only their year, month and day count. A message matches by the date
+	// its Summary shows.
+	Since      time.Time // dated on or after this day
+	Before     time.Time // dated before this day
 	UnreadOnly bool
 	Limit      int // newest first; DefaultListLimit if zero, capped at MaxListLimit
 }
@@ -139,7 +142,20 @@ var ErrNoSearchCriteria = errors.New("no search criteria")
 // literals by the client library), never spliced into a command line. The
 // folder is opened read-only.
 func (c *Client) SearchMessages(ctx context.Context, folder string, opts SearchOptions) (Listing, error) {
-	criteria := &imap.SearchCriteria{Since: opts.Since, Before: opts.Before}
+	criteria := &imap.SearchCriteria{}
+	// Bridge compares SINCE and BEFORE with UTC midnight, on the received
+	// date (docs/bridge.md, section 2). So IMAP is asked for a day more on
+	// each side, and the matches are then cut to the owner's days by the
+	// date that is shown.
+	var within days
+	if !opts.Since.IsZero() {
+		within.from = c.midnight(opts.Since)
+		criteria.Since = utcDay(within.from).AddDate(0, 0, -1)
+	}
+	if !opts.Before.IsZero() {
+		within.until = c.midnight(opts.Before)
+		criteria.Before = utcDay(within.until).AddDate(0, 0, 2)
+	}
 	for _, h := range []struct{ key, value string }{{"From", opts.From}, {"To", opts.To}, {"Subject", opts.Subject}} {
 		if h.value != "" {
 			criteria.Header = append(criteria.Header, imap.SearchCriteriaHeaderField{Key: h.key, Value: h.value})
@@ -155,7 +171,27 @@ func (c *Client) SearchMessages(ctx context.Context, folder string, opts SearchO
 		criteria.Since.IsZero() && criteria.Before.IsZero() {
 		return Listing{}, ErrNoSearchCriteria
 	}
-	return c.summaries(ctx, folder, criteria, opts.Limit, c.opts.SearchTimeout)
+	return c.summaries(ctx, folder, criteria, within, opts.Limit, c.opts.SearchTimeout)
+}
+
+// days is a span of time: from (inclusive) to until (exclusive), either
+// zero for no bound.
+type days struct{ from, until time.Time }
+
+func (d days) contain(t time.Time) bool {
+	return (d.from.IsZero() || !t.Before(d.from)) && (d.until.IsZero() || t.Before(d.until))
+}
+
+// midnight is the start of day's date in the owner's time zone.
+func (c *Client) midnight(day time.Time) time.Time {
+	y, m, d := day.Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, c.opts.Location)
+}
+
+// utcDay is the UTC date t falls on, at midnight.
+func utcDay(t time.Time) time.Time {
+	y, m, d := t.UTC().Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 }
 
 // summaries searches folder and returns the limit newest matches, newest
@@ -167,7 +203,7 @@ func (c *Client) SearchMessages(ctx context.Context, folder string, opts SearchO
 // matches are fetched, which Bridge serves from its database without
 // loading messages, and sorted here. Only the newest are fetched in full.
 // Equal dates fall back to the higher UID first, so the order is stable.
-func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.SearchCriteria, limit int, timeout time.Duration) (Listing, error) {
+func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.SearchCriteria, within days, limit int, timeout time.Duration) (Listing, error) {
 	if limit <= 0 {
 		limit = DefaultListLimit
 	}
@@ -193,6 +229,10 @@ func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.Se
 		if err != nil {
 			return fmt.Errorf("fetch dates in %q: %w", folder, err)
 		}
+		dated = slices.DeleteFunc(dated, func(m *imapclient.FetchMessageBuffer) bool { return !within.contain(shownDate(m)) })
+		if len(dated) == 0 {
+			return nil
+		}
 		newestFirst := func(a, b *imapclient.FetchMessageBuffer) int {
 			if c := sortDate(b).Compare(sortDate(a)); c != 0 {
 				return c
@@ -217,7 +257,7 @@ func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.Se
 		}
 		slices.SortFunc(msgs, func(a, b *imapclient.FetchMessageBuffer) int { return cmp.Compare(rank[a.UID], rank[b.UID]) })
 		for _, m := range msgs {
-			out.Messages = append(out.Messages, summarize(m))
+			out.Messages = append(out.Messages, summarize(m, c.opts.Location))
 		}
 		return nil
 	})
@@ -271,6 +311,9 @@ func (c *Client) ReadMessage(ctx context.Context, folder string, uid, uidValidit
 	}
 	if size > c.maxFetch {
 		m.Truncated = true
+	}
+	if !m.Date.IsZero() {
+		m.Date = m.Date.In(c.opts.Location)
 	}
 	return m, nil
 }
@@ -326,18 +369,25 @@ func (c *Client) fetchMessage(ctx context.Context, folder string, uid, uidValidi
 	return raw, size, nil
 }
 
-func summarize(m *imapclient.FetchMessageBuffer) Summary {
+// shownDate is the date a listing shows for a message: its Date header, or
+// the received date (INTERNALDATE) if it has none.
+func shownDate(m *imapclient.FetchMessageBuffer) time.Time {
+	if env := m.Envelope; env != nil && !env.Date.IsZero() {
+		return env.Date
+	}
+	return m.InternalDate
+}
+
+// summarize makes the Summary of m, with its date in loc.
+func summarize(m *imapclient.FetchMessageBuffer, loc *time.Location) Summary {
 	s := Summary{
 		UID:     uint32(m.UID),
-		Date:    m.InternalDate,
+		Date:    shownDate(m).In(loc),
 		Unread:  !slices.Contains(m.Flags, imap.FlagSeen),
 		Flagged: slices.Contains(m.Flags, imap.FlagFlagged),
 		Size:    m.RFC822Size,
 	}
 	if env := m.Envelope; env != nil {
-		if !env.Date.IsZero() {
-			s.Date = env.Date
-		}
 		s.Subject = clean(env.Subject, maxSubjectRunes)
 		if len(env.From) > 0 {
 			s.From = formatAddress(env.From[0])

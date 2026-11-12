@@ -37,6 +37,7 @@ func newClient(t *testing.T) (*Client, *testutil.IMAPServer, *bytes.Buffer) {
 	c := New(Options{
 		Addr: srv.Addr(), User: testutil.User, Password: config.Secret(testutil.Password),
 		TLSConfig: tlsCfg, Timeout: 5 * time.Second, Logger: logger,
+		Location: time.UTC, // not the test machine's zone
 	})
 	t.Cleanup(func() { _ = c.Close() })
 	return c, srv, logs
