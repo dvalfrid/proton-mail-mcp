@@ -70,6 +70,9 @@ type Options struct {
 	// Client's life; DefaultMaxChanges if zero.
 	MaxChanges int
 	Logger     *slog.Logger // slog.Default() if nil
+	// Location is the owner's time zone: dates are shown in it and search
+	// days are its days. time.Local, the computer's own zone, if nil.
+	Location *time.Location
 }
 
 // Client is a lazily connected IMAP client. It is safe for concurrent use.
@@ -107,6 +110,9 @@ func New(opts Options) *Client {
 	}
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
+	}
+	if opts.Location == nil {
+		opts.Location = time.Local
 	}
 	return &Client{opts: opts, maxFetch: MaxMessageBytes}
 }

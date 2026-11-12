@@ -456,7 +456,7 @@ SMTP never sends an existing draft directly.
   - BODY can miss words split across quoted-printable lines, and text that only appears inside HTML-only or base64 parts.
   - Say this in the tool description so Claude doesn't conclude "no such mail".
 - **One possible improvement.** For non-ASCII terms, run a coarse IMAP pre-filter on ASCII criteria and dates, then decode the candidates client-side with the existing `internal/mail` parser and match there. This costs a FETCH per candidate, so bound the candidate count.
-- **Keep date criteria to SINCE/BEFORE.** They work on INTERNALDATE with UTC day boundaries. Document "days are UTC". Avoid `SENT*` keys: one bad `Date:` header fails the whole SEARCH.
+- **Keep date criteria to SINCE/BEFORE.** They work on INTERNALDATE with UTC day boundaries, so ask for a day more on each side and cut the matches to the owner's local days by the date shown (what `SearchMessages` does). Avoid `SENT*` keys: one bad `Date:` header fails the whole SEARCH.
 - **Be careful with BODY on large folders.** It loads every message, so keep the per-operation timeout and suggest narrowing by folder or date.
 - **Results can be partial during the initial sync.**
 - **SEARCH and FETCH under EXAMINE are fine.** EXAMINE never sets `\Seen`, which matches the "never marks read" guardrail.

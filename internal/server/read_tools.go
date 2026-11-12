@@ -56,8 +56,8 @@ type SearchMessagesInput struct {
 	To         string `json:"to,omitempty" jsonschema:"recipient name or address contains this text (ASCII works best, see the tool description)"`
 	Subject    string `json:"subject,omitempty" jsonschema:"subject contains this text (ASCII works best, see the tool description)"`
 	Body       string `json:"body,omitempty" jsonschema:"message text contains this text (ASCII works best, see the tool description)"`
-	Since      string `json:"since,omitempty" jsonschema:"YYYY-MM-DD: received on or after this day"`
-	Before     string `json:"before,omitempty" jsonschema:"YYYY-MM-DD: received before this day, not including it"`
+	Since      string `json:"since,omitempty" jsonschema:"YYYY-MM-DD: dated on or after this day, in the owner's time zone"`
+	Before     string `json:"before,omitempty" jsonschema:"YYYY-MM-DD: dated before this day, not including it, in the owner's time zone"`
 	UnreadOnly bool   `json:"unread_only,omitempty" jsonschema:"only messages not yet read"`
 	Limit      int    `json:"limit,omitempty" jsonschema:"how many of the newest matches to return, 1-100 (default 20)"`
 }

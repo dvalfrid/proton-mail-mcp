@@ -47,6 +47,7 @@ func newEnvWith(t *testing.T, change func(*mail.Options)) *env {
 	opts := mail.Options{
 		Addr: srv.Addr(), User: testutil.User, Password: config.Secret(testutil.Password),
 		TLSConfig: tlsCfg, Timeout: 5 * time.Second, Logger: logger,
+		Location: time.UTC, // not the test machine's zone
 	}
 	if change != nil {
 		change(&opts)

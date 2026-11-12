@@ -759,7 +759,7 @@
       "additionalProperties": false,
       "properties": {
         "before": {
-          "description": "YYYY-MM-DD: received before this day, not including it",
+          "description": "YYYY-MM-DD: dated before this day, not including it, in the owner's time zone",
           "type": "string"
         },
         "body": {
@@ -779,7 +779,7 @@
           "type": "integer"
         },
         "since": {
-          "description": "YYYY-MM-DD: received on or after this day",
+          "description": "YYYY-MM-DD: dated on or after this day, in the owner's time zone",
           "type": "string"
         },
         "subject": {
