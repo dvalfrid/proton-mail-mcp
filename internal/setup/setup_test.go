@@ -180,7 +180,9 @@ func TestSetupPinsWithoutAskingWhenOwnerIsVerified(t *testing.T) {
 	ask := &script{confirms: []bool{true}, lines: []string{testutil.User}, secrets: []string{testutil.Password}}
 	f := newFixture(t, ask)
 	f.o.PortOwner = func(int) (bridge.Owner, error) {
-		return bridge.Owner{Path: `C:\Program Files\Proton AG\Proton Mail Bridge\bridge.exe`, Signed: true}, nil
+		// filepath.Join, so the path splits on this OS's separator: the real
+		// owner check only exists on Windows, but the test runs everywhere.
+		return bridge.Owner{Path: filepath.Join("Proton AG", "Proton Mail Bridge", "bridge.exe"), Signed: true}, nil
 	}
 	if err := Run(context.Background(), f.o); err != nil {
 		t.Fatalf("%v\n%s", err, f.out)
