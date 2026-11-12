@@ -20,7 +20,7 @@ Part 2:
 - ✅ Tool: `search_messages` (#14).
 - ✅ Order `list_messages` and `search_messages` by date, not uid (#18): Bridge's uids don't follow dates.
 
-## 0.2 — Organize, hardening and winget
+## 0.2 — Organize and hardening
 
 Organize:
 
@@ -41,24 +41,32 @@ Hardening:
 - ✅ Weekly fuzzing in CI (#65).
 - ✅ Independent security review (#67) and its fixes: setup trusts only a signed `bridge.exe` in Program Files (#71), no slow parse on crafted HTML (#72), no sender text in errors (#73), the low and informational findings (#74, #75).
 - ✅ Release tooling: `vX.Y.Z` tags, complete Windows zips (#47, #49).
+- ✅ Windows binaries signed with Azure Artifact Signing (0.2.0).
 
-Distribution:
+## 0.3 — Windows installer and winget
 
-- Signed Windows binary (Azure Artifact Signing) and a winget package (#32).
+Install without a terminal, and updates that keep Claude's registration:
 
-## 0.3 — Drafts
+- ✅ Graphical setup wizard on Windows (#90): Windows 11 look, light and dark, the saved password reused; no white flash (#94), no stray terminal window (#96).
+- ✅ Installer (#89): per user, fixed folder, setup on first install, silent updates, uninstall that removes the program from Claude.
+- ✅ Setup switches a registration of another copy to the installed one (#103).
+- ✅ Project icon in the exes, the wizard, the installer and `assets/` (#98).
+- A winget package, `Codeby.ProtonMailMCP` (#32).
+
+## 0.4 — Drafts
 
 - Tools: `create_draft`, `create_reply_draft` (threading headers: `In-Reply-To`, `References`), `update_draft`, `list_drafts`.
 - `remove_label` without `EXPUNGE` (#55), which completes organizing.
 
-## 0.4 — macOS, Linux and packaging
+## 0.5 — macOS, Linux and packaging
 
 - `setup`, keyring and Claude registration tried on macOS and Linux, and fixed where they differ (#66).
+- The setup wizard on macOS and Linux (#91).
 - Homebrew tap, Linux `.deb`/`.rpm`, a Claude Desktop extension (MCPB) (#33).
 
-Before sending, so that organizing and drafts have been in daily use for a while when 0.5 starts.
+Before sending, so that organizing and drafts have been in daily use for a while when 0.6 starts.
 
-## 0.5 — Send on command
+## 0.6 — Send on command
 
 - `internal/send`: SMTP over STARTTLS; the only package allowed to send.
 - Tool: `send_draft` — sends an existing draft, refused unless `PROTON_ALLOW_SEND=1`, moves the draft away after sending.
@@ -76,7 +84,8 @@ Part of a working product: a user sets it up without editing files by hand, on W
   - register the server in Claude.
 - ✅ `proton-mail-mcp check` and clear startup errors (#31).
 - ✅ Registration in the config Claude Desktop (Microsoft Store) really reads (#42).
-- Tried on Windows; macOS and Linux in 0.4 (#66).
+- ✅ Graphical setup and installer on Windows (0.3).
+- Tried on Windows; macOS and Linux in 0.5 (#66).
 
 ## Later (ideas, not commitments)
 

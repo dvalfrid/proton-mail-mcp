@@ -490,7 +490,7 @@ SMTP never sends an existing draft directly.
   - Expect the UID to change whenever the owner edits the draft in another Proton app.
 - **`list_drafts`.** Sort by INTERNALDATE as everywhere else.
 
-**`send_draft` (0.5).**
+**`send_draft` (0.6).**
 
 - **There is no IMAP or SMTP command to "send draft X".** Bridge's SMTP path always creates a fresh draft and sends it (section 8).
 - **The route this research points to:**

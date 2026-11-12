@@ -39,8 +39,8 @@ Each hard rule has a test that fails if the rule breaks. Most live in `internal/
 
 - **No expunge (0.2):** no test scenario may produce `EXPUNGE` or `UID EXPUNGE`; "delete" leaves the message in `Trash`.
 - **Changing tools require `uidvalidity` (0.2).**
-- **No free-form send (0.5):** no tool other than `send_draft` reaches SMTP; `send_draft` without `PROTON_ALLOW_SEND=1` returns an error, and the fake SMTP server receives nothing.
-- **Send only drafts (0.5):** `send_draft` with a UID outside `Drafts` is refused.
+- **No free-form send (0.6):** no tool other than `send_draft` reaches SMTP; `send_draft` without `PROTON_ALLOW_SEND=1` returns an error, and the fake SMTP server receives nothing.
+- **Send only drafts (0.6):** `send_draft` with a UID outside `Drafts` is refused.
 
 ## Live tests
 
