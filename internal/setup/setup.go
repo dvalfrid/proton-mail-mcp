@@ -16,7 +16,6 @@ import (
 	"io"
 	"log/slog"
 	"net"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -207,15 +206,18 @@ func (o *Options) pinCertificate(ctx context.Context, say func(string, ...any)) 
 
 	verified := false
 	if owner, err := o.PortOwner(o.IMAPPort); err == nil {
-		verified = strings.EqualFold(filepath.Base(owner.Path), "bridge.exe") && owner.Signed && bridge.LooksLikeBridge(cert)
-		say("  The port belongs to %s (validly signed: %v)", owner.Path, owner.Signed)
+		// Only a signed bridge.exe in Program Files is trusted without
+		// asking: a signature alone can be borrowed (issue #71).
+		verified = owner.TrustedBridge() && bridge.LooksLikeBridge(cert)
+		say("  The port belongs to %s (validly signed: %v, in Program Files: %v)", owner.Path, owner.Signed, owner.ProtectedDir)
 	}
 	if verified {
-		say("✓ Pinned: the port is held by Proton's signed Bridge")
+		say("✓ Pinned: the port is held by a signed bridge.exe installed in Program Files")
 		return cert, nil
 	}
 	if runtime.GOOS == "windows" {
-		say("! Could not confirm that the program on the port is Proton's signed Bridge.")
+		say("! Could not confirm that the program on the port is Proton Mail Bridge as installed in Program Files.")
+		say("  Answer yes only if that path is where you installed Proton Mail Bridge.")
 	}
 	ok, err := o.Prompt.Confirm("Is Proton Mail Bridge running and signed in on this computer, so this is its certificate?", false)
 	if err != nil {

@@ -171,12 +171,11 @@ func ownerStep(cfg config.Config) (Step, bool) {
 	if err != nil {
 		return Step{Name: "port owner", Status: Advice, Detail: "could not tell which program owns the port: " + err.Error()}, true
 	}
-	base := strings.ToLower(filepath.Base(o.Path))
-	if base == "bridge.exe" && o.Signed {
-		return Step{Name: "port owner", Status: OK, Detail: o.Path + " (validly signed)"}, true
+	if o.TrustedBridge() {
+		return Step{Name: "port owner", Status: OK, Detail: o.Path + " (validly signed, in Program Files)"}, true
 	}
-	return Step{Name: "port owner", Status: Advice, Detail: fmt.Sprintf("%s (signed: %v)", o.Path, o.Signed),
-		Hint: "expected Proton Mail Bridge's bridge.exe with a valid signature; check what this program is"}, true
+	return Step{Name: "port owner", Status: Advice, Detail: fmt.Sprintf("%s (signed: %v, in Program Files: %v)", o.Path, o.Signed, o.ProtectedDir),
+		Hint: "expected Proton Mail Bridge's bridge.exe, signed and installed under Program Files; check what this program is"}, true
 }
 
 // registrationStep looks for the server in the Claude clients' configs. It
