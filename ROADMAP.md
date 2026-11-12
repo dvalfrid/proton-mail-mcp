@@ -22,7 +22,10 @@ Part 2:
 
 ## 0.2 — Organize
 
-- Tools: `move_message`, `mark_read` / `mark_unread`, `flag` / `unflag`, `trash_message` (move to Trash).
+- ✅ Tools: `mark_read` / `mark_unread`, `flag` / `unflag` (#51).
+- Tools: `move_message`, `add_label` (#52); `trash_message`, move to Trash (#53). `remove_label` later (#55).
+- Live test of the organize tools on one marked test message (#54).
+- Winget (#32).
 - Guardrail test: no `EXPUNGE` in any scenario.
 - Every tool that changes a message requires the `uidvalidity` its uid came with (#25), so a renumbered folder can't make it act on another message.
 
