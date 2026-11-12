@@ -165,7 +165,8 @@ func TestSearchMessagesErrors(t *testing.T) {
 // A search that runs out of time tells Claude how to narrow it (issue #39).
 func TestSearchTimeoutAdvises(t *testing.T) {
 	t.Parallel()
-	e := newEnvWith(t, func(o *mail.Options) { o.SearchTimeout = time.Microsecond })
+	silent := testutil.SilentServer(t)
+	e := newEnvWith(t, func(o *mail.Options) { o.Addr, o.SearchTimeout = silent, 100*time.Millisecond })
 	res := e.call(t, "search_messages", map[string]any{"folder": "INBOX", "from": "bob"})
 	if !res.IsError || !strings.Contains(text(res), "since or before") {
 		t.Errorf("IsError=%v text=%q, want advice to narrow the search", res.IsError, text(res))

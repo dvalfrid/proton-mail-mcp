@@ -114,6 +114,6 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 | `internal/keystore/` | The password in the OS credential store (go-keyring); `Memory` for tests |
 | `internal/testutil/` | In-memory IMAP server with STARTTLS and a per-test certificate; `NewBridge` imitates Bridge's greeting and SMTP |
 | `tools/` | `task.ps1` (task runner) and `go.mod` pinning dev tools |
-| `docs/` | `architecture.md` (design decisions and why), `testing.md` (test strategy), `bridge.md` (how Proton Mail Bridge really behaves over IMAP/SMTP, from its source: read before changing IMAP/SMTP behaviour) |
+| `docs/` | `architecture.md` (design decisions and why), `testing.md` (test strategy), `bridge.md` (how Proton Mail Bridge really behaves over IMAP/SMTP, from its source: read before changing IMAP/SMTP behaviour), `troubleshooting.md` (one section per error the owner can fix; `internal/help` links errors to it, and a test checks every link has its section) |
 
 Planned packages and milestones: [ROADMAP.md](ROADMAP.md). Testing: [docs/testing.md](docs/testing.md) — no test needs Proton or Bridge.

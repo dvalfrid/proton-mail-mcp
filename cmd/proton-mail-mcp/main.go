@@ -12,6 +12,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/check"
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
+	"github.com/dvalfrid/proton-mail-mcp/internal/help"
 	"github.com/dvalfrid/proton-mail-mcp/internal/keystore"
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
 	"github.com/dvalfrid/proton-mail-mcp/internal/server"
@@ -137,37 +139,44 @@ func runCheck() int {
 }
 
 func run(logger *slog.Logger) error {
-	cfg, _, err := loadConfig()
-	if err != nil {
-		return err
-	}
-	// Only non-secret fields are logged; the Config itself is never passed to
-	// the logger.
-	logger.Info("starting", "version", version, "imap", cfg.IMAPAddr(), "allow_send", cfg.AllowSend)
-
-	tlsCfg, err := mail.TLSConfig(cfg.Host, cfg.CertFile)
-	if err != nil {
-		return err
-	}
-	// A clear warning in the client's log if Bridge isn't usable right now.
-	// The server starts anyway: Bridge may be started later.
-	if err := check.Startup(context.Background(), cfg); err != nil {
-		logger.Warn("Bridge not ready", "err", err)
-	}
-	mailClient := mail.New(mail.Options{
-		Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password,
-		TLSConfig: tlsCfg, Logger: logger,
-	})
+	mailClient := connect(logger)
 	defer func() { _ = mailClient.Close() }() // best effort on shutdown
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	err = server.New(version, mailClient).Run(ctx, &mcp.StdioTransport{})
+	err := server.New(version, mailClient).Run(ctx, &mcp.StdioTransport{})
 	if errors.Is(err, context.Canceled) {
 		return nil
 	}
 	return err
+}
+
+// connect returns the mail client for the settings. Without usable
+// settings it returns one whose every call says to run setup: the server
+// still starts, so Claude can tell the owner in the chat, rather than the
+// client only showing a disconnected server. No connection is made then.
+func connect(logger *slog.Logger) *mail.Client {
+	cfg, _, err := loadConfig()
+	if err == nil {
+		var tlsCfg *tls.Config
+		if tlsCfg, err = mail.TLSConfig(cfg.Host, cfg.CertFile); err == nil {
+			// Only non-secret fields are logged; the Config itself is never
+			// passed to the logger.
+			logger.Info("starting", "version", version, "imap", cfg.IMAPAddr(), "allow_send", cfg.AllowSend)
+			// A clear warning in the client's log if Bridge isn't usable
+			// right now. The server starts anyway: Bridge may start later.
+			if err := check.Startup(context.Background(), cfg); err != nil {
+				logger.Warn("Bridge not ready", "err", err, "help", help.URL(help.BridgeDown))
+			}
+			return mail.New(mail.Options{
+				Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password,
+				TLSConfig: tlsCfg, Logger: logger,
+			})
+		}
+	}
+	logger.Error("not set up; every tool will say so", "version", version, "err", err, "help", help.URL(help.NotSetUp))
+	return mail.NewUnconfigured(err, logger)
 }
 
 func envFilePath() (string, error) {

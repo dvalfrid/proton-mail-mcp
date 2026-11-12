@@ -39,6 +39,15 @@ const DefaultTimeout = 30 * time.Second
 // client waits by default, so the error, with its advice, reaches Claude.
 const DefaultSearchTimeout = 55 * time.Second
 
+// Errors from connecting, each with what to do about it. The server adds a
+// link to the matching section of docs/troubleshooting.md.
+var (
+	ErrNotSetUp          = errors.New("proton-mail-mcp isn't set up on this computer: open a terminal and run `proton-mail-mcp setup`")
+	ErrBridgeUnreachable = errors.New("start Proton Mail Bridge, sign in, and try again; `proton-mail-mcp check` shows what is wrong")
+	ErrLoginFailed       = errors.New("the Bridge password may have changed (it does when Bridge is reset): run `proton-mail-mcp setup` in a terminal")
+	ErrCertificate       = errors.New("if Bridge was reset or reinstalled, run `proton-mail-mcp setup` again; `proton-mail-mcp check` shows which program holds the port")
+)
+
 // ErrInternal means an operation failed on a bug (a panic) rather than on
 // Bridge's answer. The connection is dropped; the next call reconnects.
 var ErrInternal = errors.New("internal error")
@@ -67,6 +76,9 @@ type Client struct {
 	// only by tests so they needn't move 32 MiB.
 	maxFetch int64
 
+	// notSetUp, if set, is returned by every operation: see NewUnconfigured.
+	notSetUp error
+
 	mu   sync.Mutex
 	conn *boundedConn
 	imap *imapclient.Client
@@ -84,6 +96,15 @@ func New(opts Options) *Client {
 		opts.Logger = slog.Default()
 	}
 	return &Client{opts: opts, maxFetch: MaxMessageBytes}
+}
+
+// NewUnconfigured returns a Client for a server that has no usable settings.
+// Every operation fails with ErrNotSetUp and the reason, so the tools can
+// tell the owner to run setup instead of the server not starting at all.
+func NewUnconfigured(reason error, logger *slog.Logger) *Client {
+	c := New(Options{Logger: logger})
+	c.notSetUp = fmt.Errorf("%w (%w)", ErrNotSetUp, reason)
+	return c
 }
 
 // TLSConfig builds the TLS configuration for a Bridge on host, verifying the
@@ -185,6 +206,9 @@ func (c *Client) run(ctx context.Context, timeout time.Duration, fn func(*imapcl
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if c.notSetUp != nil {
+		return c.notSetUp
+	}
 	err = c.withLimit(ctx, timeout, func() error {
 		if c.imap == nil {
 			return c.connect(ctx, timeout)
@@ -233,8 +257,14 @@ func (c *Client) withLimit(ctx context.Context, timeout time.Duration, fn func()
 func (c *Client) connect(ctx context.Context, timeout time.Duration) error {
 	dialer := net.Dialer{Timeout: timeout}
 	raw, err := dialer.DialContext(ctx, "tcp", c.opts.Addr)
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		// The dial ran out of time (on Linux this isn't os.ErrDeadlineExceeded):
+		// a timeout, not a Bridge that isn't running.
+		return fmt.Errorf("connect to Proton Mail Bridge on %s: %w", c.opts.Addr, err)
+	}
 	if err != nil {
-		return fmt.Errorf("connect to Proton Mail Bridge at %s (is Bridge running?): %w", c.opts.Addr, err)
+		return fmt.Errorf("no answer from Proton Mail Bridge on %s: %w (%w)", c.opts.Addr, ErrBridgeUnreachable, err)
 	}
 	conn := &boundedConn{Conn: raw}
 	conn.setLimit(time.Now().Add(timeout))
@@ -249,13 +279,13 @@ func (c *Client) connect(ctx context.Context, timeout time.Duration) error {
 		_ = conn.Close()
 		var verr *tls.CertificateVerificationError
 		if errors.As(err, &verr) {
-			return fmt.Errorf("the server at %s does not present the pinned Bridge certificate (was Bridge reset or reinstalled? run `proton-mail-mcp check`): %w", c.opts.Addr, err)
+			return fmt.Errorf("the server at %s does not present the pinned Bridge certificate: %w (%w)", c.opts.Addr, ErrCertificate, err)
 		}
 		return fmt.Errorf("start TLS with Bridge: %w", err)
 	}
 	if err := client.Login(c.opts.User, c.opts.Password.Reveal()).Wait(); err != nil {
 		_ = client.Close()
-		return fmt.Errorf("log in to Bridge as %s (check the Bridge password): %w", c.opts.User, err)
+		return fmt.Errorf("login refused by Proton Mail Bridge for %s: %w (%w)", c.opts.User, ErrLoginFailed, err)
 	}
 	conn.setLimit(time.Time{})
 

@@ -52,6 +52,10 @@ func selection(in ChangeInput) (mail.Selection, error) {
 
 // changeError explains a refused change so Claude can recover.
 func changeError(action string, in ChangeInput, err error) error {
+	return explain(changeReason(action, in, err))
+}
+
+func changeReason(action string, in ChangeInput, err error) error {
 	switch {
 	case errors.Is(err, mail.ErrUIDValidityChanged):
 		return fmt.Errorf("nothing was changed: %q was renumbered by Bridge since the uids were listed; list it again: %w", in.Folder, err)
