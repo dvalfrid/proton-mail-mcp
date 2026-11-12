@@ -21,6 +21,7 @@ import (
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/bridge"
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
+	"github.com/dvalfrid/proton-mail-mcp/internal/help"
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
 )
 
@@ -268,6 +269,9 @@ func Print(w io.Writer, steps []Step) {
 		if s.Hint != "" && s.Status != OK {
 			_, _ = fmt.Fprintf(w, "      %-22s → %s\n", "", s.Hint)
 		}
+	}
+	if Failed(steps) {
+		_, _ = fmt.Fprintf(w, "\nMore help: %s\n", help.URL(help.Troubleshoot))
 	}
 }
 

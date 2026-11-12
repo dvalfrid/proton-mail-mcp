@@ -383,7 +383,7 @@ func TestWrongPassword(t *testing.T) {
 	}
 	c := New(Options{Addr: srv.Addr(), User: testutil.User, Password: "wrong-password-123", TLSConfig: tlsCfg, Timeout: 5 * time.Second, Logger: slog.New(slog.DiscardHandler)})
 	_, err = c.Folders(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "check the Bridge password") {
+	if !errors.Is(err, ErrLoginFailed) || !strings.Contains(err.Error(), "proton-mail-mcp setup") {
 		t.Fatalf("err = %v", err)
 	}
 	if strings.Contains(err.Error(), "wrong-password-123") {

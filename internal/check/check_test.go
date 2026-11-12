@@ -193,3 +193,18 @@ func TestStartup(t *testing.T) {
 		t.Errorf("certificate changed: %v", err)
 	}
 }
+
+// A failed check ends with the troubleshooting link; a passing one doesn't.
+func TestPrintLinksHelpOnFailure(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	Print(&out, []Step{{Name: "login", Status: Fail, Detail: "refused", Hint: "run setup"}})
+	if !strings.Contains(out.String(), "More help: https://github.com/dvalfrid/proton-mail-mcp/blob/main/docs/troubleshooting.md") {
+		t.Errorf("no help link after a failure:\n%s", out.String())
+	}
+	out.Reset()
+	Print(&out, []Step{{Name: "login", Status: OK, Detail: "fine"}})
+	if strings.Contains(out.String(), "More help") {
+		t.Errorf("help link after a pass:\n%s", out.String())
+	}
+}

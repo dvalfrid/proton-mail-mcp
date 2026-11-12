@@ -123,7 +123,7 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ ListFoldersInput) (*mcp.CallToolResult, ListFoldersOutput, error) {
 		folders, err := m.Folders(ctx)
 		if err != nil {
-			return nil, ListFoldersOutput{}, fmt.Errorf("list folders: %w", err)
+			return nil, ListFoldersOutput{}, explain(fmt.Errorf("list folders: %w", err))
 		}
 		if folders == nil {
 			folders = []mail.Folder{}
@@ -144,7 +144,7 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 		}
 		l, err := m.ListMessages(ctx, in.Folder, mail.ListOptions{Limit: in.Limit, UnreadOnly: in.UnreadOnly})
 		if err != nil {
-			return nil, ListMessagesOutput{}, fmt.Errorf("list messages in %q: %w", in.Folder, err)
+			return nil, ListMessagesOutput{}, explain(fmt.Errorf("list messages in %q: %w", in.Folder, err))
 		}
 		return nil, listingOutput(in.Folder, l), nil
 	})
@@ -175,11 +175,11 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 			return nil, SearchMessagesOutput{}, fmt.Errorf("give at least one of from, to, subject, body, since, before or unread_only; list_messages lists a folder without criteria")
 		}
 		if errors.Is(err, mail.ErrTimeout) {
-			return nil, SearchMessagesOutput{}, fmt.Errorf("search in %q took too long: Bridge reads every message for text criteria. "+
-				"Narrow it with since or before, or search a smaller folder than All Mail: %w", in.Folder, err)
+			return nil, SearchMessagesOutput{}, explain(fmt.Errorf("search in %q took too long: Bridge reads every message for text criteria. "+
+				"Narrow it with since or before, or search a smaller folder than All Mail: %w", in.Folder, err))
 		}
 		if err != nil {
-			return nil, SearchMessagesOutput{}, fmt.Errorf("search messages in %q: %w", in.Folder, err)
+			return nil, SearchMessagesOutput{}, explain(fmt.Errorf("search messages in %q: %w", in.Folder, err))
 		}
 		return nil, listingOutput(in.Folder, l), nil
 	})
@@ -198,7 +198,7 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 		}
 		msg, err := m.ReadMessage(ctx, in.Folder, in.UID, in.UIDValidity)
 		if err != nil {
-			return nil, ReadMessageOutput{}, fmt.Errorf("read message %d in %q: %w", in.UID, in.Folder, err)
+			return nil, ReadMessageOutput{}, explain(fmt.Errorf("read message %d in %q: %w", in.UID, in.Folder, err))
 		}
 		return nil, ReadMessageOutput{Folder: in.Folder, UID: in.UID, Note: untrustedMessageNote, UntrustedContent: msg}, nil
 	})

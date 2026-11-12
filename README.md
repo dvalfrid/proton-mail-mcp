@@ -88,6 +88,10 @@ Check the program: `proton-mail-mcp --version`.
 
 Check the whole connection: `proton-mail-mcp check`. It goes through the settings, whether Bridge answers and is really Bridge, the pinned certificate, the login, SMTP, (on Windows) which program owns the port, and whether a Claude client has the server registered. Each line says what is wrong and how to fix it; the exit code is non-zero on failure. It reads no mail and prints no secrets. The server also logs a warning at start-up if Bridge isn't ready.
 
+## Troubleshooting
+
+Run `proton-mail-mcp check` first: it tests every step and says what to do. Errors Claude shows end with a Help link to [docs/troubleshooting.md](docs/troubleshooting.md), which explains each one, where the logs are and how to report a problem.
+
 ## Development
 
 ```powershell
