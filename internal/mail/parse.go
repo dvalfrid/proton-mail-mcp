@@ -2,7 +2,6 @@ package mail
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"mime"
 	"strings"
@@ -56,7 +55,7 @@ type Attachment struct {
 }
 
 // ErrUnreadableMessage means not even the header could be parsed.
-var ErrUnreadableMessage = errors.New("message cannot be parsed")
+var ErrUnreadableMessage = errors.New("the message cannot be parsed: its header is malformed")
 
 // ParseMessage turns a raw RFC 5322 message into capped, cleaned text. It
 // never fetches anything: remote resources in HTML are dropped. A damaged
@@ -66,7 +65,10 @@ func ParseMessage(r io.Reader) (*Message, error) {
 	limited := &io.LimitedReader{R: r, N: MaxMessageBytes}
 	e, err := gomessage.ReadWithOptions(limited, &gomessage.ReadOptions{MaxHeaderBytes: maxHeaderBytes})
 	if err != nil && !gomessage.IsUnknownCharset(err) && !gomessage.IsUnknownEncoding(err) {
-		return nil, fmt.Errorf("%w: %w", ErrUnreadableMessage, err)
+		// The parser's error quotes the offending header line, which the
+		// sender wrote: it must not reach the model outside untrusted
+		// content, so only the fixed error is returned (issue #73).
+		return nil, ErrUnreadableMessage
 	}
 
 	p := &parser{msg: &Message{}}
