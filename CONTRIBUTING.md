@@ -114,6 +114,7 @@ Closes #N
 | `verify.yml` | Every push to `main` and every PR | Full `verify` on Linux with `-race` (**required**), tests and build on Windows |
 | `codeql.yml` | Push, PR, weekly | CodeQL for Go and Actions (when the repo is public) |
 | `audit.yml` | Weekly | `govulncheck` against the current `go.sum` |
+| `fuzz.yml` | Weekly, or by hand | Fuzzes the mail parser for real (10 min per target); a crasher is kept as an artifact |
 | `release-please.yml` | Push to `main` | Release PR, tag, then dispatches `release.yml` |
 | `release.yml` | Dispatched per tag | Cross-platform build, checksums, upload to the release |
 | Dependabot | Weekly | Grouped updates for actions, Go modules and pinned tools; no majors |
