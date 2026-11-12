@@ -9,10 +9,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"syscall"
 	"unsafe"
 
-	webview2 "github.com/jchv/go-webview2"
+	"github.com/jchv/go-webview2/pkg/edge"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 
@@ -22,14 +23,99 @@ import (
 // The window's client size in pixels at 100% scaling.
 const width, height = 780, 560
 
+// The page's background in each mode (page.html, .win.light and .win.dark
+// --bg), so the window never shows white before the page is drawn.
+var background = map[bool][3]uint8{false: {0xf3, 0xf3, 0xf3}, true: {0x20, 0x20, 0x20}}
+
 var (
 	user32                      = windows.NewLazySystemDLL("user32.dll")
+	procRegisterClassExW        = user32.NewProc("RegisterClassExW")
+	procCreateWindowExW         = user32.NewProc("CreateWindowExW")
+	procDefWindowProcW          = user32.NewProc("DefWindowProcW")
+	procShowWindow              = user32.NewProc("ShowWindow")
+	procDestroyWindow           = user32.NewProc("DestroyWindow")
+	procPostQuitMessage         = user32.NewProc("PostQuitMessage")
+	procGetMessageW             = user32.NewProc("GetMessageW")
+	procTranslateMessage        = user32.NewProc("TranslateMessage")
+	procDispatchMessageW        = user32.NewProc("DispatchMessageW")
+	procPostThreadMessageW      = user32.NewProc("PostThreadMessageW")
+	procAdjustWindowRect        = user32.NewProc("AdjustWindowRect")
+	procGetSystemMetrics        = user32.NewProc("GetSystemMetrics")
+	procLoadCursorW             = user32.NewProc("LoadCursorW")
+	procLoadIconW               = user32.NewProc("LoadIconW")
+	procSetForegroundWindow     = user32.NewProc("SetForegroundWindow")
+	procSetTimer                = user32.NewProc("SetTimer")
+	procKillTimer               = user32.NewProc("KillTimer")
 	procSetProcessDpiAwarenessC = user32.NewProc("SetProcessDpiAwarenessContext")
 	procGetDpiForSystem         = user32.NewProc("GetDpiForSystem")
 	procMessageBoxW             = user32.NewProc("MessageBoxW")
+	gdi32                       = windows.NewLazySystemDLL("gdi32.dll")
+	procCreateSolidBrush        = gdi32.NewProc("CreateSolidBrush")
 	dwmapi                      = windows.NewLazySystemDLL("dwmapi.dll")
 	procDwmSetWindowAttribute   = dwmapi.NewProc("DwmSetWindowAttribute")
 )
+
+const (
+	wmDestroy  = 0x0002
+	wmMove     = 0x0003
+	wmSize     = 0x0005
+	wmActivate = 0x0006
+	wmClose    = 0x0010
+	wmTimer    = 0x0113
+	wmApp      = 0x8000
+
+	swHide = 0
+	swShow = 5
+
+	// WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX: a fixed-size
+	// dialog-like window that can be minimised.
+	windowStyle = 0x00C00000 | 0x00080000 | 0x00020000
+
+	showTimer = 1
+)
+
+type wndClassEx struct {
+	size       uint32
+	style      uint32
+	wndProc    uintptr
+	clsExtra   int32
+	wndExtra   int32
+	instance   uintptr
+	icon       uintptr
+	cursor     uintptr
+	background uintptr
+	menuName   *uint16
+	className  *uint16
+	iconSm     uintptr
+}
+
+type winMsg struct {
+	hwnd     uintptr
+	message  uint32
+	wParam   uintptr
+	lParam   uintptr
+	time     uint32
+	pt       [2]int32
+	lPrivate uint32
+}
+
+type winRect struct{ left, top, right, bottom int32 }
+
+// window is the wizard's one window: a plain Win32 window that WebView2
+// fills. It is created hidden and shown only when the page has drawn itself,
+// and hidden again before it is torn down, so it never flashes white.
+type window struct {
+	hwnd   uintptr
+	thread uint32
+	wv     *edge.Chromium
+	shown  bool
+
+	mu    sync.Mutex
+	queue []func()
+}
+
+// current is the window, for wndProc. There is only ever one.
+var current *window
 
 // Run shows the wizard and returns when its window closes. It must be called
 // from the main goroutine. ErrNoWebView means WebView2 isn't available.
@@ -48,47 +134,220 @@ func Run(b *Backend, title string) error {
 			scale = float64(dpi) / 96
 		}
 	}
-
 	dataDir, err := dataPath()
 	if err != nil {
 		return err
 	}
-	w := webview2.NewWithOptions(webview2.WebViewOptions{
-		DataPath: dataDir,
-		WindowOptions: webview2.WindowOptions{
-			Title: title, Width: uint(float64(width) * scale), Height: uint(float64(height) * scale), Center: true,
-		},
-	})
-	if w == nil {
-		return ErrNoWebView
+	isDark := dark()
+	bg := background[isDark]
+
+	w := &window{thread: windows.GetCurrentThreadId()}
+	current = w
+	if err := w.create(title, scale, bg); err != nil {
+		return err
 	}
-	defer w.Destroy()
-	w.SetSize(int(float64(width)*scale), int(float64(height)*scale), webview2.HintFixed)
-	if dark() {
+	if isDark {
 		on := int32(1)
 		// DWMWA_USE_IMMERSIVE_DARK_MODE (20): a dark title bar, as Windows'
 		// own apps have in dark mode. Best effort.
-		_, _, _ = procDwmSetWindowAttribute.Call(uintptr(w.Window()), 20, uintptr(unsafe.Pointer(&on)), 4) //nolint:gosec // G103: Win32 call with a pointer to a local int32 of the size passed
+		_, _, _ = procDwmSetWindowAttribute.Call(w.hwnd, 20, uintptr(unsafe.Pointer(&on)), 4) //nolint:gosec // G103: Win32 call with a pointer to a local int32 of the size passed
 	}
 
-	b.SetQuit(func() { w.Dispatch(w.Terminate) })
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	// Calls run off the UI thread, so a slow login doesn't freeze the
-	// window; the answer goes back through Dispatch.
-	err = w.Bind("__pmcp", func(id int, method string, args json.RawMessage) {
-		go func() {
-			res, err := call(ctx, b, method, args)
-			payload, ok := marshalReply(res, err)
-			w.Dispatch(func() { w.Eval(fmt.Sprintf("window.__pmcpDone(%d,%t,%s)", id, ok, payload)) })
-		}()
-	})
-	if err != nil {
+	w.wv = edge.NewChromium()
+	w.wv.DataPath = dataDir
+	w.wv.MessageCallback = func(m string) { w.onMessage(ctx, b, m) }
+	if !w.wv.Embed(w.hwnd) {
+		_, _, _ = procDestroyWindow.Call(w.hwnd)
+		return ErrNoWebView
+	}
+	w.wv.Resize()
+	if err := w.configure(bg); err != nil {
+		_, _, _ = procDestroyWindow.Call(w.hwnd)
 		return err
 	}
-	w.SetHtml(Page)
-	w.Run()
+	b.SetQuit(func() { w.dispatch(w.close) })
+
+	// The page calls the program through __pmcp and says when it has drawn
+	// itself through __pmcpReady.
+	w.wv.Init(`window.__pmcp = (id, method, args) => { window.chrome.webview.postMessage(JSON.stringify({id, method, args})); return Promise.resolve(); };
+window.__pmcpReady = () => window.chrome.webview.postMessage(JSON.stringify({id: 0, method: "ready"}));`)
+	w.wv.NavigateToString(Page)
+	// Show the window after a while even if the page never says it is ready,
+	// so a broken page can at least be closed.
+	_, _, _ = procSetTimer.Call(w.hwnd, showTimer, 4000, 0)
+	w.loop()
 	return nil
+}
+
+func (w *window) create(title string, scale float64, bg [3]uint8) error {
+	var instance windows.Handle
+	if err := windows.GetModuleHandleEx(0, nil, &instance); err != nil {
+		return err
+	}
+	className := windows.StringToUTF16Ptr("ProtonMailMCPSetup")
+	cursor, _, _ := procLoadCursorW.Call(0, 32512) // IDC_ARROW
+	icon, _, _ := procLoadIconW.Call(0, 32512)     // IDI_APPLICATION
+	brush, _, _ := procCreateSolidBrush.Call(uintptr(bg[0]) | uintptr(bg[1])<<8 | uintptr(bg[2])<<16)
+	wc := wndClassEx{
+		wndProc: windows.NewCallback(wndProc), instance: uintptr(instance), icon: icon, iconSm: icon,
+		cursor: cursor, background: brush, className: className,
+	}
+	wc.size = uint32(unsafe.Sizeof(wc))
+	if r, _, err := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc))); r == 0 { //nolint:gosec // G103: Win32 call with a pointer to the struct it reads
+		return fmt.Errorf("register the window class: %w", err)
+	}
+
+	r := winRect{right: int32(float64(width) * scale), bottom: int32(float64(height) * scale)}
+	_, _, _ = procAdjustWindowRect.Call(uintptr(unsafe.Pointer(&r)), windowStyle, 0) //nolint:gosec // G103: Win32 call that adjusts the local rect
+	ww, wh := r.right-r.left, r.bottom-r.top
+	sw, _, _ := procGetSystemMetrics.Call(0)                   // SM_CXSCREEN
+	sh, _, _ := procGetSystemMetrics.Call(1)                   // SM_CYSCREEN
+	x, y := max((int32(sw)-ww)/2, 0), max((int32(sh)-wh)/2, 0) //nolint:gosec // G115: screen sizes in pixels fit an int32
+
+	// Not WS_VISIBLE: shown once the page has drawn itself.
+	hwnd, _, err := procCreateWindowExW.Call(0, uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(title))), //nolint:gosec // G103: Win32 call with NUL-terminated UTF-16 strings
+		windowStyle, uintptr(x), uintptr(y), uintptr(ww), uintptr(wh), 0, 0, uintptr(instance), 0) //nolint:gosec // G115: x and y are at least 0, and the size is positive
+	if hwnd == 0 {
+		return fmt.Errorf("create the window: %w", err)
+	}
+	w.hwnd = hwnd
+	return nil
+}
+
+// configure locks the web view down to a single page: no developer tools,
+// context menu, browser shortcuts (reload, back, print, find), zoom or
+// swipe navigation, and the page's background behind it.
+func (w *window) configure(bg [3]uint8) error {
+	s, err := w.wv.GetSettings()
+	if err != nil {
+		return fmt.Errorf("WebView2 settings: %w", err)
+	}
+	for _, f := range []func(bool) error{
+		s.PutAreDevToolsEnabled, s.PutAreDefaultContextMenusEnabled, s.PutAreBrowserAcceleratorKeysEnabled,
+		s.PutIsZoomControlEnabled, s.PutIsPinchZoomEnabled, s.PutIsSwipeNavigationEnabled,
+		s.PutIsStatusBarEnabled, s.PutAreDefaultScriptDialogsEnabled, s.PutAreHostObjectsAllowed,
+	} {
+		if err := f(false); err != nil {
+			return fmt.Errorf("WebView2 settings: %w", err)
+		}
+	}
+	if c2 := w.wv.GetController().GetICoreWebView2Controller2(); c2 != nil {
+		_ = c2.PutDefaultBackgroundColor(edge.COREWEBVIEW2_COLOR{A: 255, R: bg[0], G: bg[1], B: bg[2]}) // cosmetic: the window's brush is the same colour
+	}
+	return nil
+}
+
+// loop runs the window's messages until it is destroyed.
+func (w *window) loop() {
+	var m winMsg
+	for {
+		r, _, _ := procGetMessageW.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0) //nolint:gosec // G103: Win32 call that fills the local message
+		if int32(r) <= 0 {                                                    //nolint:gosec // G115: GetMessage returns a BOOL (0 for WM_QUIT, -1 for an error) in the low 32 bits
+			return
+		}
+		if m.hwnd == 0 && m.message == wmApp {
+			w.runQueue()
+			continue
+		}
+		_, _, _ = procTranslateMessage.Call(uintptr(unsafe.Pointer(&m))) //nolint:gosec // G103: Win32 call with the message GetMessage filled
+		_, _, _ = procDispatchMessageW.Call(uintptr(unsafe.Pointer(&m))) //nolint:gosec // G103: Win32 call with the message GetMessage filled
+	}
+}
+
+// dispatch runs f on the window's thread.
+func (w *window) dispatch(f func()) {
+	w.mu.Lock()
+	w.queue = append(w.queue, f)
+	w.mu.Unlock()
+	_, _, _ = procPostThreadMessageW.Call(uintptr(w.thread), wmApp, 0, 0)
+}
+
+func (w *window) runQueue() {
+	w.mu.Lock()
+	q := w.queue
+	w.queue = nil
+	w.mu.Unlock()
+	for _, f := range q {
+		f()
+	}
+}
+
+func (w *window) show() {
+	if w.shown {
+		return
+	}
+	w.shown = true
+	_, _, _ = procKillTimer.Call(w.hwnd, showTimer)
+	_, _, _ = procShowWindow.Call(w.hwnd, swShow)
+	// WebView2 doesn't follow its parent window: made while the window was
+	// hidden, it must be told to show.
+	_ = w.wv.Show() // if it fails, the window shows the page's background colour, never white
+	w.wv.Resize()
+	_, _, _ = procSetForegroundWindow.Call(w.hwnd)
+	w.wv.Focus()
+}
+
+// close hides the window before tearing it down, so nothing white shows.
+func (w *window) close() {
+	_, _, _ = procShowWindow.Call(w.hwnd, swHide)
+	_, _, _ = procDestroyWindow.Call(w.hwnd)
+}
+
+// onMessage handles one message from the page, on the window's thread.
+// Calls run off it, so a slow login doesn't freeze the window; the answer
+// goes back through dispatch.
+func (w *window) onMessage(ctx context.Context, b *Backend, s string) {
+	var m struct {
+		ID     int             `json:"id"`
+		Method string          `json:"method"`
+		Args   json.RawMessage `json:"args"`
+	}
+	if err := json.Unmarshal([]byte(s), &m); err != nil {
+		return // not from the page
+	}
+	if m.Method == "ready" {
+		w.show()
+		return
+	}
+	go func() {
+		res, err := call(ctx, b, m.Method, m.Args)
+		payload, ok := marshalReply(res, err)
+		w.dispatch(func() { w.wv.Eval(fmt.Sprintf("window.__pmcpDone(%d,%t,%s)", m.ID, ok, payload)) })
+	}()
+}
+
+func wndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
+	w := current
+	switch msg {
+	case wmSize:
+		if w != nil && w.wv != nil {
+			w.wv.Resize()
+		}
+	case wmMove:
+		if w != nil && w.wv != nil {
+			_ = w.wv.NotifyParentWindowPositionChanged() // only moves popups along
+		}
+	case wmActivate:
+		if w != nil && w.wv != nil && wParam&0xffff != 0 {
+			w.wv.Focus()
+		}
+	case wmTimer:
+		if w != nil && w.wv != nil {
+			w.show()
+		}
+		return 0
+	case wmClose:
+		_, _, _ = procShowWindow.Call(hwnd, swHide)
+		_, _, _ = procDestroyWindow.Call(hwnd)
+		return 0
+	case wmDestroy:
+		_, _, _ = procPostQuitMessage.Call(0)
+		return 0
+	}
+	r, _, _ := procDefWindowProcW.Call(hwnd, msg, wParam, lParam)
+	return r
 }
 
 // call runs one call and turns a panic into an error, so the page gets an
