@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -72,6 +73,19 @@ func TestReadToolsAreAnnotatedReadOnly(t *testing.T) {
 // that is destructive asks clients that honour the hint to confirm first.
 var organizeTools = map[string]struct{ destructive bool }{
 	"mark_read": {}, "mark_unread": {}, "flag": {}, "unflag": {},
+	"move_message": {}, "add_label": {},
+}
+
+// organizeArgs adds a tool's own arguments to the common ones.
+func organizeArgs(name string, common map[string]any) map[string]any {
+	args := maps.Clone(common)
+	switch name {
+	case "move_message":
+		args["to"] = "Archive"
+	case "add_label":
+		args["label"] = "Labels/Travel"
+	}
+	return args
 }
 
 // Every tool is either a read tool or a listed organize tool with the right
@@ -100,41 +114,42 @@ func TestEveryToolIsClassified(t *testing.T) {
 }
 
 // Only mark_read sets \Seen: every other organize tool leaves unread
-// messages unread.
+// messages unread, wherever they end up.
 func TestOnlyMarkReadMarksAsRead(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	l := inboxListing(t, e)
-	args := map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity}
 	for name := range organizeTools {
 		if name == "mark_read" {
 			continue
 		}
+		e := newEnv(t)
+		l := inboxListing(t, e)
 		var out ChangeOutput
-		e.callOK(t, name, args, &out)
-		if n := e.imap.Unseen(t, "INBOX"); n != 2 {
-			t.Fatalf("unseen = %d after %s, want 2", n, name)
+		e.callOK(t, name, organizeArgs(name, map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity}), &out)
+		if n := e.imap.Unseen(t, "INBOX") + e.imap.Unseen(t, "Archive"); n != 2 {
+			t.Errorf("unseen = %d after %s, want 2", n, name)
 		}
 	}
 }
 
-// No tool call, in any scenario run here, sends EXPUNGE or sets \Deleted:
-// on Bridge that is a permanent delete in Trash and Drafts (docs/bridge.md
-// §6).
+// No tool call, valid or stale, sends EXPUNGE or sets \Deleted: on Bridge
+// that is a permanent delete in Trash and Drafts (docs/bridge.md §6). Only
+// the client's commands are checked: Bridge answers a MOVE with
+// "* n EXPUNGE", which is not a command we sent.
 func TestNoToolExpunges(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	l := inboxListing(t, e)
-	good := map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity}
-	stale := map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity + 1}
 	for name := range organizeTools {
-		e.call(t, name, good)
-		e.call(t, name, stale)
-	}
-	tr := e.imap.Transcript()
-	for _, bad := range []string{"EXPUNGE", `+FLAGS (\Deleted)`, `+FLAGS.SILENT (\Deleted)`} {
-		if strings.Contains(tr, bad) {
-			t.Errorf("the transcript contains %q", bad)
+		e := newEnv(t)
+		l := inboxListing(t, e)
+		stale := map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity + 1}
+		good := map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity}
+		e.call(t, name, organizeArgs(name, stale))
+		if res := e.call(t, name, organizeArgs(name, good)); res.IsError {
+			t.Errorf("%s: %s", name, text(res))
+		}
+		for _, bad := range []string{"EXPUNGE", `\Deleted`} {
+			if e.imap.Sent(bad) {
+				t.Errorf("%s sent a command containing %q", name, bad)
+			}
 		}
 	}
 }

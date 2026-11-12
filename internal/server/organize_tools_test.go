@@ -83,3 +83,43 @@ func TestOrganizeToolErrors(t *testing.T) {
 		t.Errorf("unseen = %d, want 2: a refused call changed something", n)
 	}
 }
+
+func TestMoveAndLabelTools(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	l := inboxListing(t, e)
+	common := map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity}
+
+	var out ChangeOutput
+	e.callOK(t, "add_label", organizeArgs("add_label", common), &out)
+	var labelled ListMessagesOutput
+	e.callOK(t, "list_messages", map[string]any{"folder": "Labels/Travel"}, &labelled)
+	if out.Changed != 2 || len(labelled.Messages) != 2 {
+		t.Errorf("add_label: changed %d, %d under the label", out.Changed, len(labelled.Messages))
+	}
+
+	e.callOK(t, "move_message", map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity, "to": "Folders/Work"}, &out)
+	var inbox, work ListMessagesOutput
+	e.callOK(t, "list_messages", map[string]any{"folder": "INBOX"}, &inbox)
+	e.callOK(t, "list_messages", map[string]any{"folder": "Folders/Work"}, &work)
+	if len(inbox.Messages) != 0 || len(work.Messages) != 2 {
+		t.Errorf("move: %d left in INBOX, %d in Folders/Work", len(inbox.Messages), len(work.Messages))
+	}
+}
+
+// A refused move says why and which tool to use.
+func TestMoveToolRefusals(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	l := inboxListing(t, e)
+	for to, want := range map[string]string{"Trash": "trash_message", "Labels/Travel": "add_label", "Drafts": "can't be moved to", "Folders/Nope": "no such folder", "": "to is required"} {
+		res := e.call(t, "move_message", map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity, "to": to})
+		if !res.IsError || !strings.Contains(text(res), want) {
+			t.Errorf("to %q: IsError=%v text=%q, want %q", to, res.IsError, text(res), want)
+		}
+	}
+	res := e.call(t, "add_label", map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity, "label": "Archive"})
+	if !res.IsError || !strings.Contains(text(res), "not a label") {
+		t.Errorf("add_label to Archive: IsError=%v text=%q", res.IsError, text(res))
+	}
+}

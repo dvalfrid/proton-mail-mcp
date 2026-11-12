@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
@@ -119,6 +120,120 @@ func (c *Client) setFlag(ctx context.Context, s Selection, flag imap.Flag, on bo
 	return c.change(ctx, s, func(ic *imapclient.Client, set imap.UIDSet) error {
 		if err := ic.Store(set, &imap.StoreFlags{Op: op, Silent: true, Flags: []imap.Flag{flag}}, nil).Close(); err != nil {
 			return fmt.Errorf("set %s in %q: %w", flag, s.Folder, err)
+		}
+		return nil
+	})
+}
+
+// ErrNoSuchFolder means a folder named in an organize call doesn't exist.
+var ErrNoSuchFolder = errors.New("no such folder")
+
+// ErrNotAllowed means the move or label is one this server won't make. The
+// error says which tool to use instead, where there is one.
+var ErrNotAllowed = errors.New("not allowed")
+
+type mailbox struct{ name, role string }
+
+func (m mailbox) label() bool { return strings.HasPrefix(m.name, "Labels/") }
+
+// ordinary is a folder a message lives in and can be moved to: INBOX,
+// Archive, Spam or a user folder. Not Trash (trash_message), Drafts, Sent,
+// a label, Starred, All Mail or Scheduled.
+func (m mailbox) ordinary() bool {
+	return m.role == "inbox" || m.role == "archive" || m.role == "spam" || strings.HasPrefix(m.name, "Folders/")
+}
+
+// mailboxes looks up the named folders with their roles, from one LIST.
+func (c *Client) mailboxes(ctx context.Context, names ...string) ([]mailbox, error) {
+	all := map[string]mailbox{}
+	err := c.do(ctx, func(ic *imapclient.Client) error {
+		list, err := ic.List("", "*", nil).Collect()
+		if err != nil {
+			return fmt.Errorf("list folders: %w", err)
+		}
+		for _, mb := range list {
+			if !slices.Contains(mb.Attrs, imap.MailboxAttrNoSelect) && !slices.Contains(mb.Attrs, imap.MailboxAttrNonExistent) {
+				all[mb.Mailbox] = mailbox{name: mb.Mailbox, role: role(mb)}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]mailbox, 0, len(names))
+	for _, n := range names {
+		m, ok := all[n]
+		if !ok {
+			return nil, fmt.Errorf("%w: %q; call list_folders to see the names", ErrNoSuchFolder, n)
+		}
+		out = append(out, m)
+	}
+	return out, nil
+}
+
+// movable says whether messages may move from src to dst. Bridge refuses
+// some moves itself (docs/bridge.md §4); the rest keep each tool to one job.
+func movable(src, dst mailbox) error {
+	switch {
+	case src.name == dst.name:
+		return fmt.Errorf("%w: the messages are already in %q", ErrNotAllowed, dst.name)
+	case dst.role == "trash":
+		return fmt.Errorf("%w: to move messages to Trash, use trash_message", ErrNotAllowed)
+	case dst.label():
+		return fmt.Errorf("%w: %q is a label; use add_label", ErrNotAllowed, dst.name)
+	case !dst.ordinary():
+		return fmt.Errorf("%w: messages can't be moved to %q; move them to INBOX, Archive, Spam or a folder under Folders/", ErrNotAllowed, dst.name)
+	case src.label():
+		return fmt.Errorf("%w: moving out of a label also removes the label; that isn't supported yet", ErrNotAllowed)
+	case !src.ordinary() && src.role != "trash" && src.role != "sent":
+		return fmt.Errorf("%w: messages can't be moved out of %q", ErrNotAllowed, src.name)
+	case src.role == "sent" && dst.role == "inbox":
+		return fmt.Errorf("%w: Proton Mail Bridge refuses moves between Sent and INBOX", ErrNotAllowed)
+	}
+	return nil
+}
+
+// Move moves messages to another folder with UID MOVE. On Bridge that files
+// them there on Proton and removes them from the source; nothing is deleted.
+func (c *Client) Move(ctx context.Context, s Selection, to string) (int, error) {
+	if _, err := s.check(); err != nil {
+		return 0, err
+	}
+	mbs, err := c.mailboxes(ctx, s.Folder, to)
+	if err != nil {
+		return 0, err
+	}
+	if err := movable(mbs[0], mbs[1]); err != nil {
+		return 0, err
+	}
+	return c.change(ctx, s, func(ic *imapclient.Client, set imap.UIDSet) error {
+		if _, err := ic.Move(set, to).Wait(); err != nil {
+			return fmt.Errorf("move from %q to %q: %w", s.Folder, to, err)
+		}
+		return nil
+	})
+}
+
+// AddLabel adds a label with UID COPY to Labels/X. On Bridge the messages
+// stay where they are and get the label (docs/bridge.md §4).
+func (c *Client) AddLabel(ctx context.Context, s Selection, label string) (int, error) {
+	if _, err := s.check(); err != nil {
+		return 0, err
+	}
+	mbs, err := c.mailboxes(ctx, s.Folder, label)
+	if err != nil {
+		return 0, err
+	}
+	if !mbs[1].label() {
+		return 0, fmt.Errorf("%w: %q is not a label; labels are the folders under Labels/", ErrNotAllowed, label)
+	}
+	if mbs[0].name == label {
+		return 0, fmt.Errorf("%w: the messages already have the label %q", ErrNotAllowed, label)
+	}
+	return c.change(ctx, s, func(ic *imapclient.Client, set imap.UIDSet) error {
+		if _, err := ic.Copy(set, label).Wait(); err != nil {
+			return fmt.Errorf("label %q in %q: %w", label, s.Folder, err)
 		}
 		return nil
 	})

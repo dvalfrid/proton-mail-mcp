@@ -3,7 +3,6 @@ package mail
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 )
 
@@ -73,7 +72,7 @@ func TestMarkReadAndFlag(t *testing.T) {
 		t.Errorf("flagged = %d after unflag, want 0", n)
 	}
 
-	if strings.Contains(srv.Transcript(), "EXPUNGE") || strings.Contains(srv.Transcript(), `\Deleted`) {
+	if srv.Sent("EXPUNGE") || srv.Sent(`\Deleted`) {
 		t.Error("an organize call used EXPUNGE or \\Deleted")
 	}
 }
@@ -110,7 +109,95 @@ func TestChangeRefusesBeforeTouching(t *testing.T) {
 	if n := srv.Unseen(t, "INBOX"); n != 2 {
 		t.Errorf("unseen = %d, want 2: a refused call changed something", n)
 	}
-	if strings.Contains(srv.Transcript(), "STORE") {
+	if srv.Sent("STORE") {
 		t.Error("a refused call sent STORE")
+	}
+}
+
+func count(t *testing.T, c *Client, folder string) uint32 {
+	t.Helper()
+	folders, err := c.Folders(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range folders {
+		if f.Name == folder {
+			return f.Messages
+		}
+	}
+	t.Fatalf("no folder %q", folder)
+	return 0
+}
+
+func TestMoveAndAddLabel(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	c, srv, _ := newClient(t)
+	s := inbox(t, c, func(f string) {
+		srv.AddMessage(t, f, message("bob@example.org", "Hi", "Mon, 02 Nov 2026 10:00:00 +0000"))
+	}, 2)
+
+	if n, err := c.AddLabel(ctx, s, "Labels/Travel"); err != nil || n != 2 {
+		t.Fatalf("add label: %d, %v", n, err)
+	}
+	if count(t, c, "Labels/Travel") != 2 || count(t, c, "INBOX") != 2 {
+		t.Error("a label should leave the messages in INBOX and list them under the label")
+	}
+
+	if n, err := c.Move(ctx, s, "Folders/Work"); err != nil || n != 2 {
+		t.Fatalf("move: %d, %v", n, err)
+	}
+	if count(t, c, "INBOX") != 0 || count(t, c, "Folders/Work") != 2 {
+		t.Error("the messages didn't move from INBOX to Folders/Work")
+	}
+	if srv.Sent("EXPUNGE") {
+		t.Error("moving used EXPUNGE")
+	}
+}
+
+// Moves this server won't make are refused before anything changes.
+func TestMoveRefusals(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	c, srv, _ := newClient(t)
+	s := inbox(t, c, func(f string) {
+		srv.AddMessage(t, f, message("bob@example.org", "Hi", "Mon, 02 Nov 2026 10:00:00 +0000"))
+	}, 1)
+	from := func(folder string) Selection {
+		return Selection{Folder: folder, UIDs: s.UIDs, UIDValidity: s.UIDValidity}
+	}
+	tests := []struct {
+		name string
+		sel  Selection
+		to   string
+		want error
+	}{
+		{"to Trash", s, "Trash", ErrNotAllowed},
+		{"to a label", s, "Labels/Travel", ErrNotAllowed},
+		{"to Drafts", s, "Drafts", ErrNotAllowed},
+		{"to Sent", s, "Sent", ErrNotAllowed},
+		{"to All Mail", s, "All Mail", ErrNotAllowed},
+		{"to Starred", s, "Starred", ErrNotAllowed},
+		{"same folder", s, "INBOX", ErrNotAllowed},
+		{"no such folder", s, "Folders/Nope", ErrNoSuchFolder},
+		{"out of a label", from("Labels/Travel"), "INBOX", ErrNotAllowed},
+		{"out of Drafts", from("Drafts"), "INBOX", ErrNotAllowed},
+		{"Sent to INBOX", from("Sent"), "INBOX", ErrNotAllowed},
+	}
+	for _, tt := range tests {
+		if _, err := c.Move(ctx, tt.sel, tt.to); !errors.Is(err, tt.want) {
+			t.Errorf("%s: err = %v, want %v", tt.name, err, tt.want)
+		}
+	}
+	for _, label := range []string{"Archive", "Folders/Nope", "INBOX"} {
+		if _, err := c.AddLabel(ctx, s, label); err == nil {
+			t.Errorf("add_label to %q was not refused", label)
+		}
+	}
+	if srv.Sent("MOVE") || srv.Sent("COPY") {
+		t.Error("a refused call sent MOVE or COPY")
+	}
+	if count(t, c, "INBOX") != 1 {
+		t.Error("a refused call moved the message")
 	}
 }

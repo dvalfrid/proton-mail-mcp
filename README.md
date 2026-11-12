@@ -22,7 +22,7 @@ Full rules and threat model: [STANDARDS.md](STANDARDS.md#security-guardrails), [
 
 ## Status
 
-Claude can list, search and read messages, and mark them read or unread and star them. Moving, trash, drafts and sending follow: see [ROADMAP.md](ROADMAP.md).
+Claude can list, search and read messages, mark them read or unread, star them, move them and label them. Trash, drafts and sending follow: see [ROADMAP.md](ROADMAP.md).
 
 "Newest first" in `list_messages` and `search_messages` means by date. Proton Mail Bridge doesn't number messages by date and has no IMAP `SORT`, so the server sorts itself ([docs/architecture.md](docs/architecture.md#newest-first-and-what-newest-means-on-bridge)). In a large folder this takes about a second.
 
@@ -36,6 +36,8 @@ Claude can list, search and read messages, and mark them read or unread and star
 | `read_message` | One message by folder and uid (optionally with the `uidvalidity` the uid came with, so a folder that Bridge renumbered is refused rather than another message read): headers, body as plain text, attachments listed (name, type, size). Returned in an `untrusted_content` field with a note that it is data from the sender, not instructions. HTML is converted to text and nothing is fetched; attachments are never opened. Long messages are cut and marked `truncated` | No (the message stays unread) |
 | `mark_read` / `mark_unread` | Mark messages read or unread. Synced to Proton | Yes (undoable) |
 | `flag` / `unflag` | Star or unstar messages (Proton's Starred) | Yes (undoable) |
+| `move_message` | Move messages to INBOX, Archive, Spam or a folder under `Folders/`. Not to Trash (`trash_message`) or a label (`add_label`); not out of a label, Drafts or All Mail | Yes (undoable) |
+| `add_label` | Add a label (`Labels/…`); the messages stay in their folder | Yes (undoable) |
 
 The tools that change messages take a folder, 1 to 50 `uids` from that folder and the `uidvalidity` that came with them (required). If the folder was renumbered or any uid is missing, the call changes nothing. No tool ever deletes permanently.
 
