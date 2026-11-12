@@ -15,6 +15,7 @@ var helpTopics = []struct {
 	topic help.Topic
 }{
 	{mail.ErrNotSetUp, help.NotSetUp},
+	{mail.ErrChangeFailed, help.ChangeFailed},
 	{mail.ErrBridgeUnreachable, help.BridgeDown},
 	{mail.ErrLoginFailed, help.LoginFailed},
 	{mail.ErrCertificate, help.Certificate},

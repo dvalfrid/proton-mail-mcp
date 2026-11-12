@@ -63,6 +63,14 @@ Bridge renumbers every message in a folder after a resync (a repair, or a change
 
 **Fix:** none needed: Claude lists the folder again and continues. If it keeps happening, Bridge is resyncing; wait until it is done.
 
+## Change failed
+
+**Message:** "the change may be partly done: list the folder again …", sometimes after "no connection from Proton Mail Bridge to Proton's servers …"
+
+Marking, starring, moving, labelling and trashing are done by Bridge on Proton's servers before it answers. If Bridge can't reach Proton (no internet, Proton down, Bridge signed out) it refuses the change. With several messages in one call, some may already have changed when it stopped.
+
+**Fix:** check the internet connection and that Bridge shows your account signed in and synced. Then let Claude list the folder again to see what changed, and retry only the rest. Nothing is ever deleted by these tools: a message that was moved is in its new folder or still in the old one.
+
 ## Search finds nothing
 
 Bridge compares search terms with the raw, still-encoded message, so words with letters such as å, ä, ö or é usually find nothing, even when the mail exists.

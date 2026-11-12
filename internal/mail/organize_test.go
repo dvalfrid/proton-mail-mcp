@@ -238,3 +238,40 @@ func TestTrashRefusals(t *testing.T) {
 		t.Error("a refused trash sent MOVE")
 	}
 }
+
+// When Bridge can't reach Proton it refuses the change itself (docs/bridge.md
+// §10). Every organize call then says so and that the change may be partly
+// done, and the next call works again (issue #64).
+func TestChangeRefusedByBridge(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	c, srv, _ := newClient(t)
+	s := inbox(t, c, func(f string) {
+		srv.AddMessage(t, f, message("bob@example.org", "Hi", "Mon, 02 Nov 2026 10:00:00 +0000"))
+	}, 2)
+	ops := map[string]func() (int, error){
+		"mark read": func() (int, error) { return c.MarkRead(ctx, s, true) },
+		"flag":      func() (int, error) { return c.Flag(ctx, s, true) },
+		"move":      func() (int, error) { return c.Move(ctx, s, "Archive") },
+		"label":     func() (int, error) { return c.AddLabel(ctx, s, "Labels/Travel") },
+		"trash":     func() (int, error) { return c.Trash(ctx, s) },
+	}
+	srv.RefuseChanges("failed request (API unreachable)")
+	for name, op := range ops {
+		_, err := op()
+		if !errors.Is(err, ErrProtonUnreachable) || !errors.Is(err, ErrChangeFailed) {
+			t.Errorf("%s: err = %v, want ErrProtonUnreachable and ErrChangeFailed", name, err)
+		}
+	}
+	srv.RefuseChanges("some other refusal")
+	if _, err := c.MarkRead(ctx, s, true); !errors.Is(err, ErrChangeFailed) || errors.Is(err, ErrProtonUnreachable) {
+		t.Errorf("other refusal: err = %v, want ErrChangeFailed only", err)
+	}
+	if srv.Unseen(t, "INBOX") != 2 || count(t, c, "INBOX") != 2 {
+		t.Error("a refused change changed something")
+	}
+	srv.RefuseChanges("")
+	if n, err := c.MarkRead(ctx, s, true); err != nil || n != 2 {
+		t.Fatalf("after Proton is back: %d, %v", n, err)
+	}
+}
