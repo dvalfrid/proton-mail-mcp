@@ -53,10 +53,12 @@ Install without a terminal, and updates that keep Claude's registration:
 - ✅ Project icon in the exes, the wizard, the installer and `assets/` (#98).
 - A winget package, `Codeby.ProtonMailMCP` (#32).
 
-## 0.4 — Drafts
+## 0.4 — Drafts and attachments
 
 - Tools: `create_draft`, `create_reply_draft` (threading headers: `In-Reply-To`, `References`), `update_draft`, `list_drafts`.
 - `remove_label` without `EXPUNGE` (#55), which completes organizing.
+- Let Claude view the images in a message: attachments and inline images, never remote ones (#106).
+- Save an attachment, only into the owner's attachment folder, never opened by the server (#107).
 
 ## 0.5 — macOS, Linux and packaging
 
@@ -89,5 +91,4 @@ Part of a working product: a user sets it up without editing files by hand, on W
 
 ## Later (ideas, not commitments)
 
-- Attachment metadata and saving an attachment to a chosen folder.
 - Optional direct Proton API (`go-proton-api`) instead of Bridge — unofficial API, its own risk assessment first.
