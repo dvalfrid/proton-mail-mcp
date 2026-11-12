@@ -353,24 +353,28 @@ func TestTimeoutOnSilentServer(t *testing.T) {
 // under the search timeout, does not.
 func TestSearchHasItsOwnTimeout(t *testing.T) {
 	t.Parallel()
-	srv := testutil.NewIMAPServer(t)
-	srv.AddMessage(t, "INBOX", message("bob@example.org", "One", "Mon, 02 Nov 2026 10:00:00 +0000"))
-	tlsCfg, err := TLSConfig(srv.Host, srv.CertFile(t))
+	tlsCfg, err := TLSConfig("127.0.0.1", testutil.NewIMAPServer(t).CertFile(t))
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Against a server that never answers, each call runs to its own limit.
 	c := New(Options{
-		Addr: srv.Addr(), User: testutil.User, Password: config.Secret(testutil.Password), TLSConfig: tlsCfg,
-		Timeout: time.Microsecond, SearchTimeout: 5 * time.Second, Logger: slog.New(slog.DiscardHandler),
+		Addr: testutil.SilentServer(t), User: "u", Password: "p", TLSConfig: tlsCfg,
+		Timeout: 100 * time.Millisecond, SearchTimeout: time.Second, Logger: slog.New(slog.DiscardHandler),
 	})
-	t.Cleanup(func() { _ = c.Close() })
-
+	start := time.Now()
 	if _, err := c.ListMessages(context.Background(), "INBOX", ListOptions{}); !errors.Is(err, ErrTimeout) {
 		t.Fatalf("list: err = %v, want ErrTimeout", err)
 	}
-	l, err := c.SearchMessages(context.Background(), "INBOX", SearchOptions{From: "bob"})
-	if err != nil || len(l.Messages) != 1 {
-		t.Fatalf("search: %+v, %v", l, err)
+	if d := time.Since(start); d > 700*time.Millisecond {
+		t.Errorf("list took %v, want its 100ms limit", d)
+	}
+	start = time.Now()
+	if _, err := c.SearchMessages(context.Background(), "INBOX", SearchOptions{From: "bob"}); !errors.Is(err, ErrTimeout) {
+		t.Fatalf("search: err = %v, want ErrTimeout", err)
+	}
+	if d := time.Since(start); d < 800*time.Millisecond {
+		t.Errorf("search gave up after %v, want its own 1s limit", d)
 	}
 }
 

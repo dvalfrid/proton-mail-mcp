@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -84,6 +85,7 @@ func TestErrorsLinkToTroubleshooting(t *testing.T) {
 	closed := ln.Addr().String()
 	_ = ln.Close()
 	other := testutil.NewIMAPServer(t)
+	silent := testutil.SilentServer(t)
 	tests := []struct {
 		name   string
 		change func(*mail.Options)
@@ -95,7 +97,7 @@ func TestErrorsLinkToTroubleshooting(t *testing.T) {
 		{"Bridge not running", func(o *mail.Options) { o.Addr = closed }, "list_folders", map[string]any{}, help.BridgeDown, "start Proton Mail Bridge"},
 		{"wrong password", func(o *mail.Options) { o.Password = config.Secret("not-it") }, "list_folders", map[string]any{}, help.LoginFailed, "proton-mail-mcp setup"},
 		{"another certificate", func(o *mail.Options) { o.Addr = other.Addr() }, "list_folders", map[string]any{}, help.Certificate, "proton-mail-mcp check"},
-		{"search timeout", func(o *mail.Options) { o.SearchTimeout = 1 }, "search_messages", map[string]any{"folder": "INBOX", "from": "x"}, help.Timeout, "since or before"},
+		{"search timeout", func(o *mail.Options) { o.Addr, o.SearchTimeout = silent, 100*time.Millisecond }, "search_messages", map[string]any{"folder": "INBOX", "from": "x"}, help.Timeout, "since or before"},
 		{"renumbered folder", nil, "read_message", map[string]any{"folder": "INBOX", "uid": 1, "uidvalidity": 999999}, help.Renumbered, "list it again"},
 	}
 	for _, tt := range tests {

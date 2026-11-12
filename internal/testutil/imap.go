@@ -269,3 +269,25 @@ func (s bridgeList) Move(w *imapserver.MoveWriter, numSet imap.NumSet, dest stri
 	}
 	return m.Move(w, numSet, dest)
 }
+
+// SilentServer accepts connections and never answers, like a hung Bridge.
+// It returns its address. A client's timeout always fires against it,
+// however fast the machine, unlike a timeout of a microsecond.
+func SilentServer(t testing.TB) string {
+	t.Helper()
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return // closed at cleanup
+			}
+			t.Cleanup(func() { _ = conn.Close() })
+		}
+	}()
+	return ln.Addr().String()
+}

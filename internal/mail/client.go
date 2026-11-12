@@ -257,9 +257,10 @@ func (c *Client) withLimit(ctx context.Context, timeout time.Duration, fn func()
 func (c *Client) connect(ctx context.Context, timeout time.Duration) error {
 	dialer := net.Dialer{Timeout: timeout}
 	raw, err := dialer.DialContext(ctx, "tcp", c.opts.Addr)
-	if errors.Is(err, os.ErrDeadlineExceeded) {
-		// Something holds the port but doesn't answer in time: a timeout,
-		// not a Bridge that isn't running.
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		// The dial ran out of time (on Linux this isn't os.ErrDeadlineExceeded):
+		// a timeout, not a Bridge that isn't running.
 		return fmt.Errorf("connect to Proton Mail Bridge on %s: %w", c.opts.Addr, err)
 	}
 	if err != nil {
