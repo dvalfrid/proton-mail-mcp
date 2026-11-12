@@ -30,6 +30,11 @@ body.gnome { --font: "Adwaita Sans", "Cantarell", "Inter", system-ui, sans-serif
 
 body { font-family: var(--font); font-size: var(--fs); color: var(--fg); background: var(--bg); line-height: 1.45; user-select: none; cursor: default; }
 .window { display: grid; grid-template-rows: 1fr auto; height: 100vh; }
+/* Fade in when the window first shows (a hidden web view runs no animations,
+   so this starts when it is on screen). */
+.window { animation: appear .18s ease-out; }
+@keyframes appear { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .window { animation: none; } }
 .body { display: grid; grid-template-columns: 210px 1fr; min-height: 0; }
 .nav { background: var(--side); padding: 12px 8px; }
 .content { padding: 28px 36px; overflow: auto; min-height: 0; outline: none; }
@@ -374,6 +379,9 @@ mq.addEventListener('change', theme);
   if (/^#[0-9a-f]{6}$/i.test(a.light || '')) document.documentElement.style.setProperty('--sys-accent-light', a.light);
   if (/^#[0-9a-f]{6}$/i.test(a.dark || '')) document.documentElement.style.setProperty('--sys-accent-dark', a.dark);
   theme(); render();
+  // The page is laid out: the window can be shown. (Not requestAnimationFrame:
+  // a web view in a hidden window draws no frames.)
+  window.__pmcpReady?.();
 })();
 </script>
 </body>

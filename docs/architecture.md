@@ -174,7 +174,7 @@ Bridge uses a self-signed certificate. Most Bridge setups skip verification on l
 
 `proton-mail-mcp-setup.exe` is built as a windowed program, so starting it from the Start menu or Explorer shows no console window. The server must stay a console program: Claude talks to it over stdin and stdout, and `check` and `setup` print to the terminal. One file can't be both, so there are two. The wizard registers its sibling `proton-mail-mcp.exe`, not itself.
 
-The page is HTML and CSS, so the same page can serve macOS and Linux later (issue #91) with each platform's look. All the logic is the `setup` package's, split into steps (`LookForBridge`, `ReadCertificate`, `TestLogin`, `Save`) that the terminal setup also uses. Calls from the page run off the window's thread, so a slow login doesn't freeze it.
+The page is HTML and CSS, so the same page can serve macOS and Linux later (issue #91) with each platform's look. All the logic is the `setup` package's, split into steps (`LookForBridge`, `ReadCertificate`, `TestLogin`, `Save`) that the terminal setup also uses. Calls from the page run off the window's thread, so a slow login doesn't freeze it. The window is a plain Win32 window that WebView2 fills (go-webview2's `pkg/edge`, not its ready-made window, which shows itself before WebView2 has started). It is created hidden with the page's background colour, shown when the page says it has drawn itself, and hidden before it is torn down, so it never flashes white (issue #94).
 
 ## Error model
 
