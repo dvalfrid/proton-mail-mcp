@@ -348,3 +348,24 @@ func TestWizardSavedPasswordFails(t *testing.T) {
 		})
 	}
 }
+
+// The page draws the project icon (assets/icon.svg); the two stay the same.
+func TestPageIconIsTheProjectIcon(t *testing.T) {
+	t.Parallel()
+	svg, err := os.ReadFile(filepath.Join("..", "..", "assets", "icon.svg"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(svg)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "</svg>" {
+			continue
+		}
+		if strings.HasPrefix(line, "<svg ") {
+			line = strings.TrimSuffix(line, ">") // the page's has aria-hidden
+		}
+		if !strings.Contains(Page, line) {
+			t.Errorf("the page's icon differs from assets/icon.svg at %s", line)
+		}
+	}
+}

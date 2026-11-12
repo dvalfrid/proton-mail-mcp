@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/png/icon-128.png" width="96" height="96" alt=""></p>
+
 # proton-mail-mcp
 
 An MCP server that lets Claude manage a Proton Mail inbox through

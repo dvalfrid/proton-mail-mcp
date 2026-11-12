@@ -2,6 +2,7 @@ package wizard
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +21,14 @@ import (
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
 )
 
+// The project icon (assets/icon.svg) in the sizes Windows asks for, drawn by
+// assets/genicons.go.
+//
+//go:embed icons/*.png
+var icons embed.FS
+
+var iconSizes = []int{16, 20, 24, 32, 40, 48, 64}
+
 // The window's client size in pixels at 100% scaling.
 const width, height = 780, 560
 
@@ -28,31 +37,33 @@ const width, height = 780, 560
 var background = map[bool][3]uint8{false: {0xf3, 0xf3, 0xf3}, true: {0x20, 0x20, 0x20}}
 
 var (
-	user32                      = windows.NewLazySystemDLL("user32.dll")
-	procRegisterClassExW        = user32.NewProc("RegisterClassExW")
-	procCreateWindowExW         = user32.NewProc("CreateWindowExW")
-	procDefWindowProcW          = user32.NewProc("DefWindowProcW")
-	procShowWindow              = user32.NewProc("ShowWindow")
-	procDestroyWindow           = user32.NewProc("DestroyWindow")
-	procPostQuitMessage         = user32.NewProc("PostQuitMessage")
-	procGetMessageW             = user32.NewProc("GetMessageW")
-	procTranslateMessage        = user32.NewProc("TranslateMessage")
-	procDispatchMessageW        = user32.NewProc("DispatchMessageW")
-	procPostThreadMessageW      = user32.NewProc("PostThreadMessageW")
-	procAdjustWindowRect        = user32.NewProc("AdjustWindowRect")
-	procGetSystemMetrics        = user32.NewProc("GetSystemMetrics")
-	procLoadCursorW             = user32.NewProc("LoadCursorW")
-	procLoadIconW               = user32.NewProc("LoadIconW")
-	procSetForegroundWindow     = user32.NewProc("SetForegroundWindow")
-	procSetTimer                = user32.NewProc("SetTimer")
-	procKillTimer               = user32.NewProc("KillTimer")
-	procSetProcessDpiAwarenessC = user32.NewProc("SetProcessDpiAwarenessContext")
-	procGetDpiForSystem         = user32.NewProc("GetDpiForSystem")
-	procMessageBoxW             = user32.NewProc("MessageBoxW")
-	gdi32                       = windows.NewLazySystemDLL("gdi32.dll")
-	procCreateSolidBrush        = gdi32.NewProc("CreateSolidBrush")
-	dwmapi                      = windows.NewLazySystemDLL("dwmapi.dll")
-	procDwmSetWindowAttribute   = dwmapi.NewProc("DwmSetWindowAttribute")
+	user32                       = windows.NewLazySystemDLL("user32.dll")
+	procRegisterClassExW         = user32.NewProc("RegisterClassExW")
+	procCreateWindowExW          = user32.NewProc("CreateWindowExW")
+	procDefWindowProcW           = user32.NewProc("DefWindowProcW")
+	procShowWindow               = user32.NewProc("ShowWindow")
+	procDestroyWindow            = user32.NewProc("DestroyWindow")
+	procPostQuitMessage          = user32.NewProc("PostQuitMessage")
+	procGetMessageW              = user32.NewProc("GetMessageW")
+	procTranslateMessage         = user32.NewProc("TranslateMessage")
+	procDispatchMessageW         = user32.NewProc("DispatchMessageW")
+	procPostThreadMessageW       = user32.NewProc("PostThreadMessageW")
+	procAdjustWindowRect         = user32.NewProc("AdjustWindowRect")
+	procGetSystemMetrics         = user32.NewProc("GetSystemMetrics")
+	procLoadCursorW              = user32.NewProc("LoadCursorW")
+	procLoadIconW                = user32.NewProc("LoadIconW")
+	procSetForegroundWindow      = user32.NewProc("SetForegroundWindow")
+	procSetTimer                 = user32.NewProc("SetTimer")
+	procKillTimer                = user32.NewProc("KillTimer")
+	procSetProcessDpiAwarenessC  = user32.NewProc("SetProcessDpiAwarenessContext")
+	procGetDpiForSystem          = user32.NewProc("GetDpiForSystem")
+	procGetSystemMetricsForDpi   = user32.NewProc("GetSystemMetricsForDpi")
+	procCreateIconFromResourceEx = user32.NewProc("CreateIconFromResourceEx")
+	procMessageBoxW              = user32.NewProc("MessageBoxW")
+	gdi32                        = windows.NewLazySystemDLL("gdi32.dll")
+	procCreateSolidBrush         = gdi32.NewProc("CreateSolidBrush")
+	dwmapi                       = windows.NewLazySystemDLL("dwmapi.dll")
+	procDwmSetWindowAttribute    = dwmapi.NewProc("DwmSetWindowAttribute")
 )
 
 const (
@@ -187,11 +198,15 @@ func (w *window) create(title string, scale float64, bg [3]uint8) error {
 		return err
 	}
 	className := windows.StringToUTF16Ptr("ProtonMailMCPSetup")
-	cursor, _, _ := procLoadCursorW.Call(0, 32512) // IDC_ARROW
-	icon, _, _ := procLoadIconW.Call(0, 32512)     // IDI_APPLICATION
+	cursor, _, _ := procLoadCursorW.Call(0, 32512)           // IDC_ARROW
+	icon, iconSm := loadIcon(11, scale), loadIcon(49, scale) // SM_CXICON, SM_CXSMICON
+	if icon == 0 || iconSm == 0 {
+		icon, _, _ = procLoadIconW.Call(0, 32512) // IDI_APPLICATION
+		iconSm = icon
+	}
 	brush, _, _ := procCreateSolidBrush.Call(uintptr(bg[0]) | uintptr(bg[1])<<8 | uintptr(bg[2])<<16)
 	wc := wndClassEx{
-		wndProc: windows.NewCallback(wndProc), instance: uintptr(instance), icon: icon, iconSm: icon,
+		wndProc: windows.NewCallback(wndProc), instance: uintptr(instance), icon: icon, iconSm: iconSm,
 		cursor: cursor, background: brush, className: className,
 	}
 	wc.size = uint32(unsafe.Sizeof(wc))
@@ -214,6 +229,35 @@ func (w *window) create(title string, scale float64, bg [3]uint8) error {
 	}
 	w.hwnd = hwnd
 	return nil
+}
+
+// loadIcon makes the project icon at the size Windows uses for metric (a
+// GetSystemMetrics index), from the smallest embedded PNG at least that
+// big. 0 if it can't.
+func loadIcon(metric uintptr, scale float64) uintptr {
+	size := 0
+	if procGetSystemMetricsForDpi.Find() == nil {
+		v, _, _ := procGetSystemMetricsForDpi.Call(metric, uintptr(96*scale))
+		size = int(v)
+	}
+	if size <= 0 {
+		v, _, _ := procGetSystemMetrics.Call(metric)
+		size = int(float64(v) * scale)
+	}
+	best := iconSizes[len(iconSizes)-1]
+	for _, s := range iconSizes {
+		if s >= size {
+			best = s
+			break
+		}
+	}
+	data, err := icons.ReadFile(fmt.Sprintf("icons/icon-%d.png", best))
+	if err != nil || len(data) == 0 {
+		return 0
+	}
+	// fIcon TRUE, version 0x00030000; PNG data is accepted since Vista.
+	h, _, _ := procCreateIconFromResourceEx.Call(uintptr(unsafe.Pointer(&data[0])), uintptr(len(data)), 1, 0x00030000, uintptr(size), uintptr(size), 0) //nolint:gosec // G103: Win32 call reading the embedded PNG bytes
+	return h
 }
 
 // configure locks the web view down to a single page: no developer tools,
