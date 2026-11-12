@@ -131,6 +131,17 @@ pre.cmd { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; margi
 .install ul { margin: 0; padding-left: 20px; color: var(--fg2); font-size: 15.5px; }
 .install .btn { align-self: flex-start; }
 
+/* Roadmap */
+.road { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.road .card { display: flex; flex-direction: column; gap: 10px; }
+.road .card.now { border-color: var(--green); }
+.road .ver { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.road .ver b { font-size: 22px; letter-spacing: -.01em; }
+.road .tag { font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; border-radius: 999px; padding: 2px 10px; color: var(--violet); background: var(--chip); }
+.road .now .tag { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.road h3 { margin: 0; font-size: 17px; }
+.road ul { margin: 0; padding-left: 18px; color: var(--fg2); font-size: 15px; }
+
 /* FAQ */
 .faq { max-width: 820px; }
 details { border-bottom: 1px solid var(--line); padding: 4px 0; }
@@ -151,7 +162,7 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
   <div class="wrap">
     <a class="brand" href="#"><img src="assets/icon.svg" alt="" width="30" height="30">Proton Mail MCP</a>
     <nav class="menu" aria-label="Sections">
-      <a href="#what">What it does</a><a href="#how">How it works</a><a href="#safety">Safety</a><a href="#setup">Setup</a><a href="#install">Install</a><a href="#faq">FAQ</a>
+      <a href="#what">What it does</a><a href="#how">How it works</a><a href="#safety">Safety</a><a href="#setup">Setup</a><a href="#install">Install</a><a href="#roadmap">Roadmap</a><a href="#faq">FAQ</a>
     </nav>
     <a class="gh" href="https://github.com/dvalfrid/proton-mail-mcp" rel="noopener"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
   </div>
@@ -198,7 +209,7 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
       <span class="ask">What did the landlord say about the lease?</span>
     </div>
     <p class="tools">Tools: <code>list_folders</code> <code>list_messages</code> <code>search_messages</code> <code>read_message</code> <code>mark_read</code> <code>mark_unread</code> <code>flag</code> <code>unflag</code> <code>move_message</code> <code>add_label</code> <code>trash_message</code>.
-      Next: drafts, viewing images and saving attachments<span class="soon">0.4</span></p>
+      Coming in 0.4.0: drafts, viewing images and saving attachments. <a href="#roadmap">See what's next</a>.</p>
   </div>
 </section>
 
@@ -258,7 +269,7 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
     <h2>Built to be trusted with your mail</h2>
     <p class="sub">Mail is personal. These limits are part of the program, with tests that fail if any of them is weakened.</p>
     <div class="grid">
-      <div class="card"><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/><path d="M3 21 21 3" opacity=".9"/></svg></div><h3>Can't send mail</h3><p>There is no tool that sends. When sending comes, it will only send a draft you've seen, and only after you turn it on.</p></div>
+      <div class="card"><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/><path d="M3 21 21 3" opacity=".9"/></svg></div><h3>Can't send mail</h3><p>There is no tool that sends. When sending comes in 0.6.0, it will only send a draft you've seen, and only after you turn it on.</p></div>
       <div class="card"><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></div><h3>Nothing is deleted for good</h3><p>"Delete" means move to Trash, where you can restore it. Permanent deletion isn't in the program at all.</p></div>
       <div class="card"><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div><h3>Your password stays put</h3><p>You type the Bridge password into setup, and it goes to Windows Credential Manager. Claude never sees it, and it's never in a config file.</p></div>
       <div class="card"><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div><h3>Reading changes nothing</h3><p>Reading a message never marks it read. Only "mark read" does that.</p></div>
@@ -309,9 +320,26 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
       </div>
       <div class="card">
         <h3>macOS and Linux</h3>
-        <ul><li>Download the archive for your system from the release</li><li>Run <code>proton-mail-mcp setup</code> in a terminal</li><li>The setup wizard comes in 0.5</li></ul>
+        <ul><li>Download the archive for your system from the release</li><li>Run <code>proton-mail-mcp setup</code> in a terminal</li><li>The setup wizard is coming in 0.5.0</li></ul>
         <a class="btn ghost" href="https://github.com/dvalfrid/proton-mail-mcp#setup">Setup guide</a>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="wrap">
+    <h2>What's next</h2>
+    <p class="sub">Each version widens what Claude may do, and starts only once the one before is in daily use. Plans, not promises: the details are in the <a href="https://github.com/dvalfrid/proton-mail-mcp/blob/main/ROADMAP.md">roadmap</a>.</p>
+    <div class="road">
+      <div class="card now"><div class="ver"><b>0.3.0</b><span class="tag">Available now</span></div><h3>Windows installer</h3>
+        <ul><li>Read, search and organise your mail</li><li>Setup wizard, no terminal needed</li><li>Updates that keep your settings</li></ul></div>
+      <div class="card"><div class="ver"><b>0.4.0</b><span class="tag">Coming next</span></div><h3>Drafts and attachments</h3>
+        <ul><li>Claude writes drafts and replies, for you to send</li><li>Claude can look at the images in a message</li><li>Save an attachment to a folder you choose</li><li>Remove labels</li></ul></div>
+      <div class="card"><div class="ver"><b>0.5.0</b><span class="tag">Coming</span></div><h3>macOS and Linux</h3>
+        <ul><li>The setup wizard on macOS and Linux</li><li>Homebrew, and .deb and .rpm packages</li><li>A Claude Desktop extension</li></ul></div>
+      <div class="card"><div class="ver"><b>0.6.0</b><span class="tag">Coming</span></div><h3>Send on your command</h3>
+        <ul><li>Sends only a draft you've seen</li><li>Off until you turn it on</li><li>Claude Desktop set to ask you before every send</li></ul></div>
     </div>
   </div>
 </section>
@@ -322,7 +350,7 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
     <details><summary>Is this made by Proton or Anthropic?</summary><p>No. Proton Mail MCP is an independent open-source project. It uses Proton Mail Bridge, Proton's own app, the way any mail program does, and Claude's standard way of adding tools (MCP).</p></details>
     <details><summary>Does my mail leave my computer?</summary><p>Bridge decrypts your mail on your computer, and Proton Mail MCP only talks to Bridge, locally. But the messages you ask Claude to read become part of your conversation with Claude, which Anthropic processes. Ask Claude about the mail you're comfortable sharing with Claude.</p></details>
     <details><summary>Why do I need Proton Mail Bridge and a paid plan?</summary><p>Proton Mail is end-to-end encrypted, so only Bridge, on your computer, can turn it into ordinary mail that programs can read. Bridge is part of Proton's paid plans.</p></details>
-    <details><summary>Can Claude send email or delete my mail?</summary><p>It can't send at all today. Deleting means moving to Trash, which you can undo. Permanent deletion isn't possible. Sending will come later, and it will only send a draft you've seen, after you turn it on.</p></details>
+    <details><summary>Can Claude send email or delete my mail?</summary><p>It can't send at all today. Deleting means moving to Trash, which you can undo. Permanent deletion isn't possible. Sending comes in 0.6.0, and it will only send a draft you've seen, after you turn it on.</p></details>
     <details><summary>What if a message tries to trick Claude?</summary><p>Messages are given to Claude marked as untrusted content written by their sender, and the tools can only do the limited things above, at most 200 changes per session. You see what Claude does in the conversation.</p></details>
     <details><summary>How do I update or uninstall?</summary><p>Run a newer installer, or <code>winget upgrade</code>: it replaces the program and keeps your settings. Uninstall from Settings → Apps. It removes Proton Mail MCP from Claude, and your settings and saved password only if you tick that box.</p></details>
     <details><summary>Something doesn't work</summary><p>Run <em>Proton Mail MCP Check</em> from the Start menu: it tests each step and links to the fix. Every error has a section in the <a href="https://github.com/dvalfrid/proton-mail-mcp/blob/main/docs/troubleshooting.md">troubleshooting guide</a>. Still stuck? <a href="https://github.com/dvalfrid/proton-mail-mcp/issues">Open an issue</a>.</p></details>
