@@ -340,11 +340,37 @@ func TestTimeoutOnSilentServer(t *testing.T) {
 	}
 	c := New(Options{Addr: ln.Addr().String(), User: "u", Password: "p", TLSConfig: tlsCfg, Timeout: 200 * time.Millisecond, Logger: slog.New(slog.DiscardHandler)})
 	start := time.Now()
-	if _, err := c.Folders(context.Background()); err == nil {
-		t.Fatal("want a timeout error")
+	if _, err := c.Folders(context.Background()); !errors.Is(err, ErrTimeout) {
+		t.Fatalf("err = %v, want ErrTimeout", err)
 	}
 	if d := time.Since(start); d > 3*time.Second {
 		t.Fatalf("took %v, want the 200ms timeout to apply", d)
+	}
+}
+
+// Searches get their own, longer timeout (issue #39): with an operation
+// timeout far too short to even connect, a listing times out and a search,
+// under the search timeout, does not.
+func TestSearchHasItsOwnTimeout(t *testing.T) {
+	t.Parallel()
+	srv := testutil.NewIMAPServer(t)
+	srv.AddMessage(t, "INBOX", message("bob@example.org", "One", "Mon, 02 Nov 2026 10:00:00 +0000"))
+	tlsCfg, err := TLSConfig(srv.Host, srv.CertFile(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := New(Options{
+		Addr: srv.Addr(), User: testutil.User, Password: config.Secret(testutil.Password), TLSConfig: tlsCfg,
+		Timeout: time.Microsecond, SearchTimeout: 5 * time.Second, Logger: slog.New(slog.DiscardHandler),
+	})
+	t.Cleanup(func() { _ = c.Close() })
+
+	if _, err := c.ListMessages(context.Background(), "INBOX", ListOptions{}); !errors.Is(err, ErrTimeout) {
+		t.Fatalf("list: err = %v, want ErrTimeout", err)
+	}
+	l, err := c.SearchMessages(context.Background(), "INBOX", SearchOptions{From: "bob"})
+	if err != nil || len(l.Messages) != 1 {
+		t.Fatalf("search: %+v, %v", l, err)
 	}
 }
 

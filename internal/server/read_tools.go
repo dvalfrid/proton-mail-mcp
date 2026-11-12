@@ -155,7 +155,9 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 			"Text matches are case-insensitive substrings. Returns the newest matches in the same shape as list_messages. Does not change anything; messages are not marked as read. " +
 			"Limitation: Proton Mail Bridge matches text against the raw, still-encoded message, so terms with non-ASCII letters (å, ä, ö, é, …) usually find nothing, " +
 			"and a word can be missed where the encoding splits a line. No matches is therefore not proof that no such mail exists: " +
-			"retry with an ASCII part of the word, or narrow by sender, date or folder and read the messages.",
+			"retry with an ASCII part of the word, or narrow by sender, date or folder and read the messages. " +
+			"Bridge has no search index: sender, recipient, subject and text criteria read every message in the folder, which takes seconds in large folders (All Mail); " +
+			"add since or before, or search a smaller folder, when you can.",
 		Annotations: readOnly("Search messages"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in SearchMessagesInput) (*mcp.CallToolResult, SearchMessagesOutput, error) {
 		if in.Folder == "" {
@@ -171,6 +173,10 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 		l, err := m.SearchMessages(ctx, in.Folder, opts)
 		if errors.Is(err, mail.ErrNoSearchCriteria) {
 			return nil, SearchMessagesOutput{}, fmt.Errorf("give at least one of from, to, subject, body, since, before or unread_only; list_messages lists a folder without criteria")
+		}
+		if errors.Is(err, mail.ErrTimeout) {
+			return nil, SearchMessagesOutput{}, fmt.Errorf("search in %q took too long: Bridge reads every message for text criteria. "+
+				"Narrow it with since or before, or search a smaller folder than All Mail: %w", in.Folder, err)
 		}
 		if err != nil {
 			return nil, SearchMessagesOutput{}, fmt.Errorf("search messages in %q: %w", in.Folder, err)

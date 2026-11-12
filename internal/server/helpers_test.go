@@ -27,6 +27,12 @@ type env struct {
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
+	return newEnvWith(t, nil)
+}
+
+// newEnvWith is newEnv with the mail client's options changed by change.
+func newEnvWith(t *testing.T, change func(*mail.Options)) *env {
+	t.Helper()
 	ctx := context.Background()
 	srv := testutil.NewIMAPServer(t)
 	logs := &syncBuffer{}
@@ -36,10 +42,14 @@ func newEnv(t *testing.T) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := mail.New(mail.Options{
+	opts := mail.Options{
 		Addr: srv.Addr(), User: testutil.User, Password: config.Secret(testutil.Password),
 		TLSConfig: tlsCfg, Timeout: 5 * time.Second, Logger: logger,
-	})
+	}
+	if change != nil {
+		change(&opts)
+	}
+	m := mail.New(opts)
 	t.Cleanup(func() { _ = m.Close() })
 
 	serverT, clientT := mcp.NewInMemoryTransports()

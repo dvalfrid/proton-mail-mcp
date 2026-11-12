@@ -6,8 +6,11 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/emersion/go-imap/v2"
+
+	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
 )
 
 const (
@@ -150,6 +153,16 @@ func TestSearchMessagesErrors(t *testing.T) {
 		if !res.IsError || !strings.Contains(text(res), tt.want) {
 			t.Errorf("%s: IsError=%v text=%q, want an error mentioning %q", tt.name, res.IsError, text(res), tt.want)
 		}
+	}
+}
+
+// A search that runs out of time tells Claude how to narrow it (issue #39).
+func TestSearchTimeoutAdvises(t *testing.T) {
+	t.Parallel()
+	e := newEnvWith(t, func(o *mail.Options) { o.SearchTimeout = time.Microsecond })
+	res := e.call(t, "search_messages", map[string]any{"folder": "INBOX", "from": "bob"})
+	if !res.IsError || !strings.Contains(text(res), "since or before") {
+		t.Errorf("IsError=%v text=%q, want advice to narrow the search", res.IsError, text(res))
 	}
 }
 

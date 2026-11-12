@@ -319,7 +319,7 @@
       "readOnlyHint": true,
       "title": "Search messages"
     },
-    "description": "Search one folder for messages matching all the given criteria (at least one): sender, recipient, subject, message text, date range, unread. Text matches are case-insensitive substrings. Returns the newest matches in the same shape as list_messages. Does not change anything; messages are not marked as read. Limitation: Proton Mail Bridge matches text against the raw, still-encoded message, so terms with non-ASCII letters (å, ä, ö, é, …) usually find nothing, and a word can be missed where the encoding splits a line. No matches is therefore not proof that no such mail exists: retry with an ASCII part of the word, or narrow by sender, date or folder and read the messages.",
+    "description": "Search one folder for messages matching all the given criteria (at least one): sender, recipient, subject, message text, date range, unread. Text matches are case-insensitive substrings. Returns the newest matches in the same shape as list_messages. Does not change anything; messages are not marked as read. Limitation: Proton Mail Bridge matches text against the raw, still-encoded message, so terms with non-ASCII letters (å, ä, ö, é, …) usually find nothing, and a word can be missed where the encoding splits a line. No matches is therefore not proof that no such mail exists: retry with an ASCII part of the word, or narrow by sender, date or folder and read the messages. Bridge has no search index: sender, recipient, subject and text criteria read every message in the folder, which takes seconds in large folders (All Mail); add since or before, or search a smaller folder, when you can.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
