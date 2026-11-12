@@ -3,6 +3,10 @@
 package server
 
 import (
+	"context"
+	"errors"
+	"log/slog"
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
@@ -30,9 +34,29 @@ func New(version string, mailClient *mail.Client) *mcp.Server {
 		&mcp.Implementation{Name: Name, Version: version},
 		&mcp.ServerOptions{Instructions: instructions},
 	)
+	s.AddReceivingMiddleware(recoverPanics)
 	if mailClient != nil {
 		registerReadTools(s, mailClient)
 		registerOrganizeTools(s, mailClient)
 	}
 	return s
+}
+
+// errInternal is what a request that panicked returns to the client.
+var errInternal = errors.New("internal error in proton-mail-mcp; the server is still running, so the call can be retried")
+
+// recoverPanics turns a panic while handling a request into an error for
+// that request. The MCP SDK doesn't recover panics, so without this one bug
+// would end the server and Claude would lose every tool until the client
+// restarts it.
+func recoverPanics(next mcp.MethodHandler) mcp.MethodHandler {
+	return func(ctx context.Context, method string, req mcp.Request) (res mcp.Result, err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				mail.LogPanic(slog.Default(), method, r)
+				res, err = nil, errInternal
+			}
+		}()
+		return next(ctx, method, req)
+	}
 }
