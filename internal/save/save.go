@@ -27,6 +27,10 @@ import (
 const (
 	maxNameRunes = 150
 	maxExtRunes  = 20
+	// maxNameBytes keeps a name, with " (1000)" and a "_" added, under the
+	// 255 bytes Linux and macOS allow (and the 255 UTF-16 units of Windows):
+	// 150 runes of "ö" are 300 bytes.
+	maxNameBytes = 200
 	// maxNumbered is how many "name (n).ext" are tried before giving up.
 	maxNumbered = 1000
 )
@@ -128,8 +132,13 @@ func CleanName(name string) string {
 		ext = string(r[:maxExtRunes])
 	}
 	if r := []rune(stem); len(r)+utf8.RuneCountInString(ext) > maxNameRunes {
-		stem = strings.TrimRight(string(r[:maxNameRunes-utf8.RuneCountInString(ext)]), ". ")
+		stem = string(r[:maxNameRunes-utf8.RuneCountInString(ext)])
 	}
+	for len(stem)+len(ext) > maxNameBytes {
+		_, size := utf8.DecodeLastRuneInString(stem)
+		stem = stem[:len(stem)-size]
+	}
+	stem = strings.TrimRight(stem, ". ")
 	if stem == "" {
 		stem = fallbackName
 	}

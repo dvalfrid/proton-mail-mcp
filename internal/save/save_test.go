@@ -51,6 +51,13 @@ func TestCleanName(t *testing.T) {
 	if utf8.RuneCountInString(got) != maxNameRunes || !strings.HasSuffix(got, ".pdf") {
 		t.Errorf("long name = %q (%d runes)", got, utf8.RuneCountInString(got))
 	}
+	// Linux and macOS count bytes: 150 "ö" would be 300.
+	for _, in := range []string{strings.Repeat("ö", 500), strings.Repeat("ö", 500) + ".pdf", strings.Repeat("😀", 200)} {
+		got := CleanName(in)
+		if len(got) > maxNameBytes || !utf8.ValidString(got) || got == "" {
+			t.Errorf("CleanName(%d runes) = %d bytes, valid %v", utf8.RuneCountInString(in), len(got), utf8.ValidString(got))
+		}
+	}
 }
 
 // Whatever the name, the file lands directly in the folder, under a name
