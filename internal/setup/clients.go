@@ -43,7 +43,9 @@ func (ClaudeCode) Register(exe string) error {
 func claude(args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "claude", args...).CombinedOutput() //nolint:gosec // G204: fixed command; the only variable is this program's own path
+	cmd := exec.CommandContext(ctx, "claude", args...) //nolint:gosec // G204: fixed command; the only variable is this program's own path
+	noConsole(cmd)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("claude %s: %w: %s", args[1], err, clip(string(out)))
 	}
