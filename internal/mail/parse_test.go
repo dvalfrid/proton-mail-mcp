@@ -292,7 +292,7 @@ func TestParseMessageDamaged(t *testing.T) {
 }
 
 func TestHTMLToTextNestedHidden(t *testing.T) {
-	got, cut := htmlToText([]byte(`<p>a</p><div hidden><div>x</div><div>y</div></div><p>b</p><script>var s = "</div>";</script>c`))
+	got, cut := htmlToText([]byte(`<p>a</p><div hidden><div>x</div><div>y</div></div><p>b</p><script>var s = "</div>";</script>c`), maxBodyBytes)
 	if cut {
 		t.Error("cut set")
 	}

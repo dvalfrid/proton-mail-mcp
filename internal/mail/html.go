@@ -40,7 +40,10 @@ var blocks = map[atom.Atom]bool{
 // styles, embedded objects and text hidden with the hidden attribute or
 // display:none / visibility:hidden are dropped. Images become their alt
 // text; nothing is fetched. It reports whether the input was cut short.
-func htmlToText(data []byte) (string, bool) {
+//
+// It stops once the text is longer than maxOut bytes (reported as cut), so
+// a large part costs no more than the text that will be returned.
+func htmlToText(data []byte, maxOut int) (string, bool) {
 	z := html.NewTokenizer(bytes.NewReader(data))
 	z.SetMaxBuf(maxHTMLTokenBytes)
 
@@ -58,6 +61,9 @@ func htmlToText(data []byte) (string, bool) {
 	}
 
 	for {
+		if b.Len() > maxOut {
+			return b.String(), true
+		}
 		tt := z.Next()
 		if tt == html.ErrorToken {
 			return b.String(), !errors.Is(z.Err(), io.EOF)
@@ -118,7 +124,7 @@ func htmlToText(data []byte) (string, bool) {
 			switch {
 			case tag == atom.A && len(links) > 0:
 				// Show the target unless the link text already is it.
-				if l := links[len(links)-1]; l.href != "" && !strings.Contains(b.String()[l.start:], l.href) {
+				if l := links[len(links)-1]; l.href != "" && !linkTextIs(b.String()[l.start:], l.href) {
 					b.WriteString(" <" + l.href + ">")
 				}
 				links = links[:len(links)-1]
@@ -203,4 +209,15 @@ func collapseSpace(s string, atLineStart bool) string {
 		out += " "
 	}
 	return out
+}
+
+// linkTextIs reports whether a link's text already shows its target, so
+// the target isn't repeated. It looks only at the start of the text, a
+// little longer than the target: searching all text since the link opened
+// made nested, unclosed links quadratic (issue #72).
+func linkTextIs(text, href string) bool {
+	if n := len(href) + 64; len(text) > n {
+		text = text[:n]
+	}
+	return strings.Contains(text, href)
 }

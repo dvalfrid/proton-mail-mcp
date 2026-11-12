@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	gomessage "github.com/emersion/go-message"
 	_ "github.com/emersion/go-message/charset" // registers non-UTF-8 charsets for decoding
@@ -76,9 +77,18 @@ func ParseMessage(r io.Reader) (*Message, error) {
 	m := p.msg
 	switch {
 	case len(p.plain) > 0:
-		m.Body, m.BodyFormat = strings.Join(p.plain, "\n\n"), "text"
+		m.Body, m.BodyFormat = joinCapped(p.plain, maxBodyBytes, m), "text"
 	case len(p.html) > 0:
-		m.Body, m.BodyFormat = strings.Join(p.html, "\n\n"), "html"
+		// HTML is converted only when there is no plain text to use.
+		texts := make([]string, 0, len(p.html))
+		for _, data := range p.html {
+			text, cut := htmlToText(data, maxBodyBytes)
+			if cut {
+				m.Truncated = true
+			}
+			texts = append(texts, text)
+		}
+		m.Body, m.BodyFormat = joinCapped(texts, maxBodyBytes, m), "html"
 	}
 	m.Body = cleanBody(m.Body)
 	if r := []rune(m.Body); len(r) > MaxBodyRunes {
@@ -94,8 +104,35 @@ func ParseMessage(r io.Reader) (*Message, error) {
 type parser struct {
 	msg   *Message
 	plain []string
-	html  []string
+	html  [][]byte // raw HTML parts, converted only if there is no plain text
 	parts int
+}
+
+// maxBodyBytes bounds the body text kept before it is cut to MaxBodyRunes:
+// no rune is longer than four bytes. Parts aren't joined or converted in
+// full only to be cut (issue #72).
+const maxBodyBytes = MaxBodyRunes * 4
+
+// joinCapped joins parts with blank lines, stopping after limit bytes and
+// marking m truncated if it does.
+func joinCapped(parts []string, limit int, m *Message) string {
+	var b strings.Builder
+	for i, part := range parts {
+		if i > 0 {
+			b.WriteString("\n\n")
+		}
+		if b.Len()+len(part) > limit {
+			cut := part[:max(limit-b.Len(), 0)]
+			for len(cut) > 0 && !utf8.ValidString(cut) { // don't split a character
+				cut = cut[:len(cut)-1]
+			}
+			b.WriteString(cut)
+			m.Truncated = true
+			break
+		}
+		b.WriteString(part)
+	}
+	return b.String()
 }
 
 func (p *parser) headers(h gomail.Header) {
@@ -175,11 +212,7 @@ func (p *parser) walk(e *gomessage.Entity, depth int) {
 			p.msg.Truncated = true
 		}
 		if mediaType == "text/html" {
-			text, cut := htmlToText(data)
-			if cut {
-				p.msg.Truncated = true
-			}
-			p.html = append(p.html, text)
+			p.html = append(p.html, data)
 		} else {
 			p.plain = append(p.plain, toValidUTF8(data))
 		}
