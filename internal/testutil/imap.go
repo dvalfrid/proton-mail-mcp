@@ -65,7 +65,7 @@ func NewIMAPServer(t testing.TB) *IMAPServer {
 		TLSConfig:   &tls.Config{Certificates: []tls.Certificate{cert.TLS}, MinVersion: tls.VersionTLS12},
 		Caps:        imap.CapSet{imap.CapIMAP4rev1: {}, imap.CapMove: {}, imap.CapUIDPlus: {}},
 		DebugWriter: transcript,
-		Logger:      testLogger{t},
+		Logger:      newTestLogger(t),
 	})
 
 	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
@@ -172,6 +172,29 @@ func (b *syncBuffer) String() string {
 	return b.buf.String()
 }
 
-type testLogger struct{ t testing.TB }
+// testLogger sends the server's log to the test's log until the test cleans
+// up. The server's connection goroutines can outlive srv.Close, and t.Logf
+// after the test has finished is a data race (seen with -race in CI).
+type testLogger struct {
+	t      testing.TB
+	mu     sync.Mutex
+	closed bool
+}
 
-func (l testLogger) Printf(format string, args ...any) { l.t.Logf("imapserver: "+format, args...) }
+func newTestLogger(t testing.TB) *testLogger {
+	l := &testLogger{t: t}
+	t.Cleanup(func() {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		l.closed = true
+	})
+	return l
+}
+
+func (l *testLogger) Printf(format string, args ...any) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if !l.closed {
+		l.t.Logf("imapserver: "+format, args...)
+	}
+}
