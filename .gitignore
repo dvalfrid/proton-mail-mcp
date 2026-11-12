@@ -16,3 +16,6 @@ coverage.*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Windows resources, made by ./tools/task.ps1 build
+*.syso

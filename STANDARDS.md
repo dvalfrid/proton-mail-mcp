@@ -194,6 +194,8 @@ Standard library first. Approved:
 | `github.com/jchv/go-webview2` (with `jchv/go-winloader`) | The graphical setup wizard's window on Windows: Microsoft Edge WebView2 from Go, without cgo, so the release still cross-compiles. Used only by `proton-mail-mcp-setup`, never by the server. Approved by the owner 2026-11-12. |
 | `github.com/zalando/go-keyring` (with `danieljoos/wincred`, `godbus/dbus/v5`) | The Bridge password in the OS credential store on Windows, macOS and Linux, without cgo. Approved by the owner 2026-11-11; its macOS weakness is in SECURITY.md. |
 
+Development tools are pinned in `tools/go.mod` (not linked into the program). Besides golangci-lint, govulncheck and lefthook: `github.com/tc-hib/go-winres` (0BSD), which makes the Windows resources (icon, version details, manifest) that `./tools/task.ps1 build` links into the exe files. Approved by the owner 2026-11-12.
+
 Anything else needs explicit approval from the owner, with a reason in the PR. `go mod tidy` must leave `go.mod` and `go.sum` unchanged (checked in CI).
 
 ---
