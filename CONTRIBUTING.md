@@ -108,6 +108,7 @@ Closes #N
 - The release PR is opened with Actions' own token, which starts no workflows, so its required checks never run by themselves. Run them on its branch before merging: `gh workflow run verify.yml --ref release-please--branches--main--components--proton-mail-mcp`.
 - The version is embedded in the binary from the tag (`-X main.version`).
 - A release waits for the owner to approve the `release-signing` environment (Actions → the release run → Review deployments) before the Windows binaries are signed and anything is published.
+- **Release candidates** (`vX.Y.Z-rc.N`) test the installer before a real release: a GitHub pre-release built and signed like a release, but never Latest (the website's download buttons follow `releases/latest`) and never sent to winget. Create it with `gh release create … --prerelease --latest=false`, then `gh workflow run release.yml -f tag=<tag>`; the `/pre-release` skill has the steps.
 
 ## Continuous integration
 
