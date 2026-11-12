@@ -51,6 +51,8 @@ The tools that change messages take a folder, 1 to 50 `uids` from that folder an
 
 ## Setup
 
+**On Windows** there is also a graphical setup: `proton-mail-mcp-setup.exe`, next to `proton-mail-mcp.exe` in the Windows download. Start it (double-click) and it does the steps below in a window that follows the Windows 11 look, light or dark: no terminal needed. It needs Microsoft Edge WebView2, which Windows 11 has; without it, it opens the terminal setup instead. macOS and Linux get it later ([#91](https://github.com/dvalfrid/proton-mail-mcp/issues/91)).
+
 Put the program somewhere permanent, for example `C:\Tools\proton-mail-mcp\` (Windows) or `~/bin` (macOS/Linux). Build it with `./tools/task.ps1 build`, or download a release. Then, with Proton Mail Bridge running and signed in, run in a terminal:
 
 ```powershell

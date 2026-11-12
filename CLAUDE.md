@@ -110,6 +110,8 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 | `internal/server/` | Builds the MCP server and registers tools. `testdata/tools.golden.json` is the tool snapshot (`-update` to rewrite) |
 | `internal/bridge/` | Recognises Bridge (greeting), reads its certificate without trusting it (no InsecureSkipVerify), Windows port-owner check. Never logs in |
 | `internal/check/` | `proton-mail-mcp check` diagnostics and the start-up warning |
+| `cmd/proton-mail-mcp-setup/` | The graphical setup wizard (Windows, a windowed program next to the server exe). Falls back to the terminal setup without WebView2 |
+| `internal/wizard/` | The wizard: `page.html` (embedded, CSP denies everything external) in a WebView2 window; `Backend.Call` is the only thing the page can call and enforces the setup order |
 | `internal/setup/` | `proton-mail-mcp setup`: find Bridge, pin its certificate, ask for the password (hidden), test login, save, register in Claude |
 | `internal/keystore/` | The password in the OS credential store (go-keyring); `Memory` for tests |
 | `internal/testutil/` | In-memory IMAP server with STARTTLS and a per-test certificate; `NewBridge` imitates Bridge's greeting and SMTP |

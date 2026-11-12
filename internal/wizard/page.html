@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
+<title>Proton Mail MCP Setup</title>
+<style>
+/* Tokens per platform (win, mac, gnome) and mode (light, dark). Windows
+   follows the Windows 11 (Fluent) guidelines; mac and gnome are kept for
+   issue #91. */
+html, body { margin: 0; height: 100%; overflow: hidden; }
+* { box-sizing: border-box; }
+body { --font: system-ui; --fs: 14px; --fs-small: 12px; --fs-title: 20px; --fs-hero: 28px; --radius-ctl: 4px; --radius-card: 7px; }
+body.win { --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+body.mac { --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif; --fs: 13px; --fs-small: 11px; --fs-title: 17px; --fs-hero: 24px; --radius-ctl: 6px; --radius-card: 10px; }
+body.gnome { --font: "Adwaita Sans", "Cantarell", "Inter", system-ui, sans-serif; --fs: 15px; --fs-small: 13px; --fs-hero: 26px; --radius-ctl: 6px; --radius-card: 12px; }
+
+.win.light   { --bg: #f3f3f3; --side: transparent; --card: #fbfbfb; --card-border: #e5e5e5; --fg: #1b1b1b; --fg2: #5c5c5c; --accent: var(--sys-accent-light, #005fb8); --accent-fg: #fff;
+  --ctl: #fff; --ctl-border: #d6d6d6; --ctl-border-bottom: #8a8a8a; --sel: rgba(0,0,0,.05); --ok: #0f7b0f; --warn: #9d5d00; --warn-bg: #fff4ce; --err: #c42b1c; --err-bg: #fde7e9; }
+.win.dark    { --bg: #202020; --side: transparent; --card: #2b2b2b; --card-border: #1d1d1d; --fg: #fff; --fg2: #cfcfcf; --accent: var(--sys-accent-dark, #60cdff); --accent-fg: #000;
+  --ctl: #2d2d2d; --ctl-border: #3a3a3a; --ctl-border-bottom: #9a9a9a; --sel: rgba(255,255,255,.06); --ok: #6ccb5f; --warn: #fce100; --warn-bg: #433519; --err: #ff99a4; --err-bg: #442726; }
+.mac.light   { --bg: #fff; --side: #e9e8ed; --card: #f5f5f7; --card-border: #e2e2e6; --fg: #1d1d1f; --fg2: #6e6e73; --accent: #007aff; --accent-fg: #fff;
+  --ctl: #fff; --ctl-border: #d2d2d7; --sel: rgba(0,0,0,.06); --ok: #28a745; --warn: #a05a00; --warn-bg: #fff3d6; --err: #d70015; --err-bg: #ffe5e7; }
+.mac.dark    { --bg: #1e1e1e; --side: #2b2a2f; --card: #2a2a2c; --card-border: #3a3a3c; --fg: #f5f5f7; --fg2: #98989d; --accent: #0a84ff; --accent-fg: #fff;
+  --ctl: #1c1c1e; --ctl-border: #48484a; --sel: rgba(255,255,255,.08); --ok: #30d158; --warn: #ffd60a; --warn-bg: #3a3218; --err: #ff6961; --err-bg: #3d1f1f; }
+.gnome.light { --bg: #fafafb; --side: transparent; --card: #fff; --card-border: rgba(0,0,6,.07); --fg: rgba(0,0,6,.85); --fg2: rgba(0,0,6,.55); --accent: #3584e4; --accent-fg: #fff;
+  --ctl: rgba(0,0,6,.05); --ctl-border: transparent; --sel: rgba(0,0,6,.06); --ok: #1b8553; --warn: #9c6e03; --warn-bg: #fdf2cc; --err: #c01c28; --err-bg: #fbe4e6; }
+.gnome.dark  { --bg: #222226; --side: transparent; --card: rgba(255,255,255,.08); --card-border: transparent; --fg: #fff; --fg2: rgba(255,255,255,.6); --accent: #3584e4; --accent-fg: #fff;
+  --ctl: rgba(255,255,255,.1); --ctl-border: transparent; --sel: rgba(255,255,255,.08); --ok: #8ff0a4; --warn: #f8e45c; --warn-bg: #3d3519; --err: #ff7b63; --err-bg: #3f2424; }
+
+body { font-family: var(--font); font-size: var(--fs); color: var(--fg); background: var(--bg); line-height: 1.45; user-select: none; cursor: default; }
+.window { display: grid; grid-template-rows: 1fr auto; height: 100vh; }
+.body { display: grid; grid-template-columns: 210px 1fr; min-height: 0; }
+.nav { background: var(--side); padding: 12px 8px; }
+.content { padding: 28px 36px; overflow: auto; min-height: 0; outline: none; }
+.win .content { background: var(--card); border-top-left-radius: 8px; border-left: 1px solid var(--card-border); border-top: 1px solid var(--card-border); }
+.footer { display: flex; gap: 8px; align-items: center; padding: 16px 24px; border-top: 1px solid var(--card-border); }
+.footer .spacer { flex: 1; }
+
+h1 { font-size: var(--fs-hero); font-weight: 600; margin: 4px 0 8px; letter-spacing: -.01em; }
+h2 { font-size: var(--fs-title); font-weight: 600; margin: 0 0 6px; }
+p { margin: 0 0 12px; }
+.lead { color: var(--fg2); margin-bottom: 20px; }
+.small { font-size: var(--fs-small); color: var(--fg2); }
+.mono, code { font-family: "Cascadia Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: .86em; user-select: text; overflow-wrap: anywhere; }
+a { color: var(--accent); cursor: pointer; text-decoration: underline; }
+
+.btn { font: inherit; border-radius: var(--radius-ctl); padding: 5px 12px; min-width: 120px; border: 1px solid var(--ctl-border); background: var(--ctl); color: var(--fg); }
+.btn:hover:not(:disabled) { filter: brightness(.97); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn:disabled { opacity: .45; }
+.btn:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; }
+.win .btn { box-shadow: inset 0 -1px 0 rgba(0,0,0,.08); }
+
+.steps { list-style: none; margin: 0; padding: 0; }
+.steps li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--radius-ctl); color: var(--fg2); position: relative; margin-bottom: 2px; }
+.steps li.current { color: var(--fg); font-weight: 600; background: var(--sel); }
+.steps li.current::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: var(--accent); }
+.steps .dot { width: 18px; height: 18px; flex: none; display: grid; place-items: center; font-size: var(--fs-small); font-weight: 600; }
+.steps li.done .dot { color: var(--ok); }
+
+.card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius-card); }
+.win .content .card { background: var(--bg); }
+.rows .row { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; }
+.rows .row + .row { border-top: 1px solid var(--card-border); }
+.row .icon { width: 20px; height: 20px; flex: none; margin-top: 1px; display: grid; place-items: center; }
+.row .text { flex: 1; min-width: 0; }
+.row .title { font-weight: 500; }
+.row .sub { font-size: var(--fs-small); color: var(--fg2); overflow-wrap: anywhere; }
+.ok { color: var(--ok); } .err { color: var(--err); } .warnc { color: var(--warn); }
+.banner { display: flex; gap: 12px; padding: 12px 16px; border-radius: var(--radius-card); margin-bottom: 14px; }
+.banner.warn { background: var(--warn-bg); }
+.banner.error { background: var(--err-bg); }
+.banner .icon { flex: none; margin-top: 1px; }
+.banner .text { user-select: text; }
+
+.field { margin-bottom: 16px; }
+.field label { display: block; margin-bottom: 6px; font-weight: 500; }
+.field .help { font-size: var(--fs-small); color: var(--fg2); margin-top: 6px; }
+.input { position: relative; display: flex; }
+.input input { flex: 1; font: inherit; color: var(--fg); background: var(--ctl); border: 1px solid var(--ctl-border); border-bottom-color: var(--ctl-border-bottom, var(--ctl-border)); border-radius: var(--radius-ctl); padding: 6px 10px; min-width: 0; user-select: text; }
+.input input:focus { outline: none; border-bottom: 2px solid var(--accent); padding-bottom: 5px; }
+.reveal { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--fg2); padding: 4px 6px; border-radius: 4px; }
+.reveal:hover { background: var(--sel); }
+input::-ms-reveal { display: none; }
+.check { display: flex; gap: 12px; align-items: center; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; flex: none; }
+
+.spinner { width: 16px; height: 16px; border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+.appicon { width: 64px; height: 64px; margin-bottom: 12px; }
+.bullets { margin: 4px 0 18px; padding: 0; list-style: none; }
+.bullets li { display: flex; gap: 12px; align-items: center; padding: 6px 0; }
+.bullets .num { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; background: var(--sel); flex: none; }
+details summary { cursor: pointer; color: var(--fg2); font-size: var(--fs-small); margin-top: 10px; }
+.donebig { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); margin-bottom: 14px; }
+.busy { display: flex; gap: 10px; align-items: center; }
+</style>
+</head>
+<body class="win light">
+<div class="window">
+  <div class="body">
+    <nav class="nav" aria-label="Setup steps"><ol class="steps" id="steps"></ol></nav>
+    <main class="content" id="content" tabindex="-1" aria-live="polite"></main>
+  </div>
+  <div class="footer">
+    <button class="btn" id="cancel">Cancel</button>
+    <span class="spacer"></span>
+    <button class="btn" id="back">Back</button>
+    <button class="btn primary" id="next">Next</button>
+  </div>
+</div>
+<script>
+'use strict';
+// ---- Calls to the program (wizard.Backend.Call) ----
+const pending = {};
+let seq = 0;
+window.__pmcpDone = (id, ok, value) => {
+  const p = pending[id]; delete pending[id];
+  if (p) ok ? p.resolve(value) : p.reject(new Error(value));
+};
+function call(method, args = {}) {
+  return new Promise((resolve, reject) => {
+    const id = ++seq;
+    pending[id] = { resolve, reject };
+    window.__pmcp(id, method, args).catch(reject);
+  });
+}
+// Dropping a file on the window would load it in place of this page.
+for (const ev of ['dragover', 'drop']) addEventListener(ev, e => e.preventDefault());
+
+// ---- Icons ----
+const ICON = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b6cf6"/><stop offset="1" stop-color="#5b3fd1"/></linearGradient></defs>
+  <rect x="4" y="12" width="48" height="36" rx="7" fill="url(#g)"/>
+  <path d="M8 18l20 15 20-15" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>
+  <path d="M48 30l12 4.5v8.5c0 7.5-5.2 12.5-12 15-6.8-2.5-12-7.5-12-15v-8.5z" fill="#1fb47a" stroke="#fff" stroke-width="2.5"/>
+  <path d="M42.5 43l4 4 7-8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const I = {
+  ok: (n = 18) => `<svg width="${n}" height="${n}" viewBox="0 0 20 20" role="img" aria-label="OK"><circle cx="10" cy="10" r="9" fill="currentColor"/><path d="M6 10.3l2.6 2.6L14 7.6" fill="none" stroke="var(--bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  warn: `<svg width="18" height="18" viewBox="0 0 20 20" role="img" aria-label="Warning"><path d="M10 2l9 16H1z" fill="currentColor"/><path d="M10 8v4.5M10 15.2v.3" stroke="var(--warn-bg)" stroke-width="2" stroke-linecap="round"/></svg>`,
+  err: `<svg width="18" height="18" viewBox="0 0 20 20" role="img" aria-label="Error"><circle cx="10" cy="10" r="9" fill="currentColor"/><path d="M7 7l6 6M13 7l-6 6" stroke="var(--err-bg)" stroke-width="2" stroke-linecap="round"/></svg>`,
+  eye: `<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M1.5 10S5 4 10 4s8.5 6 8.5 6-3.5 6-8.5 6S1.5 10 1.5 10z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="10" r="2.6" fill="currentColor"/></svg>`,
+  spin: `<span class="spinner" role="status" aria-label="Working"></span>`,
+};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = s => document.querySelector(s);
+const row = (icon, cls, title, sub) => `<div class="row"><span class="icon ${cls}">${icon}</span><div class="text"><div class="title">${title}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div></div>`;
+const banner = (kind, title, text) => `<div class="banner ${kind}"><span class="icon ${kind === 'error' ? 'err' : 'warnc'}">${kind === 'error' ? I.err : I.warn}</span><div class="text"><div><b>${title}</b></div>${text ? `<div>${text}</div>` : ''}</div></div>`;
+
+// ---- State ----
+const STEPS = ['Welcome', 'Proton Mail Bridge', 'Bridge account', 'Claude', 'Finish'];
+const S = {
+  step: 0, state: null, bridge: null, looking: false, confirmed: false,
+  user: '', reveal: false, signing: false, signInError: '', typed: false,
+  pick: {}, registering: false, registered: null, fatal: '',
+};
+
+// ---- Steps ----
+function stepWelcome() {
+  return `<div class="appicon">${ICON}</div><h1>Set up Proton Mail MCP</h1>
+    <p class="lead">Lets Claude read and organise your Proton Mail, through Proton Mail Bridge on this computer. It takes about a minute.</p>
+    <ol class="bullets"><li><span class="num">1</span>Find Proton Mail Bridge</li><li><span class="num">2</span>Sign in with your Bridge password</li><li><span class="num">3</span>Add it to Claude</li></ol>
+    <p class="small">You need Proton Mail Bridge installed and signed in. <a data-link="bridge" tabindex="0">Get Bridge</a></p>
+    ${S.state?.error ? banner('warn', 'Your earlier settings could not be read', esc(S.state.error) + ' Setup will write new ones.') : ''}`;
+}
+
+function stepBridge() {
+  const head = `<h2>Proton Mail Bridge</h2><p class="lead">Setup checks that it talks to the real Proton Mail Bridge on this computer, and only to that one.</p>`;
+  const b = S.bridge;
+  if (S.looking || !b) return head + `<div class="card rows">${row(I.spin, '', 'Looking for Bridge…')}</div>`;
+  if (!b.answers) {
+    const text = b.installed
+      ? `Nothing answers on ${esc(b.addr)}. Bridge is installed, but it doesn't seem to be running. Start Proton Mail Bridge and sign in, then try again.`
+      : `Nothing answers on ${esc(b.addr)}, and Proton Mail Bridge doesn't seem to be installed. <a data-link="bridge" tabindex="0">Get Proton Mail Bridge</a>, sign in, then try again.`;
+    return head + banner('error', b.installed ? "Bridge isn't running" : 'Bridge not found', text) +
+      `<button class="btn" id="retry">Try again</button>
+      <details><summary>Bridge uses another port?</summary><p class="small" style="margin-top:8px">Run <code>proton-mail-mcp setup -imap-port &lt;port&gt;</code> in a terminal, with the IMAP port Bridge shows.</p></details>`;
+  }
+  if (!b.isBridge) {
+    return head + banner('error', 'This is not Proton Mail Bridge', `Something answers on ${esc(b.addr)}, but it is not Proton Mail Bridge. Check the IMAP port that Bridge shows and run <code>proton-mail-mcp setup -imap-port &lt;port&gt;</code> in a terminal.`) +
+      `<button class="btn" id="retry">Try again</button>`;
+  }
+  if (b.error) return head + banner('error', "Bridge's certificate can't be trusted", esc(b.error)) + `<button class="btn" id="retry">Try again</button>`;
+
+  let rows = row(I.ok(), 'ok', 'Bridge answers', `Proton Mail Bridge on ${esc(b.addr)}`);
+  if (b.verified) rows += row(I.ok(), 'ok', "It is Proton's own Bridge", `The port belongs to a validly signed bridge.exe in Program Files: <span class="mono">${esc(b.ownerPath)}</span>`);
+  else rows += row(I.warn, 'warnc', "Couldn't confirm the program on the port", b.ownerKnown ? `<span class="mono">${esc(b.ownerPath)}</span>` : 'This computer can\'t tell which program holds the port.');
+  if (!b.looksLikeBridge) rows += row(I.warn, 'warnc', "The certificate isn't the kind Bridge makes");
+  if (b.smtpProblem) rows += row(I.warn, 'warnc', 'SMTP could not be checked', esc(b.smtpProblem) + '. Reading mail works without it.');
+  if (b.verified || S.confirmed) rows += row(I.ok(), 'ok', 'Certificate pinned', 'Only this Bridge will be trusted.');
+
+  const confirm = b.verified ? '' : `<div class="banner warn" style="margin-top:14px"><span class="icon warnc">${I.warn}</span><div class="text">
+      <div><b>Is this your Proton Mail Bridge?</b></div>
+      <div style="margin-bottom:10px">Setup couldn't confirm that the program on the port is Proton Mail Bridge as you installed it.
+      Only confirm if Bridge is running and signed in on this computer${b.ownerKnown ? ', and the path above is where you installed it' : ''}.</div>
+      <label class="check"><input type="checkbox" id="confirm" ${S.confirmed ? 'checked' : ''}> Yes, this is my Proton Mail Bridge</label></div></div>`;
+  return head + `<div class="card rows">${rows}</div>${confirm}
+    <details><summary>Certificate details</summary><p class="small mono" style="margin-top:8px">SHA-256 ${esc(b.fingerprint)}</p></details>`;
+}
+
+// savedMode: an earlier setup saved a password for this username, so the
+// user can sign in with it. The page never sees it: the program uses it.
+const savedMode = () => !!S.state?.savedPassword && !S.typed && S.user.trim() === S.state.user;
+
+function stepAccount() {
+  const dis = S.signing ? 'disabled' : '';
+  if (savedMode()) {
+    return `<h2>Bridge account</h2>
+    <p class="lead">You've set this up before. Sign in with the saved Bridge password, or type a new one if it changed in Bridge.</p>
+    ${S.signInError ? banner('error', "Couldn't sign in", esc(S.signInError)) : ''}
+    <div class="field"><label for="user">Username</label><div class="input"><input id="user" type="email" autocomplete="off" spellcheck="false" value="${esc(S.user)}" ${dis}></div></div>
+    <div class="card rows">${row(I.ok(), 'ok', 'Bridge password saved', 'In ' + esc(S.state?.store) + '. It stays there: Claude never sees it.')}</div>
+    <p class="small" style="margin-top:12px"><a id="typed" tabindex="0">Use another password</a></p>
+    ${S.signing ? `<div class="busy small">${I.spin} Signing in to Bridge…</div>` : ''}`;
+  }
+  return `<h2>Bridge account</h2>
+    <p class="lead">Use the username and password that <b>Bridge</b> shows, not your Proton password. In Bridge, open your account and choose <i>Mailbox details</i>.</p>
+    ${S.signInError ? banner('error', "Couldn't sign in", esc(S.signInError)) : ''}
+    <div class="field"><label for="user">Username</label><div class="input"><input id="user" type="email" autocomplete="off" spellcheck="false" placeholder="alice@example.com" value="${esc(S.user)}" ${dis}></div></div>
+    <div class="field"><label for="pass">Bridge password</label><div class="input"><input id="pass" type="${S.reveal ? 'text' : 'password'}" autocomplete="off" spellcheck="false" ${dis} style="padding-right:36px">
+      <button class="reveal" id="reveal" title="${S.reveal ? 'Hide' : 'Show'} password" aria-pressed="${S.reveal}" ${dis}>${I.eye}</button></div>
+      <div class="help">Saved only in ${esc(S.state?.store)}. Claude never sees it.</div></div>
+    ${S.signing ? `<div class="busy small">${I.spin} Signing in to Bridge…</div>` : ''}`;
+}
+
+function stepClaude() {
+  const clients = S.state?.clients || [];
+  if (!clients.length) {
+    return `<h2>Add to Claude</h2><p class="lead">No Claude Desktop or Claude Code was found on this computer.</p>
+      <p>To add it by hand, see README → <i>Connecting to Claude</i>, with the program at:</p><p class="mono">${esc(S.state?.exe)}</p>`;
+  }
+  const items = clients.map((c, i) => c.registered
+    ? `<div class="row"><span class="icon ok">${I.ok()}</span><div class="text"><div class="title">${esc(c.name)}</div><div class="sub">Already added</div></div></div>`
+    : `<div class="row"><label class="check" style="width:100%"><input type="checkbox" data-i="${i}" ${S.pick[c.name] !== false ? 'checked' : ''} ${S.registering ? 'disabled' : ''}><div class="text"><div class="title">${esc(c.name)}</div><div class="sub">Found on this computer</div></div></label></div>`).join('');
+  return `<h2>Add to Claude</h2><p class="lead">Choose where Claude gets access to your mailbox. You can change this later by running setup again.</p>
+    <div class="card rows">${items}</div>
+    <p class="small" style="margin-top:14px">Claude can read and organise mail. It can't send mail or permanently delete anything.</p>
+    ${S.registering ? `<div class="busy small">${I.spin} Adding…</div>` : ''}`;
+}
+
+function stepDone() {
+  const reg = S.registered || [];
+  const added = reg.filter(r => r.ok).map(r => r.name);
+  const failed = reg.filter(r => !r.ok);
+  return `<div class="donebig">${I.ok(30)}</div><h1>You're all set</h1>
+    <p class="lead">${added.length ? `Restart ${esc(added.join(' and '))}, then ask Claude: <i>“List my Proton Mail folders.”</i>` : 'Proton Mail MCP is set up, but not added to Claude yet. Run setup again to add it.'}</p>
+    <div class="card rows">${row(I.ok(), 'ok', 'Connected to Proton Mail Bridge', 'Certificate pinned')}
+    ${row(I.ok(), 'ok', 'Signed in as ' + esc(S.user), 'Password saved in ' + esc(S.state?.store))}
+    ${added.length ? row(I.ok(), 'ok', 'Added to ' + esc(added.join(' and '))) : ''}
+    ${failed.map(f => row(I.err, 'err', "Couldn't add to " + esc(f.name), esc(f.error))).join('')}</div>
+    <p class="small" style="margin-top:14px">Updates install without asking anything again. If something stops working, <a data-link="help" tabindex="0">see the troubleshooting guide</a>.</p>`;
+}
+
+// ---- Rendering ----
+function canNext() {
+  switch (S.step) {
+    case 1: { const b = S.bridge; return !S.looking && b && b.answers && b.isBridge && !b.error && (b.verified || S.confirmed); }
+    case 2: return !S.signing && S.user.trim() !== '' && (savedMode() || ($('#pass')?.value || '') !== '');
+    case 3: return !S.registering;
+    default: return true;
+  }
+}
+
+function render() {
+  if (S.fatal) {
+    $('#content').innerHTML = banner('error', 'Setup stopped', esc(S.fatal));
+    for (const id of ['#next', '#back']) $(id).style.visibility = 'hidden';
+    $('#cancel').textContent = 'Close';
+    return;
+  }
+  // Keep a typed password across re-renders of the same step.
+  const pass = $('#pass')?.value;
+  $('#steps').innerHTML = STEPS.map((n, i) => `<li class="${i === S.step ? 'current' : i < S.step ? 'done' : ''}" ${i === S.step ? 'aria-current="step"' : ''}><span class="dot">${i < S.step ? I.ok() : i + 1}</span>${n}</li>`).join('');
+  $('#content').innerHTML = [stepWelcome, stepBridge, stepAccount, stepClaude, stepDone][S.step]();
+  if (pass !== undefined && $('#pass')) $('#pass').value = pass;
+  const last = S.step === STEPS.length - 1;
+  $('#next').textContent = last ? 'Finish' : S.step === 0 ? 'Start' : S.step === 2 ? 'Sign in' : S.step === 3 ? (S.state?.clients?.some(c => !c.registered) ? 'Add' : 'Next') : 'Next';
+  $('#next').disabled = !canNext();
+  // No way back once saved: the steps before it would start over.
+  $('#back').style.visibility = S.step === 0 || S.step >= 3 ? 'hidden' : 'visible';
+  $('#cancel').style.visibility = last ? 'hidden' : 'visible';
+  wire();
+}
+
+function wire() {
+  const u = $('#user'), p = $('#pass');
+  if (u) u.oninput = e => {
+    const was = savedMode();
+    S.user = e.target.value;
+    // Another username has no saved password: show the password field.
+    if (savedMode() !== was) { render(); const nu = $('#user'); nu.focus(); nu.setSelectionRange(nu.value.length, nu.value.length); return; }
+    $('#next').disabled = !canNext();
+  };
+  if (p) p.oninput = () => { $('#next').disabled = !canNext(); };
+  for (const el of [u, p]) if (el) el.onkeydown = e => { if (e.key === 'Enter' && canNext()) next(); };
+  const ty = $('#typed'); if (ty) { const f = () => { S.typed = true; S.signInError = ''; render(); $('#pass').focus(); }; ty.onclick = f; ty.onkeydown = e => { if (e.key === 'Enter') f(); }; }
+  const rv = $('#reveal'); if (rv) rv.onclick = () => { S.reveal = !S.reveal; render(); $('#pass').focus(); };
+  const cf = $('#confirm'); if (cf) cf.onchange = e => { S.confirmed = e.target.checked; render(); };
+  const rt = $('#retry'); if (rt) rt.onclick = lookForBridge;
+  document.querySelectorAll('[data-i]').forEach(el => el.onchange = e => { S.pick[S.state.clients[+e.target.dataset.i].name] = e.target.checked; });
+  document.querySelectorAll('[data-link]').forEach(el => {
+    const open = () => call('openLink', { name: el.dataset.link }).catch(() => {});
+    el.onclick = open; el.onkeydown = e => { if (e.key === 'Enter') open(); };
+  });
+}
+
+// ---- Actions ----
+async function lookForBridge() {
+  S.looking = true; S.confirmed = false; S.bridge = null; render();
+  try { S.bridge = await call('findBridge'); } catch (e) { S.fatal = e.message; }
+  S.looking = false; render();
+}
+
+async function signIn() {
+  const saved = savedMode();
+  const args = saved ? { user: S.user, useSaved: true } : { user: S.user, password: $('#pass').value };
+  S.signing = true; S.signInError = ''; render();
+  let r;
+  try { r = await call('signIn', args); } catch (e) { r = { error: e.message }; }
+  S.signing = false;
+  if (r.ok) { go(3); return; }
+  if (r.savedFailed) S.typed = true;
+  S.signInError = r.error; render();
+  if ($('#pass')) { $('#pass').value = ''; $('#pass').focus(); }
+  $('#next').disabled = !canNext();
+}
+
+async function register() {
+  const names = (S.state.clients || []).filter(c => !c.registered && S.pick[c.name] !== false).map(c => c.name);
+  const already = (S.state.clients || []).filter(c => c.registered).map(c => ({ name: c.name, ok: true }));
+  S.registering = true; render();
+  try { S.registered = already.concat(names.length ? await call('register', { names }) : []); } catch (e) { S.fatal = e.message; }
+  S.registering = false; go(4);
+}
+
+function go(step) {
+  S.step = step; S.reveal = false; S.signInError = step === 2 ? S.signInError : '';
+  render();
+  $('#content').focus({ preventScroll: true });
+  if (step === 1) lookForBridge();
+  if (step === 2) setTimeout(() => (savedMode() ? $('#next') : S.user ? $('#pass') : $('#user'))?.focus(), 0);
+}
+
+async function next() {
+  if (!canNext()) return;
+  switch (S.step) {
+    case 1:
+      if (!S.bridge.verified) { try { await call('confirmCertificate'); } catch (e) { S.fatal = e.message; render(); return; } }
+      return go(2);
+    case 2: return signIn();
+    case 3: return register();
+    case 4: return call('close');
+    default: return go(S.step + 1);
+  }
+}
+
+$('#next').onclick = next;
+$('#back').onclick = () => { if (S.step > 0) go(S.step - 1); };
+$('#cancel').onclick = () => call('close');
+addEventListener('keydown', e => { if (e.key === 'Escape') call('close'); });
+
+// ---- Start ----
+const platform = { windows: 'win', darwin: 'mac' };
+const mq = matchMedia('(prefers-color-scheme: dark)');
+function theme() { document.body.className = `${platform[S.state?.platform] || 'gnome'} ${mq.matches ? 'dark' : 'light'}`; }
+mq.addEventListener('change', theme);
+(async () => {
+  try { S.state = await call('state'); } catch (e) { S.fatal = e.message; }
+  S.user = S.state?.user || '';
+  const a = S.state?.accent || {};
+  if (/^#[0-9a-f]{6}$/i.test(a.light || '')) document.documentElement.style.setProperty('--sys-accent-light', a.light);
+  if (/^#[0-9a-f]{6}$/i.test(a.dark || '')) document.documentElement.style.setProperty('--sys-accent-dark', a.dark);
+  theme(); render();
+})();
+</script>
+</body>
+</html>

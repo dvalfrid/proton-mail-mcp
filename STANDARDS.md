@@ -191,6 +191,7 @@ Standard library first. Approved:
 | `github.com/emersion/go-smtp`, `github.com/emersion/go-sasl` | SMTP client, SMTP server for tests |
 | `golang.org/x/sys` | Windows system calls for `check` and `setup`: which program owns Bridge's port, whether it is validly signed, and whether Bridge is installed (registry). Approved by the owner 2026-11-11. |
 | `golang.org/x/term` | Hidden password input in `setup`. Approved by the owner 2026-11-11. |
+| `github.com/jchv/go-webview2` (with `jchv/go-winloader`) | The graphical setup wizard's window on Windows: Microsoft Edge WebView2 from Go, without cgo, so the release still cross-compiles. Used only by `proton-mail-mcp-setup`, never by the server. Approved by the owner 2026-11-12. |
 | `github.com/zalando/go-keyring` (with `danieljoos/wincred`, `godbus/dbus/v5`) | The Bridge password in the OS credential store on Windows, macOS and Linux, without cgo. Approved by the owner 2026-11-11; its macOS weakness is in SECURITY.md. |
 
 Anything else needs explicit approval from the owner, with a reason in the PR. `go mod tidy` must leave `go.mod` and `go.sum` unchanged (checked in CI).
