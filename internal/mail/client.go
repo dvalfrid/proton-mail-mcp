@@ -65,7 +65,10 @@ type Options struct {
 	// SearchTimeout replaces Timeout for SearchMessages; DefaultSearchTimeout
 	// if zero.
 	SearchTimeout time.Duration
-	Logger        *slog.Logger // slog.Default() if nil
+	// MaxChanges caps the messages the organize operations change over the
+	// Client's life; DefaultMaxChanges if zero.
+	MaxChanges int
+	Logger     *slog.Logger // slog.Default() if nil
 }
 
 // Client is a lazily connected IMAP client. It is safe for concurrent use.
@@ -79,6 +82,12 @@ type Client struct {
 	// notSetUp, if set, is returned by every operation: see NewUnconfigured.
 	notSetUp error
 
+	// changed counts the messages the organize operations were asked to
+	// change, against MaxChanges. It has its own lock: it is reserved
+	// before an operation takes mu.
+	changedMu sync.Mutex
+	changed   int
+
 	mu   sync.Mutex
 	conn *boundedConn
 	imap *imapclient.Client
@@ -91,6 +100,9 @@ func New(opts Options) *Client {
 	}
 	if opts.SearchTimeout == 0 {
 		opts.SearchTimeout = DefaultSearchTimeout
+	}
+	if opts.MaxChanges == 0 {
+		opts.MaxChanges = DefaultMaxChanges
 	}
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()

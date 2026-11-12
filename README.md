@@ -83,6 +83,7 @@ For the certificate, export it from Bridge (Settings → Advanced → Export TLS
 | `PROTON_BRIDGE_SMTP_PORT` | `1025` | |
 | `PROTON_BRIDGE_CERT` | — | Path to Bridge's certificate (PEM). Required |
 | `PROTON_ALLOW_SEND` | `0` | Sending is not implemented yet |
+| `PROTON_MAX_CHANGES` | `200` | How many messages the organize tools may change, together, per server run: a guard against instructions hidden in emails. Restart Claude to reset the count |
 | `PROTON_MCP_CONFIG_DIR` | your config dir | Where setup's settings are kept |
 Check the program: `proton-mail-mcp --version`.
 

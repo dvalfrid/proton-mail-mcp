@@ -114,7 +114,7 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 | Level | Tools | Status |
 |---|---|---|
 | Read | list folders, list/search messages, read a message | Allowed |
-| Organize | move, mark read/unread, flag, label | Allowed (undoable) |
+| Organize | move, mark read/unread, flag, label, move to Trash | Allowed (undoable), at most `PROTON_MAX_CHANGES` messages (200 by default) per server run |
 | Draft | create, update draft in `Drafts` | Allowed |
 | Send | `send_draft`: send an *existing* draft | Gated: see below |
 | Delete permanently | — | **Never** |

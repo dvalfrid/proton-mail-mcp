@@ -3,7 +3,12 @@ package mail
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
+	"time"
+
+	"github.com/dvalfrid/proton-mail-mcp/internal/config"
+	"github.com/dvalfrid/proton-mail-mcp/internal/testutil"
 )
 
 // inbox adds n messages to INBOX and returns a Selection of all of them.
@@ -273,5 +278,48 @@ func TestChangeRefusedByBridge(t *testing.T) {
 	srv.RefuseChanges("")
 	if n, err := c.MarkRead(ctx, s, true); err != nil || n != 2 {
 		t.Fatalf("after Proton is back: %d, %v", n, err)
+	}
+}
+
+// The organize operations stop at MaxChanges messages per Client (issue
+// #68). Refused calls that sent nothing to Bridge don't count.
+func TestChangeLimit(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	srv := testutil.NewIMAPServer(t)
+	tlsCfg, err := TLSConfig(srv.Host, srv.CertFile(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := New(Options{
+		Addr: srv.Addr(), User: testutil.User, Password: config.Secret(testutil.Password), TLSConfig: tlsCfg,
+		Timeout: 5 * time.Second, MaxChanges: 3, Logger: slog.New(slog.DiscardHandler),
+	})
+	t.Cleanup(func() { _ = c.Close() })
+	s := inbox(t, c, func(f string) {
+		srv.AddMessage(t, f, message("bob@example.org", "Hi", "Mon, 02 Nov 2026 10:00:00 +0000"))
+	}, 2)
+
+	stale := Selection{Folder: "INBOX", UIDs: s.UIDs, UIDValidity: s.UIDValidity + 1}
+	for range 5 {
+		if _, err := c.MarkRead(ctx, stale, true); !errors.Is(err, ErrUIDValidityChanged) {
+			t.Fatalf("stale: %v", err)
+		}
+	}
+	if n, err := c.MarkRead(ctx, s, true); err != nil || n != 2 {
+		t.Fatalf("first change: %d, %v (refused calls must not count)", n, err)
+	}
+	if _, err := c.Flag(ctx, s, true); !errors.Is(err, ErrChangeLimit) {
+		t.Fatalf("over the limit: err = %v, want ErrChangeLimit", err)
+	}
+	if flagged(t, c) != 0 {
+		t.Error("a call over the limit changed something")
+	}
+	one := Selection{Folder: "INBOX", UIDs: s.UIDs[:1], UIDValidity: s.UIDValidity}
+	if _, err := c.Flag(ctx, one, true); err != nil {
+		t.Fatalf("up to the limit: %v", err)
+	}
+	if _, err := c.Flag(ctx, one, false); !errors.Is(err, ErrChangeLimit) {
+		t.Fatalf("at the limit: err = %v, want ErrChangeLimit", err)
 	}
 }

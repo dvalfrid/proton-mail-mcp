@@ -26,6 +26,10 @@ const (
 	EnvSMTPPort  = "PROTON_BRIDGE_SMTP_PORT"
 	EnvCert      = "PROTON_BRIDGE_CERT"
 	EnvAllowSend = "PROTON_ALLOW_SEND"
+	// EnvMaxChanges caps the messages the organize tools change per server
+	// run (DefaultMaxChanges if unset): a guard against an assistant fooled
+	// by instructions in an email.
+	EnvMaxChanges = "PROTON_MAX_CHANGES"
 )
 
 // Bridge defaults.
@@ -33,6 +37,8 @@ const (
 	DefaultHost     = "127.0.0.1"
 	DefaultIMAPPort = 1143
 	DefaultSMTPPort = 1025
+	// DefaultMaxChanges is the default for EnvMaxChanges.
+	DefaultMaxChanges = 200
 )
 
 // Config is the validated configuration.
@@ -44,6 +50,8 @@ type Config struct {
 	SMTPPort  int
 	CertFile  string // PEM certificate exported from Bridge; required, the server is always verified
 	AllowSend bool
+	// MaxChanges caps the messages changed per server run.
+	MaxChanges int
 }
 
 // IMAPAddr returns host:port for IMAP.
@@ -61,6 +69,7 @@ func (c Config) LogValue() slog.Value {
 		slog.Int("smtp_port", c.SMTPPort),
 		slog.Bool("cert", c.CertFile != ""),
 		slog.Bool("allow_send", c.AllowSend),
+		slog.Int("max_changes", c.MaxChanges),
 	)
 }
 
@@ -104,6 +113,15 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		errs = append(errs, err)
 	}
 
+	cfg.MaxChanges = DefaultMaxChanges
+	if v := get(EnvMaxChanges); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			errs = append(errs, fmt.Errorf("%s=%q: give a whole number of messages, at least 1", EnvMaxChanges, v))
+		} else {
+			cfg.MaxChanges = n
+		}
+	}
 	switch v := get(EnvAllowSend); v {
 	case "", "0", "false":
 		cfg.AllowSend = false
