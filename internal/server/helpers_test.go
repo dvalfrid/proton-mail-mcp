@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ type env struct {
 	imap    *testutil.IMAPServer
 	session *mcp.ClientSession
 	logs    *syncBuffer
+	dir     string // the attachment folder: a fresh temporary folder
 }
 
 func newEnv(t *testing.T) *env {
@@ -52,8 +54,9 @@ func newEnvWith(t *testing.T, change func(*mail.Options)) *env {
 	m := mail.New(opts)
 	t.Cleanup(func() { _ = m.Close() })
 
+	dir := filepath.Join(t.TempDir(), "attachments") // created by the first save
 	serverT, clientT := mcp.NewInMemoryTransports()
-	ss, err := New("test", m).Connect(ctx, serverT, nil)
+	ss, err := New("test", m, dir).Connect(ctx, serverT, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +68,7 @@ func newEnvWith(t *testing.T, change func(*mail.Options)) *env {
 	}
 	t.Cleanup(func() { _ = cs.Close() }) // in-memory: closing cannot fail meaningfully
 
-	return &env{imap: srv, session: cs, logs: logs}
+	return &env{imap: srv, session: cs, logs: logs, dir: dir}
 }
 
 // call calls a tool and returns the raw result.

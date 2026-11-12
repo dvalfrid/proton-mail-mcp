@@ -122,6 +122,29 @@ func TestMaxChanges(t *testing.T) {
 	}
 }
 
+func TestAttachmentDir(t *testing.T) {
+	t.Parallel()
+	cfg, err := Load(lookupMap(validEnv()))
+	if err != nil || filepath.Base(cfg.AttachmentDir) != "Proton Mail MCP" || !filepath.IsAbs(cfg.AttachmentDir) {
+		t.Errorf("default = %q, %v; want Proton Mail MCP in Downloads", cfg.AttachmentDir, err)
+	}
+
+	dir := filepath.Join(t.TempDir(), "mail", "..", "files")
+	env := validEnv()
+	env[EnvAttachmentDir] = dir
+	if cfg, err := Load(lookupMap(env)); err != nil || cfg.AttachmentDir != filepath.Clean(dir) {
+		t.Errorf("%s=%q: %q, %v", EnvAttachmentDir, dir, cfg.AttachmentDir, err)
+	}
+
+	// A relative path would depend on the folder Claude starts the server in.
+	for _, v := range []string{"attachments", `..\Downloads`, "./x"} {
+		env[EnvAttachmentDir] = v
+		if _, err := Load(lookupMap(env)); err == nil || !strings.Contains(err.Error(), EnvAttachmentDir) {
+			t.Errorf("%s=%q: err = %v, want a refusal", EnvAttachmentDir, v, err)
+		}
+	}
+}
+
 // Guardrail: the password never appears when a Config is printed, logged or
 // marshalled.
 func TestSecretNeverPrinted(t *testing.T) {

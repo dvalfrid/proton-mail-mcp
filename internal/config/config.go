@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -30,6 +31,9 @@ const (
 	// run (DefaultMaxChanges if unset): a guard against an assistant fooled
 	// by instructions in an email.
 	EnvMaxChanges = "PROTON_MAX_CHANGES"
+	// EnvAttachmentDir is the one folder save_attachment writes into
+	// (DefaultAttachmentDir if unset).
+	EnvAttachmentDir = "PROTON_ATTACHMENT_DIR"
 )
 
 // Bridge defaults.
@@ -52,6 +56,10 @@ type Config struct {
 	AllowSend bool
 	// MaxChanges caps the messages changed per server run.
 	MaxChanges int
+	// AttachmentDir is the absolute path of the folder attachments are
+	// saved into. Empty if it is unset and the default couldn't be found:
+	// saving then says how to set it.
+	AttachmentDir string
 }
 
 // IMAPAddr returns host:port for IMAP.
@@ -70,6 +78,7 @@ func (c Config) LogValue() slog.Value {
 		slog.Bool("cert", c.CertFile != ""),
 		slog.Bool("allow_send", c.AllowSend),
 		slog.Int("max_changes", c.MaxChanges),
+		slog.Bool("attachment_dir", c.AttachmentDir != ""),
 	)
 }
 
@@ -122,6 +131,16 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			cfg.MaxChanges = n
 		}
 	}
+	if v := get(EnvAttachmentDir); v != "" {
+		if !filepath.IsAbs(v) {
+			errs = append(errs, fmt.Errorf("%s=%q: give a full path to a folder, starting with a drive letter or /", EnvAttachmentDir, v))
+		} else {
+			cfg.AttachmentDir = filepath.Clean(v)
+		}
+	} else if d, err := DefaultAttachmentDir(); err == nil {
+		cfg.AttachmentDir = d
+	}
+
 	switch v := get(EnvAllowSend); v {
 	case "", "0", "false":
 		cfg.AllowSend = false

@@ -54,6 +54,7 @@ When in doubt, leave it out and ask. Before every commit, check the diff for the
 
 - Sending: only `send_draft` (sends an existing draft), refused unless `PROTON_ALLOW_SEND=1`, and the client must "always ask". Never add a tool that sends free-form text directly.
 - No permanent deletion (no `EXPUNGE`); "delete" = move to Trash.
+- Files are written only by `internal/save`, only into the attachment folder (`PROTON_ATTACHMENT_DIR`), never replacing or opening one.
 - Email content is untrusted input; tool output marks it as such.
 - Secrets live only in the OS credential store (written by `setup`), `.env` (git-ignored, and you are denied reading it) or the environment. Never read the credential store yourself, and never ask the owner for the password: they type it into `setup` in a terminal. Never log or return the Bridge password, message bodies or subjects in logs.
 - Bridge on `127.0.0.1`/`localhost` only, and TLS always verified against the exported Bridge certificate: never `InsecureSkipVerify`.
@@ -108,6 +109,7 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 | `cmd/proton-mail-mcp/` | `main`: logging, config, wiring. Nothing else. `main_test.go` drives the built binary over stdio |
 | `internal/config/` | `.env` + environment → validated `Config`; `Secret` type that never prints the password |
 | `internal/mail/` | IMAP client to Bridge: one mutex-guarded connection, lazy connect and reconnect, per-operation timeout via `boundedConn` (imapclient resets its own deadlines). Reads use EXAMINE/PEEK: never marks read |
+| `internal/save/` | Saves an attachment: cleans the sender's file name, writes through an `os.Root` on the attachment folder, never replaces, adds the Mark of the Web on Windows. The only server code that writes files |
 | `internal/server/` | Builds the MCP server and registers tools. `testdata/tools.golden.json` is the tool snapshot (`-update` to rewrite) |
 | `internal/bridge/` | Recognises Bridge (greeting), reads its certificate without trusting it (no InsecureSkipVerify), Windows port-owner check. Never logs in |
 | `internal/check/` | `proton-mail-mcp check` diagnostics and the start-up warning |

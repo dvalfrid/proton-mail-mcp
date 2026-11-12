@@ -128,6 +128,17 @@ Mail is written by whoever sends it, so it can contain text aimed at the AI (pro
 - **Untrusted, like the text.** Text in an image is an easy way to hide instructions from a reader of the HTML, so the result carries the same kind of note as `read_message`.
 - `golang.org/x/image` adds WebP and scaling; the standard library does the rest.
 
+### Saving attachments: one folder, nothing replaced, nothing opened
+
+`save_attachment` writes an attachment where the owner can open it. The file and its name come from the sender, so `internal/save` is built so that a fooled assistant can't do harm with it:
+
+- **One folder, chosen by the owner.** `PROTON_ATTACHMENT_DIR`, by default `Proton Mail MCP` under Downloads. The tool takes no path. The file is created through an `os.Root` on that folder, which refuses any name, `..` or link that leads outside it, so the guarantee doesn't rest on the name cleaning alone.
+- **The name is cleaned anyway**, for the owner's sake: only its last path part, no control, bidi or reserved characters, no Windows device names (`CON`, `NUL`, …), capped at 150 characters with the extension kept.
+- **Nothing is replaced.** The file is opened with `O_EXCL`; if the name exists, `name (2).ext` is tried, and so on.
+- **Nothing is opened, and Windows knows where it came from.** The file gets the Mark of the Web, as a browser download does, so SmartScreen asks before a program runs and Office opens documents in Protected View. Without the mark the file is removed again.
+- **Whole or not at all.** A message larger than the 32 MiB fetched, or an attachment whose encoding breaks off, is refused rather than saved cut.
+- **Only `internal/save` writes files** from the server. A test reads every source file and fails on a file write anywhere else, apart from setup's settings files.
+
 A damaged message gives what could be read, not an error. A fuzz test checks that no input panics, hangs, produces invalid UTF-8 or exceeds a cap.
 
 **Known limits** (from the independent review, issue #75), which the untrusted-content marking, not the cleaning, has to cover:

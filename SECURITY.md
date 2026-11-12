@@ -42,6 +42,7 @@ proton-mail-mcp runs as a local process started by an MCP client (Claude). It ho
 | Bridge password | A local program listens on Bridge's port (Bridge not running) and impersonates it to capture the login | TLS always verified against Bridge's pinned certificate (pinned by `setup`, which reads it without trusting it and asks the owner to confirm it, unless on Windows the port belongs to a validly signed `bridge.exe` installed under Program Files, which only administrators can write: a signature alone isn't enough, since any signed program can be copied and renamed); the handshake fails before the password is sent |
 | Mail content | Sent off the machine | Bridge only on `127.0.0.1`/`localhost`; non-local hosts refused at start-up. Content goes to the AI only when a tool returns it |
 | The AI's instructions | Prompt injection inside an email | Mail content is returned marked as untrusted data; HTML reduced to text; no remote content fetched; attachments never opened |
+| Owner's computer | A saved attachment is written outside the attachment folder, replaces a file, or runs | `save_attachment` writes only into `PROTON_ATTACHMENT_DIR`, through an `os.Root` (no `..`, absolute path or link leads out); the sender's name is cleaned; nothing is replaced or opened; on Windows the file carries the Mark of the Web, so SmartScreen and Office warn before it runs or can be edited |
 
 In scope: anything that gets around one of the protections above. Out of scope: Proton Mail Bridge itself (report to Proton), and the MCP client's own approval UI.
 

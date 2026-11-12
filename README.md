@@ -39,6 +39,7 @@ Claude can list, search and read messages, mark them read or unread, star them, 
 | `search_messages` | Messages in one folder matching all given criteria: `from`, `to`, `subject`, `body` (case-insensitive text), `since` / `before` (dates received), `unread_only`. At least one criterion; same result shape as `list_messages` | No (messages stay unread) |
 | `read_message` | One message by folder and uid (optionally with the `uidvalidity` the uid came with, so a folder that Bridge renumbered is refused rather than another message read): headers, body as plain text, attachments listed (index, name, type, size). Returned in an `untrusted_content` field with a note that it is data from the sender, not instructions. HTML is converted to text and nothing is fetched; attachments are never opened. Long messages are cut and marked `truncated` | No (the message stays unread) |
 | `view_image` | One image from a message, by its `index` in `read_message`'s attachment list, as image content Claude can see: an attached image or one embedded in the HTML (inline). PNG, JPEG, GIF (first frame) and WebP, checked by content, not by the declared type; decoded and encoded again, and scaled down to 1568 pixels on the longest side. Images larger than 20 MiB or 50 megapixels are refused. Images the message links to on the internet are never fetched. Marked as untrusted, like the message | No (the message stays unread) |
+| `save_attachment` | Save one attachment, by its `index` in `read_message`'s list, into the attachment folder (`PROTON_ATTACHMENT_DIR`), so you can open it. Claude can't choose the folder. The sender's file name is cleaned (no path, no reserved or hidden characters), an existing file is never replaced (a number is added), and the file is never opened. On Windows it gets the Mark of the Web, like a browser download, so Windows and Office warn before running or editing it. Needs the `uidvalidity`; at most 30 MiB | No (the message stays unread); writes one new file |
 | `mark_read` / `mark_unread` | Mark messages read or unread. Synced to Proton | Yes (undoable) |
 | `flag` / `unflag` | Star or unstar messages (Proton's Starred) | Yes (undoable) |
 | `move_message` | Move messages to INBOX, Archive or a folder under `Folders/` (also out of Spam). Not into Spam, to Trash (`trash_message`) or a label (`add_label`); not out of a label, Drafts or All Mail | Yes (undoable) |
@@ -92,6 +93,7 @@ For the certificate, export it from Bridge (Settings → Advanced → Export TLS
 | `PROTON_BRIDGE_SMTP_PORT` | `1025` | |
 | `PROTON_BRIDGE_CERT` | — | Path to Bridge's certificate (PEM). Required |
 | `PROTON_ALLOW_SEND` | `0` | Sending is not implemented yet |
+| `PROTON_ATTACHMENT_DIR` | `Proton Mail MCP` in your Downloads folder | The only folder `save_attachment` saves into, as a full path. Created on the first save |
 | `PROTON_MAX_CHANGES` | `200` | How many messages the organize tools may change, together, per server run: a guard against instructions hidden in emails. Restart Claude to reset the count |
 | `PROTON_MCP_CONFIG_DIR` | your config dir | Where setup's settings are kept |
 Check the program: `proton-mail-mcp --version`.

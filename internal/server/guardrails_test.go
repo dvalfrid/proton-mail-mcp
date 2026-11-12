@@ -79,6 +79,11 @@ var organizeTools = map[string]struct{ destructive bool }{
 	"trash_message": {destructive: true},
 }
 
+// fileTools write a file into the owner's attachment folder: not read-only
+// and not destructive (they never replace a file), and they change nothing
+// in the mailbox.
+var fileTools = map[string]bool{"save_attachment": true}
+
 // organizeArgs adds a tool's own arguments to the common ones.
 func organizeArgs(name string, common map[string]any) map[string]any {
 	args := maps.Clone(common)
@@ -105,6 +110,12 @@ func TestEveryToolIsClassified(t *testing.T) {
 		a := tool.Annotations
 		if readTools[tool.Name] {
 			continue // TestReadToolsAreAnnotatedReadOnly
+		}
+		if fileTools[tool.Name] {
+			if a == nil || a.ReadOnlyHint || a.DestructiveHint == nil || *a.DestructiveHint {
+				t.Errorf("%s: annotations %+v, want not read-only and not destructive", tool.Name, a)
+			}
+			continue
 		}
 		want, ok := organizeTools[tool.Name]
 		switch {
@@ -216,9 +227,11 @@ func TestToolsDoNotMarkAsRead(t *testing.T) {
 	e.imap.AddMessage(t, "INBOX", msgWithImage(t, "http://127.0.0.1:1/x.png"))
 	var img ViewImageOutput
 	e.callOK(t, "view_image", map[string]any{"folder": "INBOX", "uid": 3, "attachment": 1}, &img)
+	var saved SaveAttachmentOutput
+	e.callOK(t, "save_attachment", map[string]any{"folder": "INBOX", "uid": 3, "uidvalidity": msgs.UIDValidity, "attachment": 1}, &saved)
 
 	if n := e.imap.Unseen(t, "INBOX"); n != 3 {
-		t.Fatalf("unseen = %d after listing, searching, reading and viewing an image, want 3", n)
+		t.Fatalf("unseen = %d after listing, searching, reading, viewing an image and saving it, want 3", n)
 	}
 }
 
@@ -319,6 +332,9 @@ func TestNoMailContentInLogs(t *testing.T) {
 	var img ViewImageOutput
 	e.callOK(t, "view_image", map[string]any{"folder": "INBOX", "uid": 2, "attachment": 1}, &img)
 	e.call(t, "view_image", map[string]any{"folder": "INBOX", "uid": 2, "attachment": 2}) // error path
+	l := listInbox(t, e)
+	var saved SaveAttachmentOutput
+	e.callOK(t, "save_attachment", map[string]any{"folder": "INBOX", "uid": 2, "uidvalidity": l.UIDValidity, "attachment": 1}, &saved)
 
 	for _, s := range []string{"Lunch on Friday", "bob@example.org", "Are you free", "chart.png", "Quarterly chart"} {
 		if strings.Contains(e.logs.String(), s) {

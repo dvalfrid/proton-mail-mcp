@@ -113,7 +113,8 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 
 | Level | Tools | Status |
 |---|---|---|
-| Read | list folders, list/search messages, read a message | Allowed |
+| Read | list folders, list/search messages, read a message, view an image | Allowed |
+| Save | save an attachment into the owner's attachment folder | Allowed: never replaces a file, never opens one |
 | Organize | move, mark read/unread, flag, label, move to Trash | Allowed (undoable), at most `PROTON_MAX_CHANGES` messages (200 by default) per server run |
 | Draft | create, update draft in `Drafts` | Allowed |
 | Send | `send_draft`: send an *existing* draft | Gated: see below |
@@ -137,7 +138,12 @@ Anyone can send the owner an email, so mail content can contain instructions aim
 
 - Tool output marks message content as untrusted. `read_message` returns headers and body inside a separate `untrusted_content` field with a note that it is data from the sender, not instructions. `list_messages` and `search_messages` return each message's subject and sender as fields of the listing, with a note naming them as sender-written data. `view_image` returns the image with a note that what it shows, text included, is the sender's. Sender text never appears in an error message.
 - HTML is converted to text; scripts, styles and remote resources are dropped, never fetched.
-- Attachments are listed (name, type, size), not opened or executed.
+- Attachments are listed (name, type, size), not opened or executed. `save_attachment` writes one into the owner's attachment folder and nothing else:
+  - only `internal/save` writes files from the server (a test checks every source file), through an `os.Root` on that folder, so no name or link leads outside it;
+  - the sender's name is cleaned (last path part only, no control, bidi or reserved characters, no reserved Windows device names, length capped);
+  - a file is never replaced (`O_EXCL`; a number is added) and never opened;
+  - on Windows it gets the Mark of the Web (`Zone.Identifier`, zone 3); if that can't be written, the file is removed and the save fails;
+  - a message larger than what is fetched, or an attachment that can't be decoded to its end, is refused rather than saved cut.
 - Output size is capped per message and per call.
 - The send guard above is the hard stop: even a fooled assistant can only create a draft.
 

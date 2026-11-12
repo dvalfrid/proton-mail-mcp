@@ -83,7 +83,7 @@ func liveSessionTimeout(t *testing.T, cfg config.Config, timeout time.Duration) 
 	t.Cleanup(func() { _ = m.Close() })
 	ctx := context.Background()
 	serverT, clientT := mcp.NewInMemoryTransports()
-	ss, err := New("live", m).Connect(ctx, serverT, nil)
+	ss, err := New("live", m, t.TempDir()).Connect(ctx, serverT, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
