@@ -229,6 +229,7 @@ In the text, "Proton" means the Proton servers and API, "gluon" means the IMAP s
 - **What happens to it in Trash.** It stays there, recoverable, until the user empties Trash or the "Auto-delete unwanted messages" setting removes it after 30 days.
   - **Documented** in [proton.me/support/auto-delete-unwanted-messages](https://proton.me/support/auto-delete-unwanted-messages). The setting is off by default and needs a paid plan.
   - **Inferred / unconfirmed.** Whether the API strips user labels from the message itself, or whether only Bridge does: the source shows Bridge only unlabelling the source mailbox. Checking in the web app after a MOVE to Trash would settle it.
+  - **Verified (observed, issue #54).** On a real Bridge (2026-11-12), a message that had a user label, moved from a folder to Trash with UID MOVE, was still listed under that `Labels/X` over IMAP right after the move. So Bridge did not strip that label at that point, at least not locally. Whether the web app shows the label is still unchecked.
 
 ## 7. Drafts
 
