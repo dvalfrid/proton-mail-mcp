@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
@@ -130,21 +129,13 @@ func (d ClaudeDesktop) read() (map[string]any, error) {
 	return cfg, nil
 }
 
-// DefaultClients are the clients on this machine: Claude Code, and Claude
-// Desktop's config, including the Microsoft Store build's own location on
-// Windows (docs/installation-research.md §E).
+// DefaultClients are the clients on this machine: Claude Code, and every
+// place Claude Desktop may keep its config (config.ClaudeDesktopConfigs).
 func DefaultClients() []Client {
 	clients := []Client{ClaudeCode{}}
-	if dir, err := os.UserConfigDir(); err == nil {
-		clients = append(clients, ClaudeDesktop{Path: filepath.Join(dir, "Claude", "claude_desktop_config.json"), Label: "Claude Desktop"})
-	}
-	if runtime.GOOS == "windows" {
-		if local := os.Getenv("LOCALAPPDATA"); local != "" {
-			clients = append(clients, ClaudeDesktop{
-				Path:  filepath.Join(local, "Packages", "Claude_pzs8sxrjxfjjc", "LocalCache", "Roaming", "Claude", "claude_desktop_config.json"),
-				Label: "Claude Desktop (Microsoft Store)",
-			})
-		}
+	dir, _ := os.UserConfigDir() // "" leaves out the standard location
+	for _, d := range config.ClaudeDesktopConfigs(dir, os.Getenv("LOCALAPPDATA")) {
+		clients = append(clients, ClaudeDesktop{Path: d.Path, Label: d.Label})
 	}
 	return clients
 }

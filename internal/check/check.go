@@ -49,9 +49,9 @@ type Input struct {
 	LoadErr      error
 	SettingsFile string // where settings were looked for, for the hint
 	Logger       *slog.Logger
-	// HomeDir and ConfigDir locate the Claude client configs; empty means
-	// the user's own.
-	HomeDir, ConfigDir string
+	// HomeDir, ConfigDir and LocalAppData locate the Claude client configs;
+	// empty means the user's own.
+	HomeDir, ConfigDir, LocalAppData string
 }
 
 // Run performs the steps in order. It stops early when a later step can't
@@ -109,7 +109,7 @@ func Run(ctx context.Context, in Input) []Step {
 	if s, ok := ownerStep(cfg); ok {
 		add(s)
 	}
-	add(registrationStep(in.HomeDir, in.ConfigDir))
+	add(registrationStep(in.HomeDir, in.ConfigDir, in.LocalAppData))
 	return steps
 }
 
@@ -180,7 +180,7 @@ func ownerStep(cfg config.Config) (Step, bool) {
 
 // registrationStep looks for the server in the Claude clients' configs. It
 // only reports where it is registered; it changes nothing.
-func registrationStep(home, configDir string) Step {
+func registrationStep(home, configDir, localAppData string) Step {
 	var err error
 	if home == "" {
 		if home, err = os.UserHomeDir(); err != nil {
@@ -192,27 +192,38 @@ func registrationStep(home, configDir string) Step {
 			return Step{Name: "registered in Claude", Status: Advice, Detail: err.Error()}
 		}
 	}
-	candidates := []string{
-		filepath.Join(home, ".claude.json"),                              // Claude Code, user and local scope
-		filepath.Join(configDir, "Claude", "claude_desktop_config.json"), // Claude Desktop
+	if localAppData == "" {
+		localAppData = os.Getenv("LOCALAPPDATA")
 	}
-	if runtime.GOOS == "windows" {
-		// The Microsoft Store (MSIX) build keeps its config in a virtualised folder.
-		if local := os.Getenv("LOCALAPPDATA"); local != "" {
-			candidates = append(candidates, filepath.Join(local, "Packages", "Claude_pzs8sxrjxfjjc", "LocalCache", "Roaming", "Claude", "claude_desktop_config.json"))
+	var found, missing []string
+	if p := filepath.Join(home, ".claude.json"); registeredIn(p) { // Claude Code, user and local scope
+		found = append(found, p)
+	}
+	// A Claude Desktop config that exists but lacks the server is reported:
+	// registered in one Desktop config is not registered in the one the app
+	// reads (issue #42).
+	for _, d := range config.ClaudeDesktopConfigs(configDir, localAppData) {
+		switch {
+		case registeredIn(d.Path):
+			found = append(found, d.Path)
+		case exists(d.Path):
+			missing = append(missing, d.Path)
 		}
 	}
-	var found []string
-	for _, p := range candidates {
-		if registeredIn(p) {
-			found = append(found, p)
-		}
-	}
-	if len(found) == 0 {
+	switch {
+	case len(found) == 0:
 		return Step{Name: "registered in Claude", Status: Advice, Detail: "no Claude Desktop or Claude Code config names a server for proton-mail-mcp",
-			Hint: "see README → Connecting to Claude"}
+			Hint: "run `proton-mail-mcp setup`, or see README → Connecting to Claude"}
+	case len(missing) > 0:
+		return Step{Name: "registered in Claude", Status: Advice, Detail: "in " + strings.Join(found, ", ") + "; not in " + strings.Join(missing, ", "),
+			Hint: "Claude Desktop may read the config that lacks it: run `proton-mail-mcp setup` to register there"}
 	}
 	return Step{Name: "registered in Claude", Status: OK, Detail: strings.Join(found, ", ")}
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // registeredIn reports whether a client config lists a server whose command
