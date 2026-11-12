@@ -171,7 +171,7 @@ func connect(logger *slog.Logger) *mail.Client {
 			}
 			return mail.New(mail.Options{
 				Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password,
-				TLSConfig: tlsCfg, Logger: logger,
+				TLSConfig: tlsCfg, MaxChanges: cfg.MaxChanges, Logger: logger,
 			})
 		}
 	}

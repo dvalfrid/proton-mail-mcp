@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dvalfrid/proton-mail-mcp/internal/help"
+	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
 	"github.com/dvalfrid/proton-mail-mcp/internal/testutil"
 )
 
@@ -152,6 +154,27 @@ func TestNoToolExpunges(t *testing.T) {
 				t.Errorf("%s sent a command containing %q", name, bad)
 			}
 		}
+	}
+}
+
+// The organize tools together stop at an overall limit per server run, so
+// an assistant fooled by an email can't reorganise the whole mailbox
+// (issue #68). Past it they say why and how to go on.
+func TestOrganizeToolsHaveAnOverallLimit(t *testing.T) {
+	t.Parallel()
+	e := newEnvWith(t, func(o *mail.Options) { o.MaxChanges = 2 })
+	l := inboxListing(t, e)
+	args := map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity}
+	var out ChangeOutput
+	e.callOK(t, "flag", args, &out)
+	for name := range organizeTools {
+		res := e.call(t, name, organizeArgs(name, args))
+		if !res.IsError || !strings.Contains(text(res), "PROTON_MAX_CHANGES") || !strings.Contains(text(res), "Help: "+help.URL(help.ChangeLimit)) {
+			t.Errorf("%s past the limit: IsError=%v text=%q", name, res.IsError, text(res))
+		}
+	}
+	if n := e.imap.Unseen(t, "INBOX"); n != 2 {
+		t.Errorf("unseen = %d: a call past the limit changed something", n)
 	}
 }
 

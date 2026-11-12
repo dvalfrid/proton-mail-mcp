@@ -23,6 +23,37 @@ var (
 	ErrMessagesMissing = errors.New("not every uid is in the folder")
 )
 
+// DefaultMaxChanges caps the messages the organize operations change per
+// Client, that is per server run, unless Options.MaxChanges says otherwise.
+const DefaultMaxChanges = 200
+
+// ErrChangeLimit means the organize operations reached MaxChanges for this
+// server run. It guards against an assistant fooled by instructions in an
+// email reorganising the whole mailbox: the owner has to restart the server
+// or raise PROTON_MAX_CHANGES.
+var ErrChangeLimit = errors.New("this server run has reached its limit of changed messages; if the owner wants more changes, they restart Claude (which restarts the server) or raise PROTON_MAX_CHANGES")
+
+// reserve counts n more changed messages, or refuses if that would pass
+// MaxChanges. Messages are counted when a change is attempted, whether or
+// not Bridge carries it out: a partly done change still counts.
+func (c *Client) reserve(n int) error {
+	c.changedMu.Lock()
+	defer c.changedMu.Unlock()
+	if c.changed+n > c.opts.MaxChanges {
+		return fmt.Errorf("%w (%d of %d used, this call asks for %d)", ErrChangeLimit, c.changed, c.opts.MaxChanges, n)
+	}
+	c.changed += n
+	return nil
+}
+
+// unreserve gives back a reservation for a change that was never sent:
+// refused by the checks before anything was asked of Bridge.
+func (c *Client) unreserve(n int) {
+	c.changedMu.Lock()
+	defer c.changedMu.Unlock()
+	c.changed -= n
+}
+
 // Errors from a change that Bridge refused after the checks passed.
 var (
 	// ErrChangeFailed means Bridge refused or broke off the change itself.
@@ -66,6 +97,9 @@ func (c *Client) change(ctx context.Context, s Selection, fn func(*imapclient.Cl
 	if err != nil {
 		return 0, err
 	}
+	if err := c.reserve(len(uids)); err != nil {
+		return 0, err
+	}
 	set := imap.UIDSet{}
 	for _, u := range uids {
 		set.AddNum(imap.UID(u))
@@ -101,6 +135,9 @@ func (c *Client) change(ctx context.Context, s Selection, fn func(*imapclient.Cl
 		started = true
 		return fn(ic, set)
 	})
+	if !started {
+		c.unreserve(len(uids)) // nothing was asked of Bridge
+	}
 	switch {
 	case err != nil && started:
 		return 0, changeFailed(err)

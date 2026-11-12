@@ -71,6 +71,14 @@ Marking, starring, moving, labelling and trashing are done by Bridge on Proton's
 
 **Fix:** check the internet connection and that Bridge shows your account signed in and synced. Then let Claude list the folder again to see what changed, and retry only the rest. Nothing is ever deleted by these tools: a message that was moved is in its new folder or still in the old one.
 
+## Change limit reached
+
+**Message:** "this server run has reached its limit of changed messages …"
+
+The tools that change messages (mark read or unread, star, move, label, trash) together change at most 200 messages each time the server runs. An email can contain instructions aimed at Claude; the limit stops an assistant fooled by one from reorganising the whole mailbox before you notice. Calls that were refused before anything was sent to Bridge don't count.
+
+**Fix:** if you did ask for the changes, restart Claude Desktop (or start a new Claude Code session): that restarts the server and the count. For a bigger clean-up, set `PROTON_MAX_CHANGES` to a higher number in the server's environment, or in a `.env` next to the program, and restart. Check what was changed so far before you raise it.
+
 ## Search finds nothing
 
 Bridge compares search terms with the raw, still-encoded message, so words with letters such as å, ä, ö or é usually find nothing, even when the mail exists.

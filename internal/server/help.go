@@ -16,6 +16,7 @@ var helpTopics = []struct {
 }{
 	{mail.ErrNotSetUp, help.NotSetUp},
 	{mail.ErrChangeFailed, help.ChangeFailed},
+	{mail.ErrChangeLimit, help.ChangeLimit},
 	{mail.ErrBridgeUnreachable, help.BridgeDown},
 	{mail.ErrLoginFailed, help.LoginFailed},
 	{mail.ErrCertificate, help.Certificate},

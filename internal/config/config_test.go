@@ -103,6 +103,25 @@ func TestAllowSend(t *testing.T) {
 	}
 }
 
+func TestMaxChanges(t *testing.T) {
+	t.Parallel()
+	for v, want := range map[string]int{"": DefaultMaxChanges, "1": 1, "1000": 1000} {
+		env := validEnv()
+		env[EnvMaxChanges] = v
+		cfg, err := Load(lookupMap(env))
+		if err != nil || cfg.MaxChanges != want {
+			t.Errorf("%s=%q: MaxChanges = %d, %v; want %d", EnvMaxChanges, v, cfg.MaxChanges, err, want)
+		}
+	}
+	for _, v := range []string{"0", "-5", "many"} {
+		env := validEnv()
+		env[EnvMaxChanges] = v
+		if _, err := Load(lookupMap(env)); err == nil || !strings.Contains(err.Error(), EnvMaxChanges) {
+			t.Errorf("%s=%q: err = %v, want a refusal", EnvMaxChanges, v, err)
+		}
+	}
+}
+
 // Guardrail: the password never appears when a Config is printed, logged or
 // marshalled.
 func TestSecretNeverPrinted(t *testing.T) {
