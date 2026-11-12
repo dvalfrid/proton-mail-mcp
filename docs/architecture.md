@@ -116,7 +116,17 @@ Mail is written by whoever sends it, so it can contain text aimed at the AI (pro
   - Images become their alt text, and only `http(s)` and `mailto` links are kept.
   - Nothing is ever fetched.
 - **Characters that can fake or hide text are removed:** control characters, bidi overrides and zero-width characters. In headers, newlines become spaces, so a subject can't fake extra lines.
-- **Attachments are listed, never opened.**
+- **Attachments are listed, never opened.** The one exception is `view_image` below.
+
+### Images: decoded, encoded again, never fetched
+
+`view_image` lets Claude see an image in a message. It takes the attachment's `index` from `read_message`, because only the message's own MIME parts are ever read: a remote image in the HTML is how senders see that a message was opened, and fetching it would leave the computer.
+
+- **Checked by content.** The declared type is the sender's word. The header must decode as PNG, JPEG, GIF or WebP, or the attachment is refused.
+- **Size checked before decoding.** A small file can claim a huge image, so width × height is read from the header and over 50 megapixels is refused before anything is decoded. Only one image is decoded at a time, so parallel calls can't multiply the memory.
+- **Encoded again, never passed through.** Claude gets what the decoder saw, as PNG (from PNG or GIF) or JPEG, scaled down to 1568 pixels on the longest side. Claude scales larger images down itself, so the extra pixels would only cost bytes. A re-encoded PNG over 1 MiB becomes JPEG.
+- **Untrusted, like the text.** Text in an image is an easy way to hide instructions from a reader of the HTML, so the result carries the same kind of note as `read_message`.
+- `golang.org/x/image` adds WebP and scaling; the standard library does the rest.
 
 A damaged message gives what could be read, not an error. A fuzz test checks that no input panics, hangs, produces invalid UTF-8 or exceeds a cap.
 

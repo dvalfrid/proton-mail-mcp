@@ -57,7 +57,7 @@ Install without a terminal, and updates that keep Claude's registration:
 
 - Tools: `create_draft`, `create_reply_draft` (threading headers: `In-Reply-To`, `References`), `update_draft`, `list_drafts`.
 - `remove_label` without `EXPUNGE` (#55), which completes organizing.
-- Let Claude view the images in a message: attachments and inline images, never remote ones (#106).
+- ✅ Tool: `view_image`: Claude sees the images in a message, attachments and inline images, never remote ones (#106).
 - Save an attachment, only into the owner's attachment folder, never opened by the server (#107).
 
 ## 0.5 — macOS, Linux and packaging

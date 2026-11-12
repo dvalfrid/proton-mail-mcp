@@ -175,7 +175,7 @@ func TestReadMessage(t *testing.T) {
 	if m.Body != "The report is attached." || m.BodyFormat != "text" {
 		t.Errorf("body = %q (%s)", m.Body, m.BodyFormat)
 	}
-	want := Attachment{Name: "report.pdf", Type: "application/pdf", Size: 9}
+	want := Attachment{Index: 1, Name: "report.pdf", Type: "application/pdf", Size: 9}
 	if len(m.Attachments) != 1 || m.Attachments[0] != want {
 		t.Errorf("attachments = %+v, want %+v", m.Attachments, want)
 	}

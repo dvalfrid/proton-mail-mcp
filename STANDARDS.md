@@ -135,7 +135,7 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 
 Anyone can send the owner an email, so mail content can contain instructions aimed at the AI (prompt injection).
 
-- Tool output marks message content as untrusted. `read_message` returns headers and body inside a separate `untrusted_content` field with a note that it is data from the sender, not instructions. `list_messages` and `search_messages` return each message's subject and sender as fields of the listing, with a note naming them as sender-written data. Sender text never appears in an error message.
+- Tool output marks message content as untrusted. `read_message` returns headers and body inside a separate `untrusted_content` field with a note that it is data from the sender, not instructions. `list_messages` and `search_messages` return each message's subject and sender as fields of the listing, with a note naming them as sender-written data. `view_image` returns the image with a note that what it shows, text included, is the sender's. Sender text never appears in an error message.
 - HTML is converted to text; scripts, styles and remote resources are dropped, never fetched.
 - Attachments are listed (name, type, size), not opened or executed.
 - Output size is capped per message and per call.
@@ -187,6 +187,7 @@ Standard library first. Approved:
 | `github.com/modelcontextprotocol/go-sdk` | MCP server (official SDK) |
 | `github.com/emersion/go-imap/v2` | IMAP client, in-memory IMAP server for tests. Still tagged beta upstream, but it is the maintained line (v1 is not); pinned in `go.mod`, upgrades go through the full test suite |
 | `github.com/emersion/go-message` | MIME parsing |
+| `golang.org/x/image` | WebP decoding and scaling images down for `view_image`: the Go team's image module, because the standard library reads PNG, JPEG and GIF but neither WebP nor resizing. Approved by the owner 2026-11-12. |
 | `golang.org/x/net/html` | HTML → text for message bodies: the Go team's HTML5 tokenizer, because sender-written HTML is untrusted and a hand-written parser would be the weak spot |
 | `github.com/emersion/go-smtp`, `github.com/emersion/go-sasl` | SMTP client, SMTP server for tests |
 | `golang.org/x/sys` | Windows system calls for `check` and `setup`: which program owns Bridge's port, whether it is validly signed, and whether Bridge is installed (registry). Approved by the owner 2026-11-11. |

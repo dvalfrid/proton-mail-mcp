@@ -62,7 +62,7 @@ func TestReadToolsAreAnnotatedReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readTools := map[string]bool{"list_folders": true, "list_messages": true, "read_message": true, "search_messages": true}
+	readTools := map[string]bool{"list_folders": true, "list_messages": true, "read_message": true, "search_messages": true, "view_image": true}
 	for _, tool := range res.Tools {
 		if readTools[tool.Name] && (tool.Annotations == nil || !tool.Annotations.ReadOnlyHint) {
 			t.Errorf("%s is not annotated read-only", tool.Name)
@@ -100,7 +100,7 @@ func TestEveryToolIsClassified(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readTools := map[string]bool{"list_folders": true, "list_messages": true, "read_message": true, "search_messages": true}
+	readTools := map[string]bool{"list_folders": true, "list_messages": true, "read_message": true, "search_messages": true, "view_image": true}
 	for _, tool := range res.Tools {
 		a := tool.Annotations
 		if readTools[tool.Name] {
@@ -213,9 +213,12 @@ func TestToolsDoNotMarkAsRead(t *testing.T) {
 	var msg ReadMessageOutput
 	e.callOK(t, "read_message", map[string]any{"folder": "INBOX", "uid": 1}, &msg)
 	e.callOK(t, "read_message", map[string]any{"folder": "INBOX", "uid": 2}, &msg)
+	e.imap.AddMessage(t, "INBOX", msgWithImage(t, "http://127.0.0.1:1/x.png"))
+	var img ViewImageOutput
+	e.callOK(t, "view_image", map[string]any{"folder": "INBOX", "uid": 3, "attachment": 1}, &img)
 
-	if n := e.imap.Unseen(t, "INBOX"); n != 2 {
-		t.Fatalf("unseen = %d after listing, searching and reading, want 2", n)
+	if n := e.imap.Unseen(t, "INBOX"); n != 3 {
+		t.Fatalf("unseen = %d after listing, searching, reading and viewing an image, want 3", n)
 	}
 }
 
@@ -285,7 +288,8 @@ func TestNoSecretsInOutputOrLogs(t *testing.T) {
 		{"read_message", map[string]any{"folder": "INBOX", "uid": 1}},
 		{"read_message", map[string]any{"folder": "INBOX", "uid": 99}}, // error path
 		{"search_messages", map[string]any{"folder": "INBOX", "from": "bob"}},
-		{"search_messages", map[string]any{"folder": "Nope", "from": "bob"}}, // error path
+		{"search_messages", map[string]any{"folder": "Nope", "from": "bob"}},         // error path
+		{"view_image", map[string]any{"folder": "INBOX", "uid": 1, "attachment": 1}}, // error path: no attachments
 	} {
 		res := e.call(t, c.tool, c.args)
 		all.WriteString(text(res))
@@ -311,8 +315,12 @@ func TestNoMailContentInLogs(t *testing.T) {
 	e.callOK(t, "list_messages", map[string]any{"folder": "INBOX"}, &out)
 	var msg ReadMessageOutput
 	e.callOK(t, "read_message", map[string]any{"folder": "INBOX", "uid": 1}, &msg)
+	e.imap.AddMessage(t, "INBOX", msgWithImage(t, "http://127.0.0.1:1/x.png"))
+	var img ViewImageOutput
+	e.callOK(t, "view_image", map[string]any{"folder": "INBOX", "uid": 2, "attachment": 1}, &img)
+	e.call(t, "view_image", map[string]any{"folder": "INBOX", "uid": 2, "attachment": 2}) // error path
 
-	for _, s := range []string{"Lunch on Friday", "bob@example.org", "Are you free"} {
+	for _, s := range []string{"Lunch on Friday", "bob@example.org", "Are you free", "chart.png", "Quarterly chart"} {
 		if strings.Contains(e.logs.String(), s) {
 			t.Errorf("logs contain mail content %q", s)
 		}
