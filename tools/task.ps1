@@ -71,10 +71,17 @@ function Invoke-Build {
     if ($GOARCH) { $env:GOARCH = $GOARCH }
     try {
         Invoke-Native 'go' @('build', '-trimpath', "-ldflags=-s -w -X main.version=$Version", '-o', $output, './cmd/proton-mail-mcp')
+        Write-Host "Built $output ($Version)"
+        if ($exe) {
+            # The setup wizard, next to the server, as a windowed program
+            # (no console window). Windows only for now (issue #91).
+            $wizard = Join-Path (Split-Path -Parent $output) 'proton-mail-mcp-setup.exe'
+            Invoke-Native 'go' @('build', '-trimpath', "-ldflags=-s -w -H=windowsgui -X main.version=$Version", '-o', $wizard, './cmd/proton-mail-mcp-setup')
+            Write-Host "Built $wizard ($Version)"
+        }
     } finally {
         Remove-Item Env:GOOS, Env:GOARCH -ErrorAction SilentlyContinue
     }
-    Write-Host "Built $output ($Version)"
 }
 
 switch ($Task) {

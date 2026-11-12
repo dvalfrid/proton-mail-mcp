@@ -9,21 +9,17 @@ package setup
 
 import (
 	"context"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net"
-	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/bridge"
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
 	"github.com/dvalfrid/proton-mail-mcp/internal/keystore"
-	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
 )
 
 // Prompter asks the user. Secret must not echo what is typed.
@@ -66,18 +62,11 @@ const passwordTries = 3
 
 // Run performs the setup. It writes nothing until the login has worked.
 func Run(ctx context.Context, o Options) error {
-	o.defaults()
 	say := func(format string, args ...any) { _, _ = fmt.Fprintf(o.Out, format+"\n", args...) } // a broken terminal can't be reported anywhere
 
-	prev, err := config.ReadSettings(config.SettingsFile(o.Dir))
+	prev, err := o.Prepare()
 	if err != nil {
 		return err
-	}
-	if o.IMAPPort == 0 {
-		o.IMAPPort = cmpOr(prev.IMAPPort, config.DefaultIMAPPort)
-	}
-	if o.SMTPPort == 0 {
-		o.SMTPPort = cmpOr(prev.SMTPPort, config.DefaultSMTPPort)
 	}
 
 	say("Proton Mail Bridge")
@@ -89,31 +78,26 @@ func Run(ctx context.Context, o Options) error {
 	if err != nil {
 		return err
 	}
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
 
 	say("")
 	say("Bridge account (Bridge → your account → Mailbox details)")
-	user, password, err := o.credentials(ctx, say, cmpOr(prev.User, ""), certPEM)
+	user, password, err := o.credentials(ctx, say, cmpOr(prev.User, ""), cert)
 	if err != nil {
 		return err
 	}
 
-	certFile := config.CertPath(o.Dir)
-	if err := config.WriteFile(certFile, certPEM); err != nil {
-		return err
-	}
-	settings := config.Settings{User: user, Host: o.Host, IMAPPort: o.IMAPPort, SMTPPort: o.SMTPPort, CertFile: certFile, Fingerprint: bridge.Fingerprint(cert)}
-	if err := config.WriteSettings(config.SettingsFile(o.Dir), settings); err != nil {
-		return err
-	}
-	if err := o.Store.Set(user, password); err != nil {
-		say("✗ The password could not be stored in the OS credential store: %v", err)
+	file, err := o.Save(user, password, cert)
+	if errors.Is(err, ErrStore) {
+		say("✗ %s", capitalize(err.Error()))
 		// Not in the MCP client's config: STANDARDS keeps the password out
 		// of it (issue #74).
 		say("  Put %s=<the Bridge password> in a .env file next to the program, readable only by you, or fix the credential store and run setup again.", config.EnvPassword)
 		return err
 	}
-	say("✓ Saved: settings in %s, the password in the OS credential store", config.SettingsFile(o.Dir))
+	if err != nil {
+		return err
+	}
+	say("✓ Saved: settings in %s, the password in the OS credential store", file)
 
 	say("")
 	say("Claude")
@@ -121,6 +105,13 @@ func Run(ctx context.Context, o Options) error {
 	say("")
 	say("Done. Run `proton-mail-mcp check` at any time to test the connection.")
 	return nil
+}
+
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 func (o *Options) defaults() {
@@ -150,22 +141,20 @@ func cmpOr[T comparable](v, def T) T {
 // another port if needed, and refuses a server that isn't Bridge.
 func (o *Options) findBridge(ctx context.Context, say func(string, ...any)) error {
 	for {
-		addr := addr(o.Host, o.IMAPPort)
-		greeting, err := bridge.IMAPGreeting(ctx, addr)
-		if err == nil {
-			if !bridge.IsBridgeGreeting(greeting) {
-				say("✗ Something answers on %s, but it is not Proton Mail Bridge.", addr)
-				say("  Check the IMAP port that Bridge shows, and run setup again with -imap-port.")
-				return bridge.ErrNotBridge
-			}
-			say("✓ Bridge answers on %s", addr)
+		s := o.LookForBridge(ctx)
+		switch {
+		case s.Answers && !s.IsBridge:
+			say("✗ Something answers on %s, but it is not Proton Mail Bridge.", s.Addr)
+			say("  Check the IMAP port that Bridge shows, and run setup again with -imap-port.")
+			return bridge.ErrNotBridge
+		case s.Answers:
+			say("✓ Bridge answers on %s", s.Addr)
 			return nil
-		}
-		if where, ok := o.Installed(); ok {
-			say("✗ Nothing answers on %s. Bridge is installed (%s) but doesn't seem to be running.", addr, where)
+		case s.Installed:
+			say("✗ Nothing answers on %s. Bridge is installed (%s) but doesn't seem to be running.", s.Addr, s.InstalledAt)
 			say("  Start Proton Mail Bridge and sign in.")
-		} else {
-			say("✗ Nothing answers on %s, and Proton Mail Bridge doesn't seem to be installed.", addr)
+		default:
+			say("✗ Nothing answers on %s, and Proton Mail Bridge doesn't seem to be installed.", s.Addr)
 			say("  Install it from https://proton.me/mail/bridge, sign in, then run setup again.")
 		}
 		answer, err := o.Prompt.Line("Press Enter to try again once Bridge runs, type another IMAP port, or q to quit", "")
@@ -189,52 +178,47 @@ func (o *Options) findBridge(ctx context.Context, say func(string, ...any)) erro
 // pinCertificate reads Bridge's certificate without trusting it, checks it,
 // and asks the user to confirm unless the Windows port owner check proves
 // it is Proton's signed Bridge.
-func (o *Options) pinCertificate(ctx context.Context, say func(string, ...any)) (*x509.Certificate, error) {
-	cert, err := bridge.IMAPCertificate(ctx, addr(o.Host, o.IMAPPort), o.Host)
+func (o *Options) pinCertificate(ctx context.Context, say func(string, ...any)) (Certificate, error) {
+	c, err := o.ReadCertificate(ctx)
+	if errors.Is(err, bridge.ErrNotBridge) {
+		say("✗ %s", capitalize(strings.TrimSuffix(err.Error(), ": "+bridge.ErrNotBridge.Error())))
+		return Certificate{}, err
+	}
 	if err != nil {
-		return nil, fmt.Errorf("read Bridge's certificate: %w", err)
+		return Certificate{}, err
 	}
-	fp := bridge.Fingerprint(cert)
-	if !bridge.LooksLikeBridge(cert) {
-		say("! The certificate is not the kind Bridge makes (issued to %s).", cert.Subject)
+	if !c.LooksLikeBridge {
+		say("! The certificate is not the kind Bridge makes (issued to %s).", c.cert.Subject)
 	}
-	if smtp, err := bridge.SMTPCertificate(ctx, addr(o.Host, o.SMTPPort), o.Host); err != nil {
-		say("! SMTP on %s didn't answer as expected (%v). Reading mail works without it.", addr(o.Host, o.SMTPPort), err)
-	} else if bridge.Fingerprint(smtp) != fp {
-		say("✗ SMTP on %s presents a different certificate than IMAP: something other than Bridge is on one of the ports.", addr(o.Host, o.SMTPPort))
-		return nil, bridge.ErrNotBridge
+	if c.SMTPProblem != "" {
+		say("! %s. Reading mail works without it.", c.SMTPProblem)
 	}
-	say("  Certificate SHA-256: %s", fp)
-
-	verified := false
-	if owner, err := o.PortOwner(o.IMAPPort); err == nil {
-		// Only a signed bridge.exe in Program Files is trusted without
-		// asking: a signature alone can be borrowed (issue #71).
-		verified = owner.TrustedBridge() && bridge.LooksLikeBridge(cert)
-		say("  The port belongs to %s (validly signed: %v, in Program Files: %v)", owner.Path, owner.Signed, owner.ProtectedDir)
+	say("  Certificate SHA-256: %s", c.Fingerprint)
+	if c.OwnerKnown {
+		say("  The port belongs to %s (validly signed: %v, in Program Files: %v)", c.Owner.Path, c.Owner.Signed, c.Owner.ProtectedDir)
 	}
-	if verified {
+	if c.Verified {
 		say("✓ Pinned: the port is held by a signed bridge.exe installed in Program Files")
-		return cert, nil
+		return c, nil
 	}
-	if runtime.GOOS == "windows" {
+	if CanVerifyOwner() {
 		say("! Could not confirm that the program on the port is Proton Mail Bridge as installed in Program Files.")
 		say("  Answer yes only if that path is where you installed Proton Mail Bridge.")
 	}
 	ok, err := o.Prompt.Confirm("Is Proton Mail Bridge running and signed in on this computer, so this is its certificate?", false)
 	if err != nil {
-		return nil, err
+		return Certificate{}, err
 	}
 	if !ok {
-		return nil, ErrAborted
+		return Certificate{}, ErrAborted
 	}
 	say("✓ Pinned")
-	return cert, nil
+	return c, nil
 }
 
 // credentials asks for the username and password and tests the login
 // against the pinned certificate, before anything is written.
-func (o *Options) credentials(ctx context.Context, say func(string, ...any), defUser string, certPEM []byte) (string, string, error) {
+func (o *Options) credentials(ctx context.Context, say func(string, ...any), defUser string, c Certificate) (string, string, error) {
 	user, err := o.Prompt.Line("Bridge username (your address)", defUser)
 	if err != nil {
 		return "", "", err
@@ -243,18 +227,12 @@ func (o *Options) credentials(ctx context.Context, say func(string, ...any), def
 	if user == "" {
 		return "", "", errors.New("no username given")
 	}
-	tlsCfg, err := mail.TLSConfigFromPEM(o.Host, certPEM)
-	if err != nil {
-		return "", "", err
-	}
 	for try := 1; ; try++ {
 		password, err := o.Prompt.Secret("Bridge password (not your Proton password; it is not shown as you type)")
 		if err != nil {
 			return "", "", err
 		}
-		c := mail.New(mail.Options{Addr: addr(o.Host, o.IMAPPort), User: user, Password: config.Secret(password), TLSConfig: tlsCfg, Timeout: bridge.Timeout, Logger: o.Logger})
-		err = c.Ping(ctx)
-		_ = c.Close() // best effort
+		err = o.TestLogin(ctx, user, password, c)
 		if err == nil {
 			say("✓ Logged in")
 			return user, password, nil

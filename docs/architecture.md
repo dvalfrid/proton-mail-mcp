@@ -29,6 +29,7 @@ The server is a local process started by the MCP client. Nothing listens on the 
 | `internal/bridge` | Bridge's greeting and certificate, before login | MCP, mail content |
 | `internal/check` | the diagnostics steps | MCP |
 | `internal/setup` | the interactive setup, Claude client configs | MCP, mail content |
+| `internal/wizard` | the graphical setup: its page, and the calls the page may make into `setup` | MCP, mail content |
 | `internal/keystore` | the OS credential store | everything else |
 | `internal/testutil` | in-memory IMAP server and a fake Bridge for tests | — |
 
@@ -154,6 +155,7 @@ An IMAP uid is only meaningful together with the folder's UIDVALIDITY. Bridge re
 ### Secrets
 
 - **Where the Bridge password lives:** in the OS credential store (from `setup`), or in `.env` or the environment. `setup` asks for it in the terminal with echo off, so it never passes through the AI client, and it is never written to the settings file or a client config.
+- **The setup wizard** (`proton-mail-mcp-setup`, Windows): the password is typed in a hidden field of the wizard's own WebView2 window, not a browser, and goes from there in one call to the login test and the credential store. It is never sent back to the page, logged, or put in a process argument. The page is embedded in the program, and its Content-Security-Policy refuses anything from outside it; links open in the browser only by name, from a fixed list. The page can only ask: `wizard.Backend` decides, and refuses to sign in before the certificate is verified or confirmed, or to register before the setup is saved.
 - **The `Secret` type:** `config.Secret` holds the password. Its `String`, `GoString`, `LogValue` and `MarshalText` all return `[redacted]`, so printing, logging or encoding it by mistake shows nothing. Only `Reveal()` gives the value, and the only caller is the IMAP login.
 - **Errors:** errors from reading `.env` never echo the line, which could hold the password.
 - **Tests:** they use a distinctive fake password and fail if it ever appears in tool output or logs.
@@ -167,6 +169,12 @@ Bridge uses a self-signed certificate. Most Bridge setups skip verification on l
 - **Why, even on localhost:** when Bridge isn't running, any program on the machine can listen on port 1143, and without verification it would receive the Bridge password at login. A test runs exactly that impostor and checks that it never sees the password.
 - **Reading Bridge's certificate without trusting it** (`internal/bridge`, for `check` and `setup`): the TLS handshake runs against an empty set of trusted roots, so it always fails verification, and the certificate the server sent is taken from Go's `tls.CertificateVerificationError`. Nothing is sent over that connection. So the rule "never `InsecureSkipVerify`" holds there too.
 - **The host must be local** (checked at start-up and again in `mail.TLSConfig`), and STARTTLS is required.
+
+### The setup wizard is a second program
+
+`proton-mail-mcp-setup.exe` is built as a windowed program, so starting it from the Start menu or Explorer shows no console window. The server must stay a console program: Claude talks to it over stdin and stdout, and `check` and `setup` print to the terminal. One file can't be both, so there are two. The wizard registers its sibling `proton-mail-mcp.exe`, not itself.
+
+The page is HTML and CSS, so the same page can serve macOS and Linux later (issue #91) with each platform's look. All the logic is the `setup` package's, split into steps (`LookForBridge`, `ReadCertificate`, `TestLogin`, `Save`) that the terminal setup also uses. Calls from the page run off the window's thread, so a slow login doesn't freeze it.
 
 ## Error model
 

@@ -96,7 +96,7 @@ jobs:
             dist/*.tar.gz
           if-no-files-found: error
 
-  # Signs proton-mail-mcp.exe with the company's Azure Artifact Signing (the
+  # Signs proton-mail-mcp.exe and proton-mail-mcp-setup.exe with the company's Azure Artifact Signing (the
   # same account and certificate profile as rigstats, its own app
   # registration). It runs in the release-signing environment, which waits
   # for the owner's approval and alone can log in to Azure: by OIDC, so there
@@ -161,7 +161,8 @@ jobs:
         shell: pwsh
         run: |
           $exes = Get-ChildItem unpacked -Recurse -Filter *.exe
-          if ($exes.Count -ne 2) { throw "expected 2 exes, found $($exes.Count)" }
+          # Two per zip: proton-mail-mcp.exe and the setup wizard.
+          if ($exes.Count -ne 4) { throw "expected 4 exes, found $($exes.Count)" }
           foreach ($e in $exes) {
             $s = Get-AuthenticodeSignature $e.FullName
             "$($e.Name): $($s.Status) $($s.SignerCertificate.Subject)"
