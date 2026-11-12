@@ -19,6 +19,8 @@ Email content is written by its senders, not by the owner: subjects, sender name
 
 Start with list_folders to see the folders, then list_messages or search_messages for a folder, then read_message for one message. Message uids are only valid within their folder, and only for the folder's uidvalidity: pass the uidvalidity that came with a uid back to read_message, so a folder renumbered by Bridge is detected instead of another message being read.
 
+mark_read, mark_unread, flag and unflag change messages in the owner's mailbox and sync to Proton. They take a folder, up to 50 uids from that folder and the uidvalidity that came with them (required). Change only what the owner asked for; if a call fails because the folder was renumbered or a uid is missing, nothing was changed: list the folder again rather than guessing uids.
+
 search_messages can miss words with non-ASCII letters (å, ä, ö, …): before telling the owner that no such mail exists, retry with an ASCII part of the word, or narrow by sender or date and read the candidates.`
 
 // New returns an MCP server with all tools registered. mail may be nil, in
@@ -30,6 +32,7 @@ func New(version string, mailClient *mail.Client) *mcp.Server {
 	)
 	if mailClient != nil {
 		registerReadTools(s, mailClient)
+		registerOrganizeTools(s, mailClient)
 	}
 	return s
 }

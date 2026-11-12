@@ -67,6 +67,78 @@ func TestReadToolsAreAnnotatedReadOnly(t *testing.T) {
 	}
 }
 
+// The tools that may change the mailbox, and how each must be annotated.
+// Organize tools are undoable (STANDARDS.md "What Claude may do"); a tool
+// that is destructive asks clients that honour the hint to confirm first.
+var organizeTools = map[string]struct{ destructive bool }{
+	"mark_read": {}, "mark_unread": {}, "flag": {}, "unflag": {},
+}
+
+// Every tool is either a read tool or a listed organize tool with the right
+// annotations. A new tool must be classified here deliberately.
+func TestEveryToolIsClassified(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	res, err := e.session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readTools := map[string]bool{"list_folders": true, "list_messages": true, "read_message": true, "search_messages": true}
+	for _, tool := range res.Tools {
+		a := tool.Annotations
+		if readTools[tool.Name] {
+			continue // TestReadToolsAreAnnotatedReadOnly
+		}
+		want, ok := organizeTools[tool.Name]
+		switch {
+		case !ok:
+			t.Errorf("%s is neither a read tool nor a listed organize tool", tool.Name)
+		case a == nil || a.ReadOnlyHint || a.DestructiveHint == nil || *a.DestructiveHint != want.destructive:
+			t.Errorf("%s: annotations %+v, want not read-only and destructive=%v", tool.Name, a, want.destructive)
+		}
+	}
+}
+
+// Only mark_read sets \Seen: every other organize tool leaves unread
+// messages unread.
+func TestOnlyMarkReadMarksAsRead(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	l := inboxListing(t, e)
+	args := map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity}
+	for name := range organizeTools {
+		if name == "mark_read" {
+			continue
+		}
+		var out ChangeOutput
+		e.callOK(t, name, args, &out)
+		if n := e.imap.Unseen(t, "INBOX"); n != 2 {
+			t.Fatalf("unseen = %d after %s, want 2", n, name)
+		}
+	}
+}
+
+// No tool call, in any scenario run here, sends EXPUNGE or sets \Deleted:
+// on Bridge that is a permanent delete in Trash and Drafts (docs/bridge.md
+// §6).
+func TestNoToolExpunges(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	l := inboxListing(t, e)
+	good := map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity}
+	stale := map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity + 1}
+	for name := range organizeTools {
+		e.call(t, name, good)
+		e.call(t, name, stale)
+	}
+	tr := e.imap.Transcript()
+	for _, bad := range []string{"EXPUNGE", `+FLAGS (\Deleted)`, `+FLAGS.SILENT (\Deleted)`} {
+		if strings.Contains(tr, bad) {
+			t.Errorf("the transcript contains %q", bad)
+		}
+	}
+}
+
 // No tool sends mail. When send_draft arrives (milestone 0.4) it will be the
 // only exception, and this list must be updated deliberately.
 func TestNoSendTools(t *testing.T) {
