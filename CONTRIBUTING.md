@@ -107,6 +107,7 @@ Closes #N
 - Release Please keeps a release PR open. Merging it tags `vX.Y.Z`, creates the GitHub release and builds binaries for Windows, macOS and Linux with `SHA256SUMS.txt`.
 - The release PR is opened with Actions' own token, which starts no workflows, so its required checks never run by themselves. Run them on its branch before merging: `gh workflow run verify.yml --ref release-please--branches--main--components--proton-mail-mcp`.
 - The version is embedded in the binary from the tag (`-X main.version`).
+- A release waits for the owner to approve the `release-signing` environment (Actions → the release run → Review deployments) before the Windows binaries are signed and anything is published.
 
 ## Continuous integration
 
@@ -117,7 +118,7 @@ Closes #N
 | `audit.yml` | Weekly | `govulncheck` against the current `go.sum` |
 | `fuzz.yml` | Weekly, or by hand | Fuzzes the mail parser for real (10 min per target); a crasher is kept as an artifact |
 | `release-please.yml` | Push to `main` | Release PR, tag, then dispatches `release.yml` |
-| `release.yml` | Dispatched per tag | Cross-platform build, checksums, upload to the release |
+| `release.yml` | Dispatched per tag | Cross-platform build; Windows exes signed with Azure Artifact Signing in the `release-signing` environment (waits for the owner's approval, OIDC login, no client secret); checksums, attestation, upload to the release |
 | Dependabot | Weekly | Grouped updates for actions, Go modules and pinned tools; no majors |
 
 All actions are pinned to a commit SHA, with the version in a comment.
