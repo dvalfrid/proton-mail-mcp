@@ -1,9 +1,13 @@
 // Command proton-mail-mcp is an MCP server (stdio) that exposes a Proton Mail
 // inbox to Claude via Proton Mail Bridge on localhost.
 //
-// Settings come from the environment, or from a .env file: the one named by
-// PROTON_MCP_ENV_FILE, else .env next to the executable. The environment wins
-// over the file.
+// Settings come from, in order of precedence: the environment; a .env file
+// (the one named by PROTON_MCP_ENV_FILE, else .env next to the executable);
+// and the settings that proton-mail-mcp setup wrote to the user's config
+// directory, with the password in the OS credential store.
+//
+// Commands: (none) runs the MCP server on stdio; setup sets it up
+// interactively; check diagnoses the connection to Bridge.
 package main
 
 import (
@@ -20,8 +24,10 @@ import (
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/check"
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
+	"github.com/dvalfrid/proton-mail-mcp/internal/keystore"
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
 	"github.com/dvalfrid/proton-mail-mcp/internal/server"
+	"github.com/dvalfrid/proton-mail-mcp/internal/setup"
 )
 
 // version is set at build time: -ldflags "-X main.version=...".
@@ -39,11 +45,14 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	slog.SetDefault(logger)
 
-	if flag.Arg(0) == "check" {
+	switch flag.Arg(0) {
+	case "":
+	case "check":
 		os.Exit(runCheck())
-	}
-	if flag.NArg() > 0 {
-		logger.Error("unknown command", "command", flag.Arg(0), "usage", "proton-mail-mcp [-version] [check]")
+	case "setup":
+		os.Exit(runSetup(flag.Args()[1:]))
+	default:
+		logger.Error("unknown command", "command", flag.Arg(0), "usage", "proton-mail-mcp [-version] [setup | check]")
 		os.Exit(2)
 	}
 
@@ -53,21 +62,66 @@ func main() {
 	}
 }
 
-// loadConfig reads the settings: the environment, over the .env file.
+// loadConfig reads the settings: the environment over the .env file over
+// the settings from setup, with the password from the credential store if
+// it is in neither. The second result names where settings were looked for.
 func loadConfig() (config.Config, string, error) {
 	envFile, err := envFilePath()
 	if err != nil {
 		return config.Config{}, "", err
 	}
-	dotenv, err := config.ReadDotEnv(envFile)
+	dir, err := config.Dir()
 	if err != nil {
 		return config.Config{}, envFile, err
 	}
-	cfg, err := config.Load(config.Lookup(dotenv))
+	where := envFile + " or " + config.SettingsFile(dir)
+	dotenv, err := config.ReadDotEnv(envFile)
 	if err != nil {
-		return config.Config{}, envFile, fmt.Errorf("%w (settings file: %s)", err, envFile)
+		return config.Config{}, where, err
 	}
-	return cfg, envFile, nil
+	saved, err := config.ReadSettings(config.SettingsFile(dir))
+	if err != nil {
+		return config.Config{}, where, err
+	}
+	files := config.Chain(config.Lookup(dotenv), config.FromMap(saved.Values()))
+	cfg, err := config.Load(config.Chain(files, config.PasswordFrom(files, keystore.OS{}.Get)))
+	if err != nil {
+		return config.Config{}, where, fmt.Errorf("%w (run `proton-mail-mcp setup`, or see %s)", err, where)
+	}
+	return cfg, where, nil
+}
+
+// runSetup runs the interactive setup in the terminal and returns the exit
+// code. Output goes to stderr: stdout is reserved for MCP, even here.
+func runSetup(args []string) int {
+	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
+	imapPort := fs.Int("imap-port", 0, "Bridge's IMAP port, if not 1143")
+	smtpPort := fs.Int("smtp-port", 0, "Bridge's SMTP port, if not 1025")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	dir, err := config.Dir()
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err) // nowhere else to report it
+		return 1
+	}
+	exe, err := os.Executable()
+	if err == nil {
+		exe, err = filepath.EvalSymlinks(exe)
+	}
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "locate this program:", err) // nowhere else to report it
+		return 1
+	}
+	err = setup.Run(context.Background(), setup.Options{
+		Out: os.Stderr, Prompt: &setup.Terminal{In: os.Stdin, Out: os.Stderr}, Store: keystore.OS{},
+		Dir: dir, Exe: exe, IMAPPort: *imapPort, SMTPPort: *smtpPort, Clients: setup.DefaultClients(),
+	})
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "setup did not finish:", err) // nowhere else to report it
+		return 1
+	}
+	return runCheck()
 }
 
 // runCheck prints the diagnostics to stderr (stdout is reserved for MCP,

@@ -62,7 +62,7 @@ func Run(ctx context.Context, in Input) []Step {
 
 	if in.LoadErr != nil {
 		add(Step{Name: "settings", Status: Fail, Detail: in.LoadErr.Error(),
-			Hint: "fill in " + in.SettingsFile + " (see README → Setup)"})
+			Hint: "run `proton-mail-mcp setup`, or fill in " + in.SettingsFile})
 		return steps
 	}
 	cfg := in.Config

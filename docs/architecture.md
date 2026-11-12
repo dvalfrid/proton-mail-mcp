@@ -28,6 +28,8 @@ The server is a local process started by the MCP client. Nothing listens on the 
 | `internal/server` | MCP, tool schemas, the mail package's API | IMAP commands |
 | `internal/bridge` | Bridge's greeting and certificate, before login | MCP, mail content |
 | `internal/check` | the diagnostics steps | MCP |
+| `internal/setup` | the interactive setup, Claude client configs | MCP, mail content |
+| `internal/keystore` | the OS credential store | everything else |
 | `internal/testutil` | in-memory IMAP server and a fake Bridge for tests | — |
 
 The split is deliberate. Mail protocol code can be tested without MCP. A tool can be tested end to end without Bridge.
@@ -36,7 +38,7 @@ The split is deliberate. Mail protocol code can be tested without MCP. A tool ca
 
 `main` does four things, in order:
 
-1. **Read settings.** Settings come from `.env` next to the executable, or from the file named by `PROTON_MCP_ENV_FILE`; environment variables win over the file. `config.Load` validates them and refuses to start when:
+1. **Read settings.** In order of precedence: environment variables; a `.env` next to the executable or named by `PROTON_MCP_ENV_FILE`; the settings `setup` saved in the user's config directory; and for the password, the OS credential store. `config.Load` validates them and refuses to start when:
    - the user, password or certificate path is missing;
    - the host is not local (only `127.0.0.1`, `::1` or `localhost`);
    - a port is out of range.
@@ -135,7 +137,7 @@ An IMAP uid is only meaningful together with the folder's UIDVALIDITY. Bridge re
 
 ### Secrets
 
-- **Where the Bridge password lives:** only in `.env` or the environment.
+- **Where the Bridge password lives:** in the OS credential store (from `setup`), or in `.env` or the environment. `setup` asks for it in the terminal with echo off, so it never passes through the AI client, and it is never written to the settings file or a client config.
 - **The `Secret` type:** `config.Secret` holds the password. Its `String`, `GoString`, `LogValue` and `MarshalText` all return `[redacted]`, so printing, logging or encoding it by mistake shows nothing. Only `Reveal()` gives the value, and the only caller is the IMAP login.
 - **Errors:** errors from reading `.env` never echo the line, which could hold the password.
 - **Tests:** they use a distinctive fake password and fail if it ever appears in tool output or logs.

@@ -44,17 +44,28 @@ Pre-release. Claude can list, search and read messages (read-only). Organizing, 
 
 ## Setup
 
-1. In Proton Mail Bridge, note the IMAP **username** and the **Bridge password** (Bridge → your account → Mailbox details). The Bridge password is not your Proton account password.
-2. Export Bridge's TLS certificate (Bridge → Settings → Advanced → Export TLS certificates) and keep the `cert.pem` file. It is required: the server only talks to the Bridge that presents this certificate, so no other program can pose as Bridge and capture the password.
-3. Put the program and a `.env` next to each other, e.g. in `C:\Tools\proton-mail-mcp\`:
+Put the program somewhere permanent, for example `C:\Tools\proton-mail-mcp\` (Windows) or `~/bin` (macOS/Linux). Build it with `./tools/task.ps1 build`, or download a release. Then, with Proton Mail Bridge running and signed in, run in a terminal:
 
-   ```powershell
-   ./tools/task.ps1 build                    # or download a release
-   copy bin\proton-mail-mcp.exe C:\Tools\proton-mail-mcp\
-   copy .env.example C:\Tools\proton-mail-mcp\.env   # then fill it in
-   ```
+```powershell
+proton-mail-mcp setup
+```
 
-The server reads `.env` next to the executable, or the file named by `PROTON_MCP_ENV_FILE`. Environment variables override the file.
+It works the same on Windows, macOS and Linux:
+
+1. **Finds Bridge.** It tells you whether Bridge is not installed, not running, or on another port.
+2. **Pins Bridge's certificate.** It reads the certificate over STARTTLS, without trusting it, and shows its fingerprint. On Windows it pins straight away when the port belongs to Proton's validly signed `bridge.exe`; otherwise it asks you to confirm that Bridge is running. No export is needed.
+3. **Asks for the Bridge username and Bridge password** (Bridge → your account → Mailbox details; this is not your Proton password). The password is typed in the terminal, hidden, and never passes through Claude.
+4. **Tests the login**, then saves: the password in the OS credential store (Windows Credential Manager, macOS Keychain, Linux Secret Service), and the other settings plus the pinned certificate in your config directory (`%APPDATA%\proton-mail-mcp`, `~/Library/Application Support/proton-mail-mcp`, or `~/.config/proton-mail-mcp`), readable only by you.
+5. **Offers to register the server** in Claude Code (`claude mcp add --scope user`) and Claude Desktop. It merges into Claude Desktop's config with a backup, and never puts the password there.
+6. **Runs `check`.**
+
+Bridge on another port: `proton-mail-mcp setup -imap-port 1144 -smtp-port 1026`. Nothing is saved unless the login works. Run setup again after you reset or reinstall Bridge.
+
+### Settings by hand
+
+Instead of `setup`, settings can come from environment variables, or from a `.env` file next to the program or named by `PROTON_MCP_ENV_FILE`. The environment wins over `.env`, and `.env` over what setup saved. The password comes from the credential store only if it is in neither.
+
+For the certificate, export it from Bridge (Settings → Advanced → Export TLS certificates). Keep `cert.pem`, and **delete `key.pem` straight away**: the export also writes Bridge's private TLS key, which nothing here needs and which would let a program pose as Bridge.
 
 | Setting | Default | |
 |---|---|---|
@@ -63,9 +74,9 @@ The server reads `.env` next to the executable, or the file named by `PROTON_MCP
 | `PROTON_BRIDGE_HOST` | `127.0.0.1` | Only `127.0.0.1`, `::1` or `localhost` are accepted |
 | `PROTON_BRIDGE_IMAP_PORT` | `1143` | |
 | `PROTON_BRIDGE_SMTP_PORT` | `1025` | |
-| `PROTON_BRIDGE_CERT` | — | Path to the certificate exported from Bridge (PEM). Required |
+| `PROTON_BRIDGE_CERT` | — | Path to Bridge's certificate (PEM). Required |
 | `PROTON_ALLOW_SEND` | `0` | Sending is not implemented yet |
-
+| `PROTON_MCP_CONFIG_DIR` | your config dir | Where setup's settings are kept |
 Check the program: `proton-mail-mcp --version`.
 
 Check the whole connection: `proton-mail-mcp check`. It goes through the settings, whether Bridge answers and is really Bridge, the pinned certificate, the login, SMTP, (on Windows) which program owns the port, and whether a Claude client has the server registered. Each line says what is wrong and how to fix it; the exit code is non-zero on failure. It reads no mail and prints no secrets. The server also logs a warning at start-up if Bridge isn't ready.
@@ -80,6 +91,8 @@ Check the whole connection: `proton-mail-mcp check`. It goes through the setting
 How to contribute, commit format, CI and releases: [CONTRIBUTING.md](CONTRIBUTING.md). Test strategy: [docs/testing.md](docs/testing.md). How it is built and why: [docs/architecture.md](docs/architecture.md).
 
 ## Connecting to Claude
+
+`proton-mail-mcp setup` does this for you. By hand:
 
 **Claude Desktop** — Settings → Developer → Edit Config, then add to `claude_desktop_config.json`:
 

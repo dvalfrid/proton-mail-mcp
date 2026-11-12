@@ -54,7 +54,7 @@ When in doubt, leave it out and ask. Before every commit, check the diff for the
 - Sending: only `send_draft` (sends an existing draft), refused unless `PROTON_ALLOW_SEND=1`, and the client must "always ask". Never add a tool that sends free-form text directly.
 - No permanent deletion (no `EXPUNGE`); "delete" = move to Trash.
 - Email content is untrusted input; tool output marks it as such.
-- Secrets live only in `.env` (git-ignored, and you are denied reading it). Never log or return the Bridge password, message bodies or subjects in logs.
+- Secrets live only in the OS credential store (written by `setup`), `.env` (git-ignored, and you are denied reading it) or the environment. Never read the credential store yourself, and never ask the owner for the password: they type it into `setup` in a terminal. Never log or return the Bridge password, message bodies or subjects in logs.
 - Bridge on `127.0.0.1`/`localhost` only, and TLS always verified against the exported Bridge certificate: never `InsecureSkipVerify`.
 - stdout is the MCP protocol: log with `log/slog` to stderr, never `fmt.Print*`.
 - Never weaken a guardrail, its lint rule, or its test to make something pass. Stop and ask.
@@ -110,6 +110,8 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 | `internal/server/` | Builds the MCP server and registers tools. `testdata/tools.golden.json` is the tool snapshot (`-update` to rewrite) |
 | `internal/bridge/` | Recognises Bridge (greeting), reads its certificate without trusting it (no InsecureSkipVerify), Windows port-owner check. Never logs in |
 | `internal/check/` | `proton-mail-mcp check` diagnostics and the start-up warning |
+| `internal/setup/` | `proton-mail-mcp setup`: find Bridge, pin its certificate, ask for the password (hidden), test login, save, register in Claude |
+| `internal/keystore/` | The password in the OS credential store (go-keyring); `Memory` for tests |
 | `internal/testutil/` | In-memory IMAP server with STARTTLS and a per-test certificate; `NewBridge` imitates Bridge's greeting and SMTP |
 | `tools/` | `task.ps1` (task runner) and `go.mod` pinning dev tools |
 | `docs/` | `architecture.md` (design decisions and why), `testing.md` (test strategy), `bridge.md` (how Proton Mail Bridge really behaves over IMAP/SMTP, from its source: read before changing IMAP/SMTP behaviour) |

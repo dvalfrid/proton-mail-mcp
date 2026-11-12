@@ -84,9 +84,22 @@ func TLSConfig(host, certFile string) (*tls.Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read Bridge certificate: %w", err)
 	}
+	cfg, err := TLSConfigFromPEM(host, pemBytes)
+	if err != nil {
+		return nil, fmt.Errorf("read Bridge certificate %s: %w", certFile, err)
+	}
+	return cfg, nil
+}
+
+// TLSConfigFromPEM is TLSConfig with the certificate given as PEM, for setup,
+// which tests the login before it writes the certificate to disk.
+func TLSConfigFromPEM(host string, pemBytes []byte) (*tls.Config, error) {
+	if !config.IsLocalHost(host) {
+		return nil, fmt.Errorf("refusing non-local Bridge host %q", host)
+	}
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(pemBytes) {
-		return nil, fmt.Errorf("read Bridge certificate %s: no PEM certificate found", certFile)
+		return nil, errors.New("no PEM certificate found")
 	}
 	return &tls.Config{RootCAs: pool, ServerName: host, MinVersion: tls.VersionTLS12}, nil
 }
