@@ -178,7 +178,7 @@ func TestOrganizeToolsHaveAnOverallLimit(t *testing.T) {
 	}
 }
 
-// No tool sends mail. When send_draft arrives (milestone 0.4) it will be the
+// No tool sends mail. When send_draft arrives (milestone 0.5) it will be the
 // only exception, and this list must be updated deliberately.
 func TestNoSendTools(t *testing.T) {
 	t.Parallel()

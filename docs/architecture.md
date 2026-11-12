@@ -191,7 +191,7 @@ Where each protection is enforced matters as much as the protection itself.
 |---|---|---|
 | Reading never marks as read | `internal/mail` (EXAMINE, PEEK) | Yes |
 | No permanent deletion | No EXPUNGE anywhere: lint (`forbidigo`) and tests. "Delete" will mean move to Trash (0.2) | Yes |
-| Sending only an existing draft, only with `PROTON_ALLOW_SEND=1` (0.4) | The server: `send_draft` is the only send path; SMTP code in one package, enforced by lint | Yes |
+| Sending only an existing draft, only with `PROTON_ALLOW_SEND=1` (0.5) | The server: `send_draft` is the only send path; SMTP code in one package, enforced by lint | Yes |
 | The owner approves each send | **The MCP client** ("always ask") | Yes, if the client is configured so. Not every client can be |
 | Mail content treated as data | The note and field from the server; **obeying it is up to the model** | No: that's why the rows above exist |
 | The password never leaves the process except to Bridge | `Secret` type, TLS pinning, local host only | Yes |

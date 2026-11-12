@@ -1,6 +1,6 @@
 # Roadmap
 
-Each milestone is one release. Later milestones widen what Claude may do, so each one starts only when the previous is in daily use and trusted.
+Each milestone is one release and has a GitHub milestone with the same name holding its issues. Later milestones widen what Claude may do, so each one starts only when the previous is in daily use and trusted.
 
 ## 0.1 — Foundation and read-only
 
@@ -20,21 +20,45 @@ Part 2:
 - ✅ Tool: `search_messages` (#14).
 - ✅ Order `list_messages` and `search_messages` by date, not uid (#18): Bridge's uids don't follow dates.
 
-## 0.2 — Organize
+## 0.2 — Organize, hardening and winget
+
+Organize:
 
 - ✅ Tools: `mark_read` / `mark_unread`, `flag` / `unflag` (#51).
-- ✅ Tools: `move_message`, `add_label` (#52).
-- ✅ Tool: `trash_message`, move to Trash (#53). `remove_label` later (#55).
-- ✅ Guardrail test: no `EXPUNGE` or `\Deleted` from any tool.
-- Live test of the organize tools on one marked test message (#54).
-- Winget (#32).
+- ✅ Tools: `move_message`, `add_label` (#52). Not into Spam (#74).
+- ✅ Tool: `trash_message`, move to Trash, annotated destructive (#53).
 - ✅ Every tool that changes a message requires the `uidvalidity` its uid came with (#25), so a renumbered folder can't make it act on another message.
+- ✅ At most `PROTON_MAX_CHANGES` messages (200 by default) changed per server run (#68).
+- ✅ Guardrail tests: no `EXPUNGE` or `\Deleted` from any tool; every tool classified.
+- ✅ Live test of the organize tools on one marked test message (#54).
+
+Hardening:
+
+- ✅ A panic fails one call, not the server (#60).
+- ✅ Error messages say what to do and link to [docs/troubleshooting.md](docs/troubleshooting.md); the server starts without settings and says to run setup (#62).
+- ✅ Clear error when Bridge can't reach Proton, and that a change may be partly done (#64).
+- ✅ Text search gets its own timeout and advice (#39, shipped in 0.1.0).
+- ✅ Weekly fuzzing in CI (#65).
+- ✅ Independent security review (#67) and its fixes: setup trusts only a signed `bridge.exe` in Program Files (#71), no slow parse on crafted HTML (#72), no sender text in errors (#73), the low and informational findings (#74, #75).
+- ✅ Release tooling: `vX.Y.Z` tags, complete Windows zips (#47, #49).
+
+Distribution:
+
+- Signed Windows binary (Azure Artifact Signing) and a winget package (#32).
 
 ## 0.3 — Drafts
 
 - Tools: `create_draft`, `create_reply_draft` (threading headers: `In-Reply-To`, `References`), `update_draft`, `list_drafts`.
+- `remove_label` without `EXPUNGE` (#55), which completes organizing.
 
-## 0.4 — Send on command
+## 0.4 — macOS, Linux and packaging
+
+- `setup`, keyring and Claude registration tried on macOS and Linux, and fixed where they differ (#66).
+- Homebrew tap, Linux `.deb`/`.rpm`, a Claude Desktop extension (MCPB) (#33).
+
+Before sending, so that organizing and drafts have been in daily use for a while when 0.5 starts.
+
+## 0.5 — Send on command
 
 - `internal/send`: SMTP over STARTTLS; the only package allowed to send.
 - Tool: `send_draft` — sends an existing draft, refused unless `PROTON_ALLOW_SEND=1`, moves the draft away after sending.
@@ -51,16 +75,10 @@ Part of a working product: a user sets it up without editing files by hand, on W
   - ask for the Bridge password with hidden input, and keep it in the OS credential store;
   - register the server in Claude.
 - ✅ `proton-mail-mcp check` and clear startup errors (#31).
-
-## Distribution
-
-Only once the product works (the milestones above).
-
-- Signed Windows binary (Azure Artifact Signing) and a winget package (#32).
-- Homebrew tap, Linux `.deb`/`.rpm`, a Claude Desktop extension (MCPB) (#33).
+- ✅ Registration in the config Claude Desktop (Microsoft Store) really reads (#42).
+- Tried on Windows; macOS and Linux in 0.4 (#66).
 
 ## Later (ideas, not commitments)
 
-- Labels (Proton's `Labels/` folders).
 - Attachment metadata and saving an attachment to a chosen folder.
 - Optional direct Proton API (`go-proton-api`) instead of Bridge — unofficial API, its own risk assessment first.
