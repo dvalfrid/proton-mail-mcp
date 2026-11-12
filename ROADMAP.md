@@ -23,7 +23,8 @@ Part 2:
 ## 0.2 — Organize
 
 - ✅ Tools: `mark_read` / `mark_unread`, `flag` / `unflag` (#51).
-- Tools: `move_message`, `add_label` (#52); `trash_message`, move to Trash (#53). `remove_label` later (#55).
+- ✅ Tools: `move_message`, `add_label` (#52).
+- Tool: `trash_message`, move to Trash (#53). `remove_label` later (#55).
 - Live test of the organize tools on one marked test message (#54).
 - Winget (#32).
 - Guardrail test: no `EXPUNGE` in any scenario.

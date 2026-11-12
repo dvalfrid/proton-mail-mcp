@@ -11,6 +11,7 @@ import (
 	"github.com/emersion/go-imap/v2"
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
+	"github.com/dvalfrid/proton-mail-mcp/internal/testutil"
 )
 
 const (
@@ -27,16 +28,21 @@ func TestListFolders(t *testing.T) {
 	var out ListFoldersOutput
 	e.callOK(t, "list_folders", map[string]any{}, &out)
 
-	found := false
+	roles := map[string]string{}
 	for _, f := range out.Folders {
-		if f.Name == "INBOX" {
-			found = true
-			if f.Role != "inbox" || f.Messages != 1 || f.Unread != 1 {
-				t.Errorf("INBOX = %+v", f)
-			}
+		roles[f.Name] = f.Role
+		if f.Name == "INBOX" && (f.Messages != 1 || f.Unread != 1) {
+			t.Errorf("INBOX = %+v", f)
 		}
 	}
-	if !found || len(out.Folders) != 7 {
+	// Roles come from Bridge's special-use attributes, not from names.
+	want := map[string]string{"INBOX": "inbox", "Trash": "trash", "Drafts": "drafts", "Spam": "spam", "All Mail": "all", "Folders/Work": "", "Labels/Travel": ""}
+	for name, role := range want {
+		if r, ok := roles[name]; !ok || r != role {
+			t.Errorf("%s: role %q (listed %v), want %q", name, r, ok, role)
+		}
+	}
+	if len(out.Folders) != len(testutil.Folders) {
 		t.Errorf("folders = %+v", out.Folders)
 	}
 }

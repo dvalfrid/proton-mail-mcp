@@ -5,6 +5,72 @@
       "idempotentHint": true,
       "openWorldHint": false,
       "readOnlyHint": false,
+      "title": "Add label"
+    },
+    "description": "Add a label (a folder under Labels/) to messages. They stay in their folder. Applies to all the given messages or, if any uid is stale or missing, to none.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "folder": {
+          "description": "the folder the messages are in, as list_folders names it",
+          "type": "string"
+        },
+        "label": {
+          "description": "the label, as list_folders names it (under Labels/)",
+          "type": "string"
+        },
+        "uids": {
+          "description": "the messages' uids, from list_messages or search_messages in this folder (1 to 50)",
+          "items": {
+            "maximum": 4294967295,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "uidvalidity": {
+          "description": "the uidvalidity that came with the uids; required, so a folder renumbered by Bridge is detected instead of changing other messages",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "folder",
+        "uids",
+        "uidvalidity",
+        "label"
+      ],
+      "type": "object"
+    },
+    "name": "add_label",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "changed": {
+          "description": "how many messages the call applied to",
+          "type": "integer"
+        },
+        "folder": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "folder",
+        "changed"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
       "title": "Star"
     },
     "description": "Star messages (Proton's Starred; flagged in IMAP). Applies to all the given messages or, if any uid is stale or missing, to none.",
@@ -321,6 +387,72 @@
       "type": "object"
     },
     "name": "mark_unread",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "changed": {
+          "description": "how many messages the call applied to",
+          "type": "integer"
+        },
+        "folder": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "folder",
+        "changed"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Move messages"
+    },
+    "description": "Move messages from one folder to another: INBOX, Archive, Spam or a folder under Folders/. Nothing is deleted. Use trash_message for Trash and add_label for labels; messages can't be moved out of a label, Drafts or All Mail. Applies to all the given messages or, if any uid is stale or missing, to none. The messages get new uids in the target folder: list it to see them.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "folder": {
+          "description": "the folder the messages are in, as list_folders names it",
+          "type": "string"
+        },
+        "to": {
+          "description": "the folder to move them to: INBOX, Archive, Spam or a folder under Folders/",
+          "type": "string"
+        },
+        "uids": {
+          "description": "the messages' uids, from list_messages or search_messages in this folder (1 to 50)",
+          "items": {
+            "maximum": 4294967295,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "uidvalidity": {
+          "description": "the uidvalidity that came with the uids; required, so a folder renumbered by Bridge is detected instead of changing other messages",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "folder",
+        "uids",
+        "uidvalidity",
+        "to"
+      ],
+      "type": "object"
+    },
+    "name": "move_message",
     "outputSchema": {
       "additionalProperties": false,
       "properties": {

@@ -18,6 +18,18 @@ type ChangeInput struct {
 	UIDValidity uint32   `json:"uidvalidity" jsonschema:"the uidvalidity that came with the uids; required, so a folder renumbered by Bridge is detected instead of changing other messages"`
 }
 
+// MoveInput are the arguments of move_message.
+type MoveInput struct {
+	ChangeInput
+	To string `json:"to" jsonschema:"the folder to move them to: INBOX, Archive, Spam or a folder under Folders/"`
+}
+
+// LabelInput are the arguments of add_label.
+type LabelInput struct {
+	ChangeInput
+	Label string `json:"label" jsonschema:"the label, as list_folders names it (under Labels/)"`
+}
+
 // ChangeOutput is the result of an organize tool.
 type ChangeOutput struct {
 	Folder  string `json:"folder"`
@@ -47,6 +59,8 @@ func changeError(action string, in ChangeInput, err error) error {
 		return fmt.Errorf("nothing was changed: %w; list %q again", err, in.Folder)
 	case errors.Is(err, mail.ErrNoUIDValidity):
 		return fmt.Errorf("uidvalidity is required: pass the one list_messages or search_messages returned with the uids")
+	case errors.Is(err, mail.ErrNotAllowed), errors.Is(err, mail.ErrNoSuchFolder):
+		return fmt.Errorf("nothing was changed: %w", err)
 	case errors.Is(err, mail.ErrNoUIDs), errors.Is(err, mail.ErrTooManyUIDs):
 		return fmt.Errorf("give 1 to %d uids: %w", mail.MaxChangeUIDs, err)
 	}
@@ -79,4 +93,45 @@ func registerOrganizeTools(s *mcp.Server, m *mail.Client) {
 		func(ctx context.Context, s mail.Selection) (int, error) { return m.Flag(ctx, s, true) })
 	flagTool("unflag", "Unstar", "Remove the star from messages.", "unstar",
 		func(ctx context.Context, s mail.Selection) (int, error) { return m.Flag(ctx, s, false) })
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "move_message",
+		Description: "Move messages from one folder to another: INBOX, Archive, Spam or a folder under Folders/. Nothing is deleted. " +
+			"Use trash_message for Trash and add_label for labels; messages can't be moved out of a label, Drafts or All Mail. " +
+			"Applies to all the given messages or, if any uid is stale or missing, to none. The messages get new uids in the target folder: list it to see them.",
+		Annotations: organize("Move messages", false),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in MoveInput) (*mcp.CallToolResult, ChangeOutput, error) {
+		sel, err := selection(in.ChangeInput)
+		if err != nil {
+			return nil, ChangeOutput{}, err
+		}
+		if in.To == "" {
+			return nil, ChangeOutput{}, errors.New("to is required; call list_folders to see the names")
+		}
+		n, err := m.Move(ctx, sel, in.To)
+		if err != nil {
+			return nil, ChangeOutput{}, changeError("move", in.ChangeInput, err)
+		}
+		return nil, ChangeOutput{Folder: in.Folder, Changed: n}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "add_label",
+		Description: "Add a label (a folder under Labels/) to messages. They stay in their folder. " +
+			"Applies to all the given messages or, if any uid is stale or missing, to none.",
+		Annotations: organize("Add label", false),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in LabelInput) (*mcp.CallToolResult, ChangeOutput, error) {
+		sel, err := selection(in.ChangeInput)
+		if err != nil {
+			return nil, ChangeOutput{}, err
+		}
+		if in.Label == "" {
+			return nil, ChangeOutput{}, errors.New("label is required; call list_folders to see the labels (under Labels/)")
+		}
+		n, err := m.AddLabel(ctx, sel, in.Label)
+		if err != nil {
+			return nil, ChangeOutput{}, changeError("add label", in.ChangeInput, err)
+		}
+		return nil, ChangeOutput{Folder: in.Folder, Changed: n}, nil
+	})
 }

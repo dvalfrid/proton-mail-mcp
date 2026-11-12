@@ -66,6 +66,7 @@ Run them after a Bridge update, and before a release.
 - Tests sit next to the code: `foo.go` → `foo_test.go`, same package unless the test is about the public API.
 - Test data in `testdata/` next to the test (Go ignores the directory in builds). The repo is public: test messages are invented, with addresses on the reserved `example.com` / `example.org` domains. A real-world `.eml` that reproduces a bug is rewritten (names, addresses, subject, body, `Message-ID`, `Received` headers) before it is committed.
 - Helpers that start the in-memory servers live in `internal/testutil/`.
+- The in-memory IMAP server answers LIST like Bridge: Bridge's system folders (`All Mail`, `Starred`, …) and a `Labels/Travel` label, with their special-use attributes in every LIST (docs/bridge.md §1, §4). `Commands()` / `Sent()` give the commands the client sent, without the server's responses, for guardrail checks: a server's `* 1 EXPUNGE` after a MOVE is not something the client did.
 - `t.Parallel()` where tests don't share state.
 - Golden files are updated with `-update`, never by hand.
 - No sleeps to wait for something: use channels, contexts, or the servers' own callbacks.

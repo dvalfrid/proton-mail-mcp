@@ -7,10 +7,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"net"
 	netmail "net/mail"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,7 +32,15 @@ const (
 )
 
 // Folders created in every test server, named like Proton Mail Bridge's.
-var Folders = []string{"INBOX", "Drafts", "Sent", "Trash", "Spam", "Archive", "Folders/Work"}
+var Folders = []string{"INBOX", "Drafts", "Sent", "Trash", "Spam", "Archive", "All Mail", "Starred", "Folders/Work", "Labels/Travel"}
+
+// specialUse gives Bridge's system mailboxes their attributes, as Bridge
+// does (docs/bridge.md §4).
+var specialUse = map[string]imap.MailboxAttr{
+	"Drafts": imap.MailboxAttrDrafts, "Sent": imap.MailboxAttrSent, "Trash": imap.MailboxAttrTrash,
+	"Spam": imap.MailboxAttrJunk, "Archive": imap.MailboxAttrArchive, "All Mail": imap.MailboxAttrAll,
+	"Starred": imap.MailboxAttrFlagged,
+}
 
 // IMAPServer is a running in-memory IMAP server.
 type IMAPServer struct {
@@ -60,7 +70,7 @@ func NewIMAPServer(t testing.TB) *IMAPServer {
 	transcript := &syncBuffer{}
 	srv := imapserver.New(&imapserver.Options{
 		NewSession: func(*imapserver.Conn) (imapserver.Session, *imapserver.GreetingData, error) {
-			return mem.NewSession(), nil, nil
+			return bridgeList{mem.NewSession()}, nil, nil
 		},
 		TLSConfig:   &tls.Config{Certificates: []tls.Certificate{cert.TLS}, MinVersion: tls.VersionTLS12},
 		Caps:        imap.CapSet{imap.CapIMAP4rev1: {}, imap.CapMove: {}, imap.CapUIDPlus: {}},
@@ -151,6 +161,30 @@ func (s *IMAPServer) Unseen(t testing.TB, mailbox string) uint32 {
 // asserting which commands a client used.
 func (s *IMAPServer) Transcript() string { return s.transcript.String() }
 
+// Commands returns the commands the client sent, one per line ("T11 UID MOVE
+// 1 \"Archive\""), without the server's responses: a server's "* 1 EXPUNGE"
+// after a MOVE, or MOVE in its capabilities, is not something the client did.
+func (s *IMAPServer) Commands() []string {
+	var cmds []string
+	for line := range strings.SplitSeq(s.Transcript(), "\n") {
+		line = strings.TrimSpace(line)
+		tag, rest, ok := strings.Cut(line, " ")
+		if !ok || len(tag) < 2 || tag[0] != 'T' || strings.Trim(tag[1:], "0123456789") != "" {
+			continue
+		}
+		if verb, _, _ := strings.Cut(rest, " "); verb == "OK" || verb == "NO" || verb == "BAD" {
+			continue
+		}
+		cmds = append(cmds, line)
+	}
+	return cmds
+}
+
+// Sent reports whether any command the client sent contains substr.
+func (s *IMAPServer) Sent(substr string) bool {
+	return slices.ContainsFunc(s.Commands(), func(c string) bool { return strings.Contains(c, substr) })
+}
+
 type literal struct{ *bytes.Reader }
 
 func (l literal) Size() int64 { return l.Reader.Size() }
@@ -197,4 +231,41 @@ func (l *testLogger) Printf(format string, args ...any) {
 	if !l.closed {
 		l.t.Logf("imapserver: "+format, args...)
 	}
+}
+
+// bridgeList answers LIST as Bridge does: every folder with its special-use
+// attribute, without SPECIAL-USE being advertised or asked for
+// (docs/bridge.md §1, §4). imapmemserver can't store the attributes, so the
+// folders are listed here from Folders, which tests don't add to.
+type bridgeList struct{ imapserver.Session }
+
+func (s bridgeList) List(w *imapserver.ListWriter, ref string, patterns []string, options *imap.ListOptions) error {
+	if len(patterns) == 0 {
+		return s.Session.List(w, ref, patterns, options)
+	}
+	names := slices.Clone(Folders)
+	slices.Sort(names)
+	for _, name := range names {
+		if !slices.ContainsFunc(patterns, func(p string) bool { return imapserver.MatchList(name, '/', ref, p) }) {
+			continue
+		}
+		data := imap.ListData{Mailbox: name, Delim: '/'}
+		if attr, ok := specialUse[name]; ok {
+			data.Attrs = []imap.MailboxAttr{attr}
+		}
+		if err := w.WriteList(&data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Move passes MOVE through: the embedded interface hides the session's own
+// Move, and the server advertises MOVE.
+func (s bridgeList) Move(w *imapserver.MoveWriter, numSet imap.NumSet, dest string) error {
+	m, ok := s.Session.(imapserver.SessionMove)
+	if !ok {
+		return errors.New("session does not support MOVE")
+	}
+	return m.Move(w, numSet, dest)
 }
