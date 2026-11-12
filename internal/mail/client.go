@@ -39,6 +39,10 @@ const DefaultTimeout = 30 * time.Second
 // client waits by default, so the error, with its advice, reaches Claude.
 const DefaultSearchTimeout = 55 * time.Second
 
+// ErrInternal means an operation failed on a bug (a panic) rather than on
+// Bridge's answer. The connection is dropped; the next call reconnects.
+var ErrInternal = errors.New("internal error")
+
 // ErrTimeout means Bridge did not answer within the operation's timeout.
 var ErrTimeout = errors.New("no answer from Bridge in time")
 
@@ -161,14 +165,27 @@ func (c *Client) doFor(ctx context.Context, timeout time.Duration, fn func(*imap
 	return err
 }
 
-func (c *Client) run(ctx context.Context, timeout time.Duration, fn func(*imapclient.Client) error) error {
+func (c *Client) run(ctx context.Context, timeout time.Duration, fn func(*imapclient.Client) error) (err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	// Runs before the unlock: a panic in an operation or in the IMAP library
+	// becomes an error, and the connection, now in an unknown state, is
+	// dropped while the lock is still held.
+	defer func() {
+		if r := recover(); r != nil {
+			LogPanic(c.opts.Logger, "imap operation", r)
+			if c.imap != nil {
+				_ = c.imap.Close()
+			}
+			c.imap, c.conn = nil, nil
+			err = ErrInternal
+		}
+	}()
 
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	err := c.withLimit(ctx, timeout, func() error {
+	err = c.withLimit(ctx, timeout, func() error {
 		if c.imap == nil {
 			return c.connect(ctx, timeout)
 		}

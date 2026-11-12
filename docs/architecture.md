@@ -79,6 +79,17 @@ Every operation is bounded by `mail.DefaultTimeout` (30 s), a search by `mail.De
 
 This was found the hard way: a test of a server that never answers took 60 s instead of 200 ms until `boundedConn` existed.
 
+### A bug fails one call, not the server
+
+The MCP Go SDK doesn't recover panics, so a panic while handling a request would end the process and Claude would lose every tool until the client restarts the server (seen in a test, issue #60). Two layers stop that:
+
+- **`mail.Client.run`** recovers a panic in an IMAP operation, closes the connection (its state is unknown) and returns `mail.ErrInternal`. The lock is released and the next call reconnects.
+- **`server.recoverPanics`**, a receiving middleware, recovers a panic in any request handler and returns an error for that request.
+
+Both log the panic with its stack to stderr: a runtime error's value (it describes the bug), any other value only by type, since it could carry message content. Not covered: a panic in a goroutine the IMAP library starts itself, which can't be recovered from outside it.
+
+Errors that aren't bugs are answered, not recovered: Bridge not running ("is Bridge running?"), a timeout (`mail.ErrTimeout`, with advice for searches), a dropped connection (reconnect on the next call), a renumbered folder or missing uid (nothing changed, list again), a refused move (which tool to use instead).
+
 ### Reading never marks mail as read
 
 - Folders are opened with `EXAMINE`, never `SELECT`.
