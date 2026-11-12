@@ -473,7 +473,7 @@ SMTP never sends an existing draft directly.
   - Don't offer custom keywords or `\Answered` as if they sync: they stay local and are lost on resync (section 5).
   - The read and flag operations need Proton to be reachable and fail cleanly when it isn't.
 
-**Drafts (0.3).**
+**Drafts (0.4).**
 
 - **`create_draft`** = APPEND a complete RFC 822 message to the `\Drafts` mailbox. Bridge turns it into a real Proton draft and returns its UID in APPENDUID.
   - Bridge rebuilds the message.
@@ -490,7 +490,7 @@ SMTP never sends an existing draft directly.
   - Expect the UID to change whenever the owner edits the draft in another Proton app.
 - **`list_drafts`.** Sort by INTERNALDATE as everywhere else.
 
-**`send_draft` (0.4).**
+**`send_draft` (0.5).**
 
 - **There is no IMAP or SMTP command to "send draft X".** Bridge's SMTP path always creates a fresh draft and sends it (section 8).
 - **The route this research points to:**
