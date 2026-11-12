@@ -170,6 +170,14 @@ Bridge uses a self-signed certificate. Most Bridge setups skip verification on l
 - **Reading Bridge's certificate without trusting it** (`internal/bridge`, for `check` and `setup`): the TLS handshake runs against an empty set of trusted roots, so it always fails verification, and the certificate the server sent is taken from Go's `tls.CertificateVerificationError`. Nothing is sent over that connection. So the rule "never `InsecureSkipVerify`" holds there too.
 - **The host must be local** (checked at start-up and again in `mail.TLSConfig`), and STARTTLS is required.
 
+### The Windows installer
+
+`installer/proton-mail-mcp.nsi` (NSIS 3, built by `./tools/task.ps1 installer`, and in a release from the signed exes, then signed itself) installs per user into `%LOCALAPPDATA%\Programs\proton-mail-mcp`. The folder never changes between versions, so the path setup registers in Claude stays valid after an update. A zip in a versioned folder would break it on every upgrade.
+
+- **First install:** starts the setup wizard, also when silent (winget), unless `/NOSETUP`.
+- **Update** (the program is already there): no pages and no wizard. Claude may be running the server, and a running exe can't be overwritten but can be renamed, so the old one becomes `.old` and is removed on the next update.
+- **Uninstall:** `proton-mail-mcp-setup.exe -uninstall` removes the server from Claude only where it starts this copy; a registration of another copy stays. With the box ticked (`-remove-settings`) it also removes the settings, the pinned certificate, the passwords under the `proton-mail-mcp` service in the credential store, and the wizard's WebView2 data: only files setup writes, never a whole folder. A silent uninstall keeps the settings.
+
 ### The setup wizard is a second program
 
 `proton-mail-mcp-setup.exe` is built as a windowed program, so starting it from the Start menu or Explorer shows no console window. The server must stay a console program: Claude talks to it over stdin and stdout, and `check` and `setup` print to the terminal. One file can't be both, so there are two. The wizard registers its sibling `proton-mail-mcp.exe`, not itself.

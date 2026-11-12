@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
@@ -40,16 +41,31 @@ func (ClaudeCode) Register(exe string) error {
 	return claude("mcp", "add", "--scope", "user", ServerName, "--", exe)
 }
 
+// Unregister implements Client. Claude Code shows the registered command in
+// `claude mcp get`; only one that starts exe is removed.
+func (ClaudeCode) Unregister(exe string) (bool, error) {
+	out, err := claudeOutput("mcp", "get", ServerName)
+	if err != nil || !strings.Contains(strings.ToLower(out), strings.ToLower(exe)) {
+		return false, nil //nolint:nilerr // not registered, or registered for another program: nothing to do
+	}
+	return true, claude("mcp", "remove", "--scope", "user", ServerName)
+}
+
 func claude(args ...string) error {
+	_, err := claudeOutput(args...)
+	return err
+}
+
+func claudeOutput(args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "claude", args...) //nolint:gosec // G204: fixed command; the only variable is this program's own path
 	noConsole(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("claude %s: %w: %s", args[1], err, clip(string(out)))
+		return "", fmt.Errorf("claude %s: %w: %s", args[1], err, clip(string(out)))
 	}
-	return nil
+	return string(out), nil
 }
 
 func clip(s string) string {
@@ -109,6 +125,32 @@ func (d ClaudeDesktop) Register(exe string) error {
 		return err
 	}
 	return config.WriteFile(d.Path, append(data, '\n'))
+}
+
+// Unregister implements Client. The file is merged as in Register, with a
+// backup; only an entry that starts exe is removed.
+func (d ClaudeDesktop) Unregister(exe string) (bool, error) {
+	cfg, err := d.read()
+	if err != nil {
+		return false, err
+	}
+	servers, _ := cfg["mcpServers"].(map[string]any)
+	entry, _ := servers[ServerName].(map[string]any)
+	command, _ := entry["command"].(string)
+	if command == "" || !strings.EqualFold(filepath.Clean(command), filepath.Clean(exe)) {
+		return false, nil
+	}
+	if data, err := os.ReadFile(d.Path); err == nil {
+		if err := config.WriteFile(d.Path+".bak", data); err != nil {
+			return false, fmt.Errorf("back up %s: %w", d.Path, err)
+		}
+	}
+	delete(servers, ServerName)
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return false, err
+	}
+	return true, config.WriteFile(d.Path, append(data, '\n'))
 }
 
 // read returns the config as generic JSON, so unknown fields survive. A

@@ -104,13 +104,21 @@ jobs:
   sign-windows:
     name: Sign Windows binaries
     needs: build
-    runs-on: windows-latest
+    # windows-2022, not -latest: it has NSIS 3 installed, for the installer,
+    # so nothing is downloaded to build it.
+    runs-on: windows-2022
     environment: release-signing
     permissions:
       contents: read
       id-token: write
 
     steps:
+      # The installer script, the icon and the task runner, at the tag.
+      - name: Checkout tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+
       - name: Download unsigned Windows zips
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -184,6 +192,60 @@ jobs:
         with:
           name: dist-windows-signed
           path: dist/*.zip
+          if-no-files-found: error
+
+      # The installer (#89) packs the exes signed above; then it is signed
+      # itself. Same job, so the release is approved once.
+      - name: Build installers
+        shell: pwsh
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          $version = $env:TAG.TrimStart('v')
+          New-Item -ItemType Directory -Force installers | Out-Null
+          foreach ($arch in 'amd64', 'arm64') {
+            $name = "proton-mail-mcp_${version}_windows_${arch}"
+            ./tools/task.ps1 installer -Version $version -GOARCH $arch -Src "unpacked/$name" -Out "installers/${name}_setup.exe"
+          }
+
+      - name: Sign installers
+        uses: Azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: https://neu.codesigning.azure.net/
+          signing-account-name: rigstats-codesign
+          certificate-profile-name: RIGStats
+          files-folder: ${{ github.workspace }}\installers
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          exclude-environment-credential: true
+          exclude-workload-identity-credential: true
+          exclude-managed-identity-credential: true
+          exclude-shared-token-cache-credential: true
+          exclude-visual-studio-credential: true
+          exclude-visual-studio-code-credential: true
+          exclude-azure-cli-credential: false
+          exclude-azure-powershell-credential: true
+          exclude-azure-developer-cli-credential: true
+          exclude-interactive-browser-credential: true
+
+      - name: Check installer signatures
+        shell: pwsh
+        run: |
+          $exes = Get-ChildItem installers -Filter *.exe
+          if ($exes.Count -ne 2) { throw "expected 2 installers, found $($exes.Count)" }
+          foreach ($e in $exes) {
+            $s = Get-AuthenticodeSignature $e.FullName
+            "$($e.Name): $($s.Status) $($s.SignerCertificate.Subject)"
+            if ($s.Status -ne 'Valid') { throw "Not validly signed: $($e.FullName) ($($s.Status))" }
+          }
+
+      - name: Upload signed installers
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-windows-installers
+          path: installers/*.exe
           if-no-files-found: error
 
   publish:

@@ -70,6 +70,13 @@ func (*fakeClient) Name() string                { return "Fake Claude" }
 func (c *fakeClient) Available() bool           { return c.available }
 func (c *fakeClient) Registered() bool          { return c.registered }
 func (c *fakeClient) Register(exe string) error { c.got = exe; return nil }
+func (c *fakeClient) Unregister(exe string) (bool, error) {
+	if c.got != exe {
+		return false, nil
+	}
+	c.got = ""
+	return true, nil
+}
 
 func port(t *testing.T, addr string) int {
 	t.Helper()

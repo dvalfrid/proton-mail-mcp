@@ -20,6 +20,7 @@ An MCP server in Go (official SDK `github.com/modelcontextprotocol/go-sdk/mcp`, 
 ./tools/task.ps1 lint       # golangci-lint, zero issues required
 ./tools/task.ps1 test       # all tests
 ./tools/task.ps1 build      # bin/proton-mail-mcp.exe
+./tools/task.ps1 installer  # Windows installer (needs NSIS 3)
 ./tools/task.ps1 setup      # install git hooks (first time)
 ```
 
@@ -110,6 +111,7 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 | `internal/server/` | Builds the MCP server and registers tools. `testdata/tools.golden.json` is the tool snapshot (`-update` to rewrite) |
 | `internal/bridge/` | Recognises Bridge (greeting), reads its certificate without trusting it (no InsecureSkipVerify), Windows port-owner check. Never logs in |
 | `internal/check/` | `proton-mail-mcp check` diagnostics and the start-up warning |
+| `installer/` | Windows installer (NSIS): per user, fixed folder, setup on first install, silent updates; `./tools/task.ps1 installer` |
 | `cmd/proton-mail-mcp-setup/` | The graphical setup wizard (Windows, a windowed program next to the server exe). Falls back to the terminal setup without WebView2 |
 | `internal/wizard/` | The wizard: `page.html` (embedded, CSP denies everything external) in a WebView2 window; `Backend.Call` is the only thing the page can call and enforces the setup order |
 | `internal/setup/` | `proton-mail-mcp setup`: find Bridge, pin its certificate, ask for the password (hidden), test login, save, register in Claude |
