@@ -52,13 +52,13 @@ They run the real tools end to end over MCP against your own Bridge, and change 
 - reading an unread message leaves it unread, and a stale `uidvalidity` is refused;
 - every search criterion is accepted;
 - the largest folder lists well within the operation timeout.
+- sender, subject and body searches in the largest folder, timed with a 5 min limit so the real time shows (issue #39).
 
 ```powershell
-$env:PROTON_MCP_ENV_FILE = 'C:\path\to\.env'   # the server's own settings
 go test -tags live ./internal/server -run Live -v
 ```
 
-Without `PROTON_MCP_ENV_FILE` they skip. The output holds no subjects, senders or bodies, but look before pasting it into an issue: the repository is public.
+They use what `proton-mail-mcp setup` saved (settings, and the password from the credential store), or a `.env` named by `PROTON_MCP_ENV_FILE`. Without either they skip. The output holds no subjects, senders or bodies, but look before pasting it into an issue: the repository is public.
 
 Run them after a Bridge update, and before a release.
 ## Conventions
@@ -77,7 +77,7 @@ Run them after a Bridge update, and before a release.
 ./tools/task.ps1 test -Race      # with the race detector (needs cgo: CI on Linux)
 go test ./internal/mail -run TestFetch -v
 go test ./internal/mail -fuzz FuzzParseMessage -fuzztime 60s
-go test -tags live ./internal/server -run Live -v   # against a real Bridge, needs PROTON_MCP_ENV_FILE
+go test -tags live ./internal/server -run Live -v   # against a real Bridge, after setup
 ```
 
 ## Coverage

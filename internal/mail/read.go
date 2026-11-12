@@ -115,7 +115,7 @@ func (c *Client) ListMessages(ctx context.Context, folder string, opts ListOptio
 	if opts.UnreadOnly {
 		criteria.NotFlag = []imap.Flag{imap.FlagSeen}
 	}
-	return c.summaries(ctx, folder, criteria, opts.Limit)
+	return c.summaries(ctx, folder, criteria, opts.Limit, c.opts.Timeout)
 }
 
 // SearchOptions are the criteria of SearchMessages, combined with AND. Text
@@ -155,7 +155,7 @@ func (c *Client) SearchMessages(ctx context.Context, folder string, opts SearchO
 		criteria.Since.IsZero() && criteria.Before.IsZero() {
 		return Listing{}, ErrNoSearchCriteria
 	}
-	return c.summaries(ctx, folder, criteria, opts.Limit)
+	return c.summaries(ctx, folder, criteria, opts.Limit, c.opts.SearchTimeout)
 }
 
 // summaries searches folder and returns the limit newest matches, newest
@@ -167,14 +167,14 @@ func (c *Client) SearchMessages(ctx context.Context, folder string, opts SearchO
 // matches are fetched, which Bridge serves from its database without
 // loading messages, and sorted here. Only the newest are fetched in full.
 // Equal dates fall back to the higher UID first, so the order is stable.
-func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.SearchCriteria, limit int) (Listing, error) {
+func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.SearchCriteria, limit int, timeout time.Duration) (Listing, error) {
 	if limit <= 0 {
 		limit = DefaultListLimit
 	}
 	limit = min(limit, MaxListLimit)
 
 	var out Listing
-	err := c.do(ctx, func(ic *imapclient.Client) error {
+	err := c.doFor(ctx, timeout, func(ic *imapclient.Client) error {
 		sel, err := ic.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait()
 		if err != nil {
 			return fmt.Errorf("open folder %q: %w", folder, err)

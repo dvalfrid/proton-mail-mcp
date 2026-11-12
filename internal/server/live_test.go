@@ -3,8 +3,10 @@
 // Live tests: the real tools, end to end over MCP, against the owner's own
 // Proton Mail Bridge. Run by hand only, never in CI:
 //
-//	$env:PROTON_MCP_ENV_FILE = 'C:\path\to\.env'   # the server's own settings file
 //	go test -tags live ./internal/server -run Live -v
+//
+// They use the settings `proton-mail-mcp setup` saved and the password in the
+// OS credential store, or a .env file named by PROTON_MCP_ENV_FILE.
 //
 // They are read-only: nothing in the mailbox changes. They print counts,
 // uids, dates and timings only, never subjects, senders or bodies, so the
@@ -24,21 +26,37 @@ import (
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/check"
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
+	"github.com/dvalfrid/proton-mail-mcp/internal/keystore"
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
 )
 
 // liveConfig loads the settings the server would use, or skips the test.
 func liveConfig(t *testing.T) config.Config {
 	t.Helper()
-	path := os.Getenv("PROTON_MCP_ENV_FILE")
-	if path == "" {
-		t.Skip("set PROTON_MCP_ENV_FILE to the server's settings file to run the live tests")
+	if path := os.Getenv("PROTON_MCP_ENV_FILE"); path != "" {
+		dotenv, err := config.ReadDotEnv(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := config.Load(config.Lookup(dotenv))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return cfg
 	}
-	dotenv, err := config.ReadDotEnv(path)
+	dir, err := config.Dir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := config.Load(config.Lookup(dotenv))
+	saved, err := config.ReadSettings(config.SettingsFile(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.User == "" {
+		t.Skip("run `proton-mail-mcp setup`, or set PROTON_MCP_ENV_FILE, to run the live tests")
+	}
+	files := config.FromMap(saved.Values())
+	cfg, err := config.Load(config.Chain(files, config.PasswordFrom(files, keystore.OS{}.Get)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,11 +67,18 @@ func liveConfig(t *testing.T) config.Config {
 // talks to the real Bridge.
 func liveSession(t *testing.T, cfg config.Config) *env {
 	t.Helper()
+	return liveSessionTimeout(t, cfg, 0)
+}
+
+// liveSessionTimeout is liveSession with another operation timeout; 0 is the
+// default.
+func liveSessionTimeout(t *testing.T, cfg config.Config, timeout time.Duration) *env {
+	t.Helper()
 	tlsCfg, err := mail.TLSConfig(cfg.Host, cfg.CertFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := mail.New(mail.Options{Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password, TLSConfig: tlsCfg, Logger: slog.New(slog.DiscardHandler)})
+	m := mail.New(mail.Options{Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password, TLSConfig: tlsCfg, Timeout: timeout, Logger: slog.New(slog.DiscardHandler)})
 	t.Cleanup(func() { _ = m.Close() })
 	ctx := context.Background()
 	serverT, clientT := mcp.NewInMemoryTransports()
@@ -219,5 +244,28 @@ func TestLiveLargeFolder(t *testing.T) {
 	t.Logf("largest folder: %d messages, listed 100 in %v", largest.Messages, took)
 	if took > mail.DefaultTimeout/2 {
 		t.Errorf("listing took %v, more than half the %v operation timeout", took, mail.DefaultTimeout)
+	}
+}
+
+// How long text searches in the largest folder really take (issue #39). The
+// timeout is raised so the time is measured instead of cut off at 30 s.
+func TestLiveLargeFolderSearch(t *testing.T) {
+	e := liveSessionTimeout(t, liveConfig(t), 5*time.Minute)
+	var folders ListFoldersOutput
+	e.callOK(t, "list_folders", map[string]any{}, &folders)
+	largest := slices.MaxFunc(folders.Folders, func(a, b mail.Folder) int { return int(a.Messages) - int(b.Messages) })
+	for _, args := range []map[string]any{{"from": "a"}, {"subject": "a"}, {"body": "the"}} {
+		args["folder"] = largest.Name
+		args["limit"] = 5
+		began := time.Now()
+		res := e.call(t, "search_messages", args)
+		took := time.Since(began)
+		delete(args, "folder")
+		delete(args, "limit")
+		if res.IsError {
+			t.Errorf("search %v failed after %v: %s", args, took, text(res))
+			continue
+		}
+		t.Logf("%d messages, search %v: %v", largest.Messages, args, took)
 	}
 }

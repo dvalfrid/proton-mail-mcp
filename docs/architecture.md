@@ -73,7 +73,7 @@ An IMAP connection has one selected folder at a time. Two commands that each sel
 
 ### Timeouts that always win: `boundedConn`
 
-Every operation is bounded by `mail.DefaultTimeout` (30 s) and by the caller's context. The obvious way, setting a deadline on the socket, doesn't work on its own: imapclient sets its own read and write deadlines before each command (30 s per response, 5 min per literal), which overwrites ours.
+Every operation is bounded by `mail.DefaultTimeout` (30 s), a search by `mail.DefaultSearchTimeout` (55 s), and both by the caller's context. A search gets longer because Bridge has no index: a text criterion reads every message in the folder, measured at 2.5–3 s warm and 13 s cold in a folder of 30,000 (issue #39). 55 s stays under the 60 s an MCP client waits by default (TypeScript SDK `DEFAULT_REQUEST_TIMEOUT_MSEC`), so on a timeout Claude gets `search_messages`' advice to narrow by date or folder instead of the client giving up. The cost: the one connection is held that long, so other tool calls wait behind a slow search. A timeout is `mail.ErrTimeout`. The obvious way, setting a deadline on the socket, doesn't work on its own: imapclient sets its own read and write deadlines before each command (30 s per response, 5 min per literal), which overwrites ours.
 
 `boundedConn` wraps the TCP connection. It remembers the deadlines imapclient asks for, and applies the *earlier* of those and our limit. Cancelling the context moves the limit into the past, which wakes a blocked read at once. tls.Conn passes deadlines down to the TCP connection, so this keeps working after STARTTLS.
 
