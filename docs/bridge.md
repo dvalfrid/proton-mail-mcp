@@ -473,7 +473,7 @@ SMTP never sends an existing draft directly.
   - Don't offer custom keywords or `\Answered` as if they sync: they stay local and are lost on resync (section 5).
   - The read and flag operations need Proton to be reachable and fail cleanly when it isn't.
 
-**Drafts (0.4).**
+**Drafts (0.3).**
 
 - **`create_draft`** = APPEND a complete RFC 822 message to the `\Drafts` mailbox. Bridge turns it into a real Proton draft and returns its UID in APPENDUID.
   - Bridge rebuilds the message.

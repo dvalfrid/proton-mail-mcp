@@ -46,15 +46,17 @@ Distribution:
 
 - Signed Windows binary (Azure Artifact Signing) and a winget package (#32).
 
-## 0.3 — macOS, Linux and packaging
+## 0.3 — Drafts
+
+- Tools: `create_draft`, `create_reply_draft` (threading headers: `In-Reply-To`, `References`), `update_draft`, `list_drafts`.
+- `remove_label` without `EXPUNGE` (#55), which completes organizing.
+
+## 0.4 — macOS, Linux and packaging
 
 - `setup`, keyring and Claude registration tried on macOS and Linux, and fixed where they differ (#66).
 - Homebrew tap, Linux `.deb`/`.rpm`, a Claude Desktop extension (MCPB) (#33).
-- `remove_label` without `EXPUNGE` (#55).
 
-## 0.4 — Drafts
-
-- Tools: `create_draft`, `create_reply_draft` (threading headers: `In-Reply-To`, `References`), `update_draft`, `list_drafts`.
+Before sending, so that organizing and drafts have been in daily use for a while when 0.5 starts.
 
 ## 0.5 — Send on command
 
@@ -74,7 +76,7 @@ Part of a working product: a user sets it up without editing files by hand, on W
   - register the server in Claude.
 - ✅ `proton-mail-mcp check` and clear startup errors (#31).
 - ✅ Registration in the config Claude Desktop (Microsoft Store) really reads (#42).
-- Tried on Windows; macOS and Linux in 0.3 (#66).
+- Tried on Windows; macOS and Linux in 0.4 (#66).
 
 ## Later (ideas, not commitments)
 
