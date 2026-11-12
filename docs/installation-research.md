@@ -176,6 +176,7 @@ Researched 2026-11-11. Scope: facts needed for a cross-platform `setup` wizard, 
   - Windows `%APPDATA%\Claude\claude_desktop_config.json`
   - Linux `~/.config/Claude/claude_desktop_config.json` (the page says Claude Desktop is available for Linux).
 - **Windows MSIX. Verified (observed) + Documented in issues.** The Store/MSIX build has package family `Claude_pzs8sxrjxfjjc` and a virtualised dir `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\`; on the observed machine `%APPDATA%\Claude\` did not exist. Issues [#25579][e-25579] and [#26073][e-26073] report the app reads the packaged copy while "Edit Config" opens the other one. Which file a given build reads: **not officially documented**. Confirm by writing a test server into one file and seeing it in Claude Desktop.
+- **Windows Store build 5.1231. Verified (observed, issue #42).** This build keeps its config in `%LOCALAPPDATA%\Claude-Data\claude_pzs8sxrjxfjjc\claude_desktop_config.json` (the app writes its own preferences there) and does not start a server listed only in the `LocalCache` copy. setup and check therefore use one shared list (`config.ClaudeDesktopConfigs`) with all three locations, and setup offers each one whose directory exists.
 - **JSON. Documented.**
   ```json
   { "mcpServers": { "proton-mail": {
@@ -312,7 +313,7 @@ No new dependency for IMAP/TLS, config JSON or registry reading (`x/sys/windows/
 - macOS bundle ID of Bridge (`com.protonmail.bridge` vs `ch.protonmail.bridge`) and Proton AG's Apple Team ID.
 - Whether the Windows MSI product code is stable across versions; whether uninstallers delete `protonmail/bridge-v3` (and so the cert).
 - Proton .deb/.rpm file layout (only the Arch layout was seen).
-- Which `claude_desktop_config.json` the Windows MSIX build reads.
+- Which `claude_desktop_config.json` older Windows MSIX builds read (5.1231 reads the `Claude-Data` one, see §E).
 - Whether Claude Desktop verifies `.mcpb` signatures; quarantine on files extracted from a `.mcpb`.
 - Homebrew formula quarantine; Gatekeeper behaviour when Claude Desktop spawns a quarantined binary; Apple's stapling wording (page not fetchable).
 - Exact winget portable install dirs and multi-arch `wingetcreate update` syntax.

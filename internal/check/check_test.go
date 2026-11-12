@@ -37,7 +37,7 @@ func setup(t *testing.T) (*testutil.Bridge, Input) {
 		User: testutil.User, Password: config.Secret(testutil.Password), Host: "127.0.0.1",
 		IMAPPort: port(t, b.IMAPAddr), SMTPPort: port(t, b.SMTPAddr), CertFile: b.CertFile(t),
 	}
-	return b, Input{Config: cfg, SettingsFile: ".env", HomeDir: t.TempDir(), ConfigDir: t.TempDir()}
+	return b, Input{Config: cfg, SettingsFile: ".env", HomeDir: t.TempDir(), ConfigDir: t.TempDir(), LocalAppData: t.TempDir()}
 }
 
 func find(t *testing.T, steps []Step, name string) Step {
@@ -149,7 +149,29 @@ func TestRegistrationFound(t *testing.T) {
 	if err := os.WriteFile(desktop, []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if s := registrationStep(in.HomeDir, in.ConfigDir); s.Status != OK || !strings.Contains(s.Detail, "claude_desktop_config.json") {
+	if s := registrationStep(in.HomeDir, in.ConfigDir, in.LocalAppData); s.Status != OK || !strings.Contains(s.Detail, "claude_desktop_config.json") {
+		t.Errorf("registration = %+v", s)
+	}
+}
+
+// Registered for Claude Code but not in an existing Claude Desktop config is
+// a note, not ok: Desktop may read exactly that config (issue #42).
+func TestRegistrationMissingInDesktop(t *testing.T) {
+	t.Parallel()
+	_, in := setup(t)
+	code := `{"mcpServers": {"proton-mail": {"command": "/opt/proton-mail-mcp"}}}`
+	if err := os.WriteFile(filepath.Join(in.HomeDir, ".claude.json"), []byte(code), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	desktop := filepath.Join(in.ConfigDir, "Claude", "claude_desktop_config.json")
+	if err := os.MkdirAll(filepath.Dir(desktop), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(desktop, []byte(`{"preferences": {}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := registrationStep(in.HomeDir, in.ConfigDir, in.LocalAppData)
+	if s.Status != Advice || !strings.Contains(s.Detail, "not in "+desktop) {
 		t.Errorf("registration = %+v", s)
 	}
 }
