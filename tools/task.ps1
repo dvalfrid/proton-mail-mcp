@@ -134,7 +134,8 @@ function Invoke-Installer {
     $output = if ($Out) { $Out } else { "bin/proton-mail-mcp_${Version}_windows_${arch}_setup.exe" }
     $output = [IO.Path]::GetFullPath((Join-Path $root $output))
     $fileVersion = if ($Version -match '^(\d+)\.(\d+)\.(\d+)') { "$($Matches[1]).$($Matches[2]).$($Matches[3]).0" } else { '0.0.0.0' }
-    Invoke-Native $makensis @('-V2', "-DVERSION=$Version", "-DFILEVERSION=$fileVersion", "-DARCH=$nsisArch",
+    $copyright = (Get-Content LICENSE | Where-Object { $_ -like 'Copyright*' } | Select-Object -First 1)
+    Invoke-Native $makensis @('-V2', "-DVERSION=$Version", "-DCOPYRIGHT=$copyright", "-DFILEVERSION=$fileVersion", "-DARCH=$nsisArch",
         "-DSRCDIR=$((Resolve-Path $src).Path)", "-DOUTFILE=$output", 'installer/proton-mail-mcp.nsi')
     Write-Host "Built $output ($Version, $nsisArch)"
 }
