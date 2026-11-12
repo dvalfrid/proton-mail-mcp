@@ -327,3 +327,24 @@ func TestClaudeDesktopMerge(t *testing.T) {
 		t.Error("an invalid config was changed")
 	}
 }
+
+// failingStore can't save, like a locked keychain.
+type failingStore struct{}
+
+func (failingStore) Get(string) (string, error) { return "", keystore.ErrNotFound }
+func (failingStore) Set(string, string) error   { return errors.New("the keychain is locked") }
+
+// When the credential store can't save, setup's advice never points at the
+// MCP client's config, which must not hold the password (issue #74).
+func TestSetupAdviceWhenTheStoreFails(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t, &script{confirms: []bool{true}, lines: []string{testutil.User}, secrets: []string{testutil.Password}})
+	f.o.Store = failingStore{}
+	if err := Run(context.Background(), f.o); err == nil {
+		t.Fatal("setup succeeded without storing the password")
+	}
+	out := f.out.String()
+	if !strings.Contains(out, ".env file next to the program") || strings.Contains(out, "MCP client starts") {
+		t.Errorf("advice:\n%s", out)
+	}
+}

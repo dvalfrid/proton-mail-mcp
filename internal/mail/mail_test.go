@@ -472,6 +472,8 @@ func TestClean(t *testing.T) {
 		{"tab\there", 50, "tab here"},
 		{"sep line", 50, "sep line"},
 		{"null\x00byte", 50, "null byte"},
+		{"invoice\u202efdp.exe", 50, "invoicefdp.exe"}, // a bidi override would show "invoice exe.pdf" (#74)
+		{"zero\u200bwidth\ufeff", 50, "zerowidth"},     // zero-width space and BOM
 		{"ünïcödé ✓", 50, "ünïcödé ✓"},
 		{strings.Repeat("é", 10), 5, strings.Repeat("é", 5) + "…"},
 	}

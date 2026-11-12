@@ -108,7 +108,9 @@ func Run(ctx context.Context, o Options) error {
 	}
 	if err := o.Store.Set(user, password); err != nil {
 		say("✗ The password could not be stored in the OS credential store: %v", err)
-		say("  Set %s in the environment the MCP client starts the server with, or in a .env file next to the program.", config.EnvPassword)
+		// Not in the MCP client's config: STANDARDS keeps the password out
+		// of it (issue #74).
+		say("  Put %s=<the Bridge password> in a .env file next to the program, readable only by you, or fix the credential store and run setup again.", config.EnvPassword)
 		return err
 	}
 	say("✓ Saved: settings in %s, the password in the OS credential store", config.SettingsFile(o.Dir))

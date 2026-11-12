@@ -183,6 +183,7 @@ func TestMoveRefusals(t *testing.T) {
 		{"to Sent", s, "Sent", ErrNotAllowed},
 		{"to All Mail", s, "All Mail", ErrNotAllowed},
 		{"to Starred", s, "Starred", ErrNotAllowed},
+		{"to Spam", s, "Spam", ErrNotAllowed},
 		{"same folder", s, "INBOX", ErrNotAllowed},
 		{"no such folder", s, "Folders/Nope", ErrNoSuchFolder},
 		{"out of a label", from("Labels/Travel"), "INBOX", ErrNotAllowed},
@@ -321,5 +322,23 @@ func TestChangeLimit(t *testing.T) {
 	}
 	if _, err := c.Flag(ctx, one, false); !errors.Is(err, ErrChangeLimit) {
 		t.Fatalf("at the limit: err = %v, want ErrChangeLimit", err)
+	}
+}
+
+// Messages can be moved out of Spam, though not into it (issue #74).
+func TestMoveOutOfSpam(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	c, srv, _ := newClient(t)
+	srv.AddMessage(t, "Spam", message("bob@example.org", "Hi", "Mon, 02 Nov 2026 10:00:00 +0000"))
+	l, err := c.ListMessages(ctx, "Spam", ListOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Move(ctx, Selection{Folder: "Spam", UIDs: []uint32{l.Messages[0].UID}, UIDValidity: l.UIDValidity}, "INBOX"); err != nil {
+		t.Fatal(err)
+	}
+	if count(t, c, "INBOX") != 1 {
+		t.Error("the message didn't move out of Spam")
 	}
 }

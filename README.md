@@ -36,7 +36,7 @@ Claude can list, search and read messages, mark them read or unread, star them, 
 | `read_message` | One message by folder and uid (optionally with the `uidvalidity` the uid came with, so a folder that Bridge renumbered is refused rather than another message read): headers, body as plain text, attachments listed (name, type, size). Returned in an `untrusted_content` field with a note that it is data from the sender, not instructions. HTML is converted to text and nothing is fetched; attachments are never opened. Long messages are cut and marked `truncated` | No (the message stays unread) |
 | `mark_read` / `mark_unread` | Mark messages read or unread. Synced to Proton | Yes (undoable) |
 | `flag` / `unflag` | Star or unstar messages (Proton's Starred) | Yes (undoable) |
-| `move_message` | Move messages to INBOX, Archive, Spam or a folder under `Folders/`. Not to Trash (`trash_message`) or a label (`add_label`); not out of a label, Drafts or All Mail | Yes (undoable) |
+| `move_message` | Move messages to INBOX, Archive or a folder under `Folders/` (also out of Spam). Not into Spam, to Trash (`trash_message`) or a label (`add_label`); not out of a label, Drafts or All Mail | Yes (undoable) |
 | `add_label` | Add a label (`Labels/…`); the messages stay in their folder | Yes (undoable) |
 | `trash_message` | Move messages to Trash. Nothing is deleted; they can be restored until Trash is emptied. Annotated destructive, so clients that honour it ask first. Not for drafts | Yes (undoable) |
 
