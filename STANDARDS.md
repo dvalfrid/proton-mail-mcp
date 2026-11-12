@@ -135,7 +135,7 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 
 Anyone can send the owner an email, so mail content can contain instructions aimed at the AI (prompt injection).
 
-- Tool output marks message content as untrusted: headers and body are returned inside a clearly delimited block labelled as data from the sender, not as instructions.
+- Tool output marks message content as untrusted. `read_message` returns headers and body inside a separate `untrusted_content` field with a note that it is data from the sender, not instructions. `list_messages` and `search_messages` return each message's subject and sender as fields of the listing, with a note naming them as sender-written data. Sender text never appears in an error message.
 - HTML is converted to text; scripts, styles and remote resources are dropped, never fetched.
 - Attachments are listed (name, type, size), not opened or executed.
 - Output size is capped per message and per call.

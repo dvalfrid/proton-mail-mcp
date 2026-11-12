@@ -52,9 +52,9 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          cache-dependency-path: |
-            go.sum
-            tools/go.sum
+          # Release binaries are built from a fresh module download, not a
+          # cache a PR build could have filled (issue #75).
+          cache: false
 
       - name: Verify
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
