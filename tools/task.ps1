@@ -67,6 +67,23 @@ function Invoke-Build {
     $exe = if (($GOOS -eq '' -and $IsWindows) -or $GOOS -eq 'windows') { '.exe' } else { '' }
     $output = if ($Out) { $Out } else { "bin/proton-mail-mcp$exe" }
     $env:CGO_ENABLED = '0'
+    $syso = @()
+    if ($exe) {
+        # Windows resources: the project icon (assets/icon.ico), version
+        # details and a manifest, as .syso files that go build links in.
+        # Made before GOOS/GOARCH are set: go-winres runs on this machine.
+        $arch = if ($GOARCH) { $GOARCH } else { (& go env GOARCH).Trim() }
+        $fileVersion = if ($Version -match '^(\d+)\.(\d+)\.(\d+)') { "$($Matches[1]).$($Matches[2]).$($Matches[3]).0" } else { '0.0.0.0' }
+        $copyright = (Get-Content LICENSE | Where-Object { $_ -like 'Copyright*' } | Select-Object -First 1)
+        foreach ($r in @(
+                @{ Dir = 'cmd/proton-mail-mcp'; Manifest = 'cli'; Name = 'proton-mail-mcp.exe'; Description = 'Proton Mail MCP server' },
+                @{ Dir = 'cmd/proton-mail-mcp-setup'; Manifest = 'gui'; Name = 'proton-mail-mcp-setup.exe'; Description = 'Proton Mail MCP Setup' })) {
+            Invoke-Tool 'go-winres' @('simply', '--arch', $arch, '--out', "$($r.Dir)/rsrc", '--manifest', $r.Manifest,
+                '--icon', 'assets/icon.ico', '--product-name', 'Proton Mail MCP', '--file-description', $r.Description,
+                '--product-version', $Version, '--file-version', $fileVersion, '--copyright', $copyright, '--original-filename', $r.Name)
+            $syso += "$($r.Dir)/rsrc_windows_$arch.syso"
+        }
+    }
     if ($GOOS) { $env:GOOS = $GOOS }
     if ($GOARCH) { $env:GOARCH = $GOARCH }
     try {
@@ -81,6 +98,8 @@ function Invoke-Build {
         }
     } finally {
         Remove-Item Env:GOOS, Env:GOARCH -ErrorAction SilentlyContinue
+        # Made per build: left behind, they would go into later builds.
+        $syso | Remove-Item -ErrorAction SilentlyContinue
     }
 }
 
