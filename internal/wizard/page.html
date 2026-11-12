@@ -154,7 +154,7 @@ const banner = (kind, title, text) => `<div class="banner ${kind}"><span class="
 const STEPS = ['Welcome', 'Proton Mail Bridge', 'Bridge account', 'Claude', 'Finish'];
 const S = {
   step: 0, state: null, bridge: null, looking: false, confirmed: false,
-  user: '', reveal: false, signing: false, signInError: '',
+  user: '', reveal: false, signing: false, signInError: '', typed: false,
   pick: {}, registering: false, registered: null, fatal: '',
 };
 
@@ -201,8 +201,21 @@ function stepBridge() {
     <details><summary>Certificate details</summary><p class="small mono" style="margin-top:8px">SHA-256 ${esc(b.fingerprint)}</p></details>`;
 }
 
+// savedMode: an earlier setup saved a password for this username, so the
+// user can sign in with it. The page never sees it: the program uses it.
+const savedMode = () => !!S.state?.savedPassword && !S.typed && S.user.trim() === S.state.user;
+
 function stepAccount() {
   const dis = S.signing ? 'disabled' : '';
+  if (savedMode()) {
+    return `<h2>Bridge account</h2>
+    <p class="lead">You've set this up before. Sign in with the saved Bridge password, or type a new one if it changed in Bridge.</p>
+    ${S.signInError ? banner('error', "Couldn't sign in", esc(S.signInError)) : ''}
+    <div class="field"><label for="user">Username</label><div class="input"><input id="user" type="email" autocomplete="off" spellcheck="false" value="${esc(S.user)}" ${dis}></div></div>
+    <div class="card rows">${row(I.ok(), 'ok', 'Bridge password saved', 'In ' + esc(S.state?.store) + '. It stays there: Claude never sees it.')}</div>
+    <p class="small" style="margin-top:12px"><a id="typed" tabindex="0">Use another password</a></p>
+    ${S.signing ? `<div class="busy small">${I.spin} Signing in to Bridge…</div>` : ''}`;
+  }
   return `<h2>Bridge account</h2>
     <p class="lead">Use the username and password that <b>Bridge</b> shows, not your Proton password. In Bridge, open your account and choose <i>Mailbox details</i>.</p>
     ${S.signInError ? banner('error', "Couldn't sign in", esc(S.signInError)) : ''}
@@ -245,7 +258,7 @@ function stepDone() {
 function canNext() {
   switch (S.step) {
     case 1: { const b = S.bridge; return !S.looking && b && b.answers && b.isBridge && !b.error && (b.verified || S.confirmed); }
-    case 2: return !S.signing && S.user.trim() !== '' && ($('#pass')?.value || '') !== '';
+    case 2: return !S.signing && S.user.trim() !== '' && (savedMode() || ($('#pass')?.value || '') !== '');
     case 3: return !S.registering;
     default: return true;
   }
@@ -274,9 +287,16 @@ function render() {
 
 function wire() {
   const u = $('#user'), p = $('#pass');
-  if (u) u.oninput = e => { S.user = e.target.value; $('#next').disabled = !canNext(); };
+  if (u) u.oninput = e => {
+    const was = savedMode();
+    S.user = e.target.value;
+    // Another username has no saved password: show the password field.
+    if (savedMode() !== was) { render(); const nu = $('#user'); nu.focus(); nu.setSelectionRange(nu.value.length, nu.value.length); return; }
+    $('#next').disabled = !canNext();
+  };
   if (p) p.oninput = () => { $('#next').disabled = !canNext(); };
   for (const el of [u, p]) if (el) el.onkeydown = e => { if (e.key === 'Enter' && canNext()) next(); };
+  const ty = $('#typed'); if (ty) { const f = () => { S.typed = true; S.signInError = ''; render(); $('#pass').focus(); }; ty.onclick = f; ty.onkeydown = e => { if (e.key === 'Enter') f(); }; }
   const rv = $('#reveal'); if (rv) rv.onclick = () => { S.reveal = !S.reveal; render(); $('#pass').focus(); };
   const cf = $('#confirm'); if (cf) cf.onchange = e => { S.confirmed = e.target.checked; render(); };
   const rt = $('#retry'); if (rt) rt.onclick = lookForBridge;
@@ -295,14 +315,17 @@ async function lookForBridge() {
 }
 
 async function signIn() {
-  const password = $('#pass').value;
+  const saved = savedMode();
+  const args = saved ? { user: S.user, useSaved: true } : { user: S.user, password: $('#pass').value };
   S.signing = true; S.signInError = ''; render();
   let r;
-  try { r = await call('signIn', { user: S.user, password }); } catch (e) { r = { error: e.message }; }
+  try { r = await call('signIn', args); } catch (e) { r = { error: e.message }; }
   S.signing = false;
   if (r.ok) { go(3); return; }
+  if (r.savedFailed) S.typed = true;
   S.signInError = r.error; render();
-  $('#pass').value = ''; $('#pass').focus(); $('#next').disabled = true;
+  if ($('#pass')) { $('#pass').value = ''; $('#pass').focus(); }
+  $('#next').disabled = !canNext();
 }
 
 async function register() {
@@ -318,7 +341,7 @@ function go(step) {
   render();
   $('#content').focus({ preventScroll: true });
   if (step === 1) lookForBridge();
-  if (step === 2) setTimeout(() => (S.user ? $('#pass') : $('#user'))?.focus(), 0);
+  if (step === 2) setTimeout(() => (savedMode() ? $('#next') : S.user ? $('#pass') : $('#user'))?.focus(), 0);
 }
 
 async function next() {

@@ -87,9 +87,15 @@ func (b *Backend) Call(ctx context.Context, method string, args json.RawMessage)
 	case "confirmCertificate":
 		return nil, b.confirmCertificate()
 	case "signIn":
-		var a struct{ User, Password string }
+		var a struct {
+			User, Password string
+			UseSaved       bool
+		}
 		if err := json.Unmarshal(args, &a); err != nil {
 			return nil, errors.New("bad sign-in request")
+		}
+		if a.UseSaved {
+			return b.signInSaved(ctx, a.User), nil
 		}
 		return b.signIn(ctx, a.User, a.Password), nil
 	case "register":
@@ -117,7 +123,8 @@ func (b *Backend) Call(ctx context.Context, method string, args json.RawMessage)
 type State struct {
 	Platform       string        `json:"platform"` // runtime.GOOS
 	Version        string        `json:"version"`
-	User           string        `json:"user"` // from an earlier setup
+	User           string        `json:"user"`          // from an earlier setup
+	SavedPassword  bool          `json:"savedPassword"` // the credential store has a password for User; the page never gets it
 	Store          string        `json:"store"`
 	CanVerifyOwner bool          `json:"canVerifyOwner"`
 	Accent         Accent        `json:"accent"`
@@ -135,6 +142,10 @@ type ClientState struct {
 func (b *Backend) state() State {
 	s := State{Platform: runtime.GOOS, Version: b.version, User: b.prev.User, Store: storeName(), CanVerifyOwner: setup.CanVerifyOwner(),
 		Accent: b.accent, Exe: b.o.Exe, Clients: []ClientState{}}
+	if b.prev.User != "" {
+		_, err := b.o.Store.Get(b.prev.User)
+		s.SavedPassword = err == nil
+	}
 	if b.prepErr != nil {
 		s.Error = "The earlier settings could not be read: " + b.prepErr.Error()
 	}
@@ -213,6 +224,7 @@ type SignInResult struct {
 	OK           bool   `json:"ok"`
 	Error        string `json:"error,omitempty"`
 	StoreFailed  bool   `json:"storeFailed,omitempty"` // logged in and saved the settings, but not the password
+	SavedFailed  bool   `json:"savedFailed,omitempty"` // there is no saved password, or it no longer works: type it
 	SettingsFile string `json:"settingsFile,omitempty"`
 }
 
@@ -242,6 +254,26 @@ func (b *Backend) signIn(ctx context.Context, user, password string) SignInResul
 	}
 	b.saved, b.prev.User = true, user
 	return SignInResult{OK: true, SettingsFile: file}
+}
+
+// signInSaved signs in with the password already in the credential store,
+// as signIn does with a typed one. The password stays in this process: the
+// page only learns whether it worked.
+func (b *Backend) signInSaved(ctx context.Context, user string) SignInResult {
+	user = strings.TrimSpace(user)
+	if user == "" {
+		return SignInResult{Error: "Type the Bridge username."}
+	}
+	password, err := b.o.Store.Get(user)
+	if err != nil || password == "" {
+		return SignInResult{SavedFailed: true, Error: "No password is saved for this username. Type the Bridge password."}
+	}
+	r := b.signIn(ctx, user, password)
+	if !r.OK && !r.StoreFailed {
+		r.SavedFailed = true
+		r.Error = "The saved password didn't work: " + r.Error + " Type the Bridge password below."
+	}
+	return r
 }
 
 // RegisterResult is the outcome for one client.

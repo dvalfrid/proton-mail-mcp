@@ -281,3 +281,70 @@ func TestPageIsSelfContained(t *testing.T) {
 		}
 	}
 }
+
+type savedSignIn struct {
+	User     string
+	UseSaved bool
+}
+
+// Run again after a setup, the wizard offers the saved password, and signs
+// in with it without the page ever getting it.
+func TestWizardSignsInWithSavedPassword(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t, true)
+	_ = f.call(t, "findBridge", nil, nil)
+	var r SignInResult
+	if err := f.call(t, "signIn", signIn{testutil.User, testutil.Password}, &r); err != nil || !r.OK {
+		t.Fatalf("first sign-in = %+v, %v", r, err)
+	}
+
+	f.b = New(f.o, "test", Accent{}, nil, nil) // the wizard started again
+	var st State
+	if err := f.call(t, "state", nil, &st); err != nil {
+		t.Fatal(err)
+	}
+	if st.User != testutil.User || !st.SavedPassword {
+		t.Fatalf("state = %+v, want the user and a saved password", st)
+	}
+	_ = f.call(t, "findBridge", nil, nil)
+	if err := f.call(t, "signIn", savedSignIn{testutil.User, true}, &r); err != nil || !r.OK {
+		t.Fatalf("sign-in with the saved password = %+v, %v", r, err)
+	}
+	if err := f.call(t, "register", map[string]any{"names": []string{"Fake Claude"}}, nil); err != nil {
+		t.Errorf("register after a saved-password sign-in: %v", err)
+	}
+	for _, c := range f.calls {
+		if strings.Contains(c, testutil.Password) {
+			t.Errorf("a reply to the page holds the password: %s", c)
+		}
+	}
+}
+
+// A saved password that no longer works, or none at all, sends the user to
+// the password field, and writes nothing.
+func TestWizardSavedPasswordFails(t *testing.T) {
+	t.Parallel()
+	for name, stored := range map[string]string{"wrong": "old-pw-77c2", "none": ""} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			f := newFixture(t, true)
+			if stored != "" {
+				f.store[testutil.User] = stored
+			}
+			_ = f.call(t, "findBridge", nil, nil)
+			var r SignInResult
+			if err := f.call(t, "signIn", savedSignIn{testutil.User, true}, &r); err != nil {
+				t.Fatal(err)
+			}
+			if r.OK || !r.SavedFailed || r.Error == "" || strings.Contains(r.Error, "old-pw-77c2") {
+				t.Errorf("signIn = %+v", r)
+			}
+			if _, err := os.Stat(f.o.Dir); !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("settings dir was created: %v", err)
+			}
+			if got := f.store[testutil.User]; got != stored {
+				t.Errorf("stored password changed to %q", got)
+			}
+		})
+	}
+}
