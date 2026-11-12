@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -31,22 +32,41 @@ func (ClaudeCode) Available() bool {
 	return err == nil
 }
 
-// Registered implements Client.
-func (ClaudeCode) Registered() bool {
-	return claude("mcp", "get", ServerName) == nil
+// Registration implements Client: the Command line of `claude mcp get`.
+func (ClaudeCode) Registration() (string, bool) {
+	out, err := claudeOutput("mcp", "get", ServerName)
+	if err != nil {
+		return "", false
+	}
+	return commandLine(out), true
 }
 
-// Register implements Client.
-func (ClaudeCode) Register(exe string) error {
+// commandLine is the program in `claude mcp get` output ("Command: ...").
+func commandLine(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		if cmd, ok := strings.CutPrefix(strings.TrimSpace(line), "Command:"); ok {
+			return strings.TrimSpace(cmd)
+		}
+	}
+	return ""
+}
+
+// Register implements Client. An earlier registration (of another copy) is
+// replaced: `claude mcp add` refuses a name that exists.
+func (c ClaudeCode) Register(exe string) error {
+	if _, ok := c.Registration(); ok {
+		if err := claude("mcp", "remove", "--scope", "user", ServerName); err != nil {
+			return err
+		}
+	}
 	return claude("mcp", "add", "--scope", "user", ServerName, "--", exe)
 }
 
-// Unregister implements Client. Claude Code shows the registered command in
-// `claude mcp get`; only one that starts exe is removed.
-func (ClaudeCode) Unregister(exe string) (bool, error) {
-	out, err := claudeOutput("mcp", "get", ServerName)
-	if err != nil || !strings.Contains(strings.ToLower(out), strings.ToLower(exe)) {
-		return false, nil //nolint:nilerr // not registered, or registered for another program: nothing to do
+// Unregister implements Client: only a registration that starts exe is
+// removed.
+func (c ClaudeCode) Unregister(exe string) (bool, error) {
+	if cmd, ok := c.Registration(); !ok || !SameExe(cmd, exe) {
+		return false, nil
 	}
 	return true, claude("mcp", "remove", "--scope", "user", ServerName)
 }
@@ -92,15 +112,33 @@ func (d ClaudeDesktop) Available() bool {
 	return err == nil && info.IsDir()
 }
 
-// Registered implements Client.
-func (d ClaudeDesktop) Registered() bool {
+// Registration implements Client.
+func (d ClaudeDesktop) Registration() (string, bool) {
 	cfg, err := d.read()
 	if err != nil {
-		return false
+		return "", false
 	}
 	servers, _ := cfg["mcpServers"].(map[string]any)
-	_, ok := servers[ServerName]
-	return ok
+	entry, ok := servers[ServerName]
+	if !ok {
+		return "", false
+	}
+	m, _ := entry.(map[string]any)
+	cmd, _ := m["command"].(string)
+	return cmd, true
+}
+
+// SameExe reports whether two paths name the same program: compared
+// cleaned, and on Windows without regard to case.
+func SameExe(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	a, b = filepath.Clean(a), filepath.Clean(b)
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
 }
 
 // Register implements Client.
@@ -137,7 +175,7 @@ func (d ClaudeDesktop) Unregister(exe string) (bool, error) {
 	servers, _ := cfg["mcpServers"].(map[string]any)
 	entry, _ := servers[ServerName].(map[string]any)
 	command, _ := entry["command"].(string)
-	if command == "" || !strings.EqualFold(filepath.Clean(command), filepath.Clean(exe)) {
+	if !SameExe(command, exe) {
 		return false, nil
 	}
 	if data, err := os.ReadFile(d.Path); err == nil {

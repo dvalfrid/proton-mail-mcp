@@ -239,7 +239,7 @@ function stepClaude() {
   }
   const items = clients.map((c, i) => c.registered
     ? `<div class="row"><span class="icon ok">${I.ok()}</span><div class="text"><div class="title">${esc(c.name)}</div><div class="sub">Already added</div></div></div>`
-    : `<div class="row"><label class="check" style="width:100%"><input type="checkbox" data-i="${i}" ${S.pick[c.name] !== false ? 'checked' : ''} ${S.registering ? 'disabled' : ''}><div class="text"><div class="title">${esc(c.name)}</div><div class="sub">Found on this computer</div></div></label></div>`).join('');
+    : `<div class="row"><label class="check" style="width:100%"><input type="checkbox" data-i="${i}" ${S.pick[c.name] !== false ? 'checked' : ''} ${S.registering ? 'disabled' : ''}><div class="text"><div class="title">${esc(c.name)}${c.other ? ': switch to this copy' : ''}</div><div class="sub">${c.other ? `Now starts another copy: <span class="mono">${esc(c.other)}</span>` : 'Found on this computer'}</div></div></label></div>`).join('');
   return `<h2>Add to Claude</h2><p class="lead">Choose where Claude gets access to your mailbox. You can change this later by running setup again.</p>
     <div class="card rows">${items}</div>
     <p class="small" style="margin-top:14px">Claude can read and organise mail. It can't send mail or permanently delete anything.</p>

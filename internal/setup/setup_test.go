@@ -66,9 +66,19 @@ type fakeClient struct {
 	got                   string
 }
 
-func (*fakeClient) Name() string                { return "Fake Claude" }
-func (c *fakeClient) Available() bool           { return c.available }
-func (c *fakeClient) Registered() bool          { return c.registered }
+func (*fakeClient) Name() string      { return "Fake Claude" }
+func (c *fakeClient) Available() bool { return c.available }
+
+// Registration: the exe it was given, or another copy when only registered.
+func (c *fakeClient) Registration() (string, bool) {
+	if c.got != "" {
+		return c.got, true
+	}
+	if c.registered {
+		return "/elsewhere/proton-mail-mcp", true
+	}
+	return "", false
+}
 func (c *fakeClient) Register(exe string) error { c.got = exe; return nil }
 func (c *fakeClient) Unregister(exe string) (bool, error) {
 	if c.got != exe {
@@ -301,14 +311,14 @@ func TestClaudeDesktopMerge(t *testing.T) {
 	if err := os.WriteFile(path, []byte(orig), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if !d.Available() || d.Registered() {
+	if _, ok := d.Registration(); !d.Available() || ok {
 		t.Fatal("state before registering is wrong")
 	}
 	if err := d.Register("/opt/proton-mail-mcp"); err != nil {
 		t.Fatal(err)
 	}
-	if !d.Registered() {
-		t.Error("not registered after Register")
+	if cmd, ok := d.Registration(); !ok || cmd != "/opt/proton-mail-mcp" {
+		t.Errorf("registration after Register = %q, %v", cmd, ok)
 	}
 	var got map[string]any
 	data, _ := os.ReadFile(path)
@@ -353,5 +363,45 @@ func TestSetupAdviceWhenTheStoreFails(t *testing.T) {
 	out := f.out.String()
 	if !strings.Contains(out, ".env file next to the program") || strings.Contains(out, "MCP client starts") {
 		t.Errorf("advice:\n%s", out)
+	}
+}
+
+// A client that starts another copy (an earlier zip) is offered a switch to
+// this one; one that starts this copy is left alone (issue #103).
+func TestSetupSwitchesAnotherCopy(t *testing.T) {
+	t.Parallel()
+	ask := &script{confirms: []bool{true, true}, lines: []string{testutil.User}, secrets: []string{testutil.Password}}
+	f := newFixture(t, ask)
+	f.client.registered = true // starts /elsewhere/proton-mail-mcp
+	if err := Run(context.Background(), f.o); err != nil {
+		t.Fatalf("%v\n%s", err, f.out)
+	}
+	if f.client.got != f.o.Exe {
+		t.Errorf("registration = %q, want switched to %q\n%s", f.client.got, f.o.Exe, f.out)
+	}
+	if !slices.ContainsFunc(ask.asked, func(q string) bool { return strings.Contains(q, "Switch") }) {
+		t.Errorf("didn't ask to switch: %q", ask.asked)
+	}
+
+	// Run again: it starts this copy now, so nothing is asked.
+	ask2 := &script{confirms: []bool{true}, lines: []string{testutil.User}, secrets: []string{testutil.Password}}
+	f.o.Prompt = ask2
+	if err := Run(context.Background(), f.o); err != nil {
+		t.Fatalf("%v\n%s", err, f.out)
+	}
+	if slices.ContainsFunc(ask2.asked, func(q string) bool { return strings.Contains(q, "Switch") || strings.Contains(q, "Register") }) {
+		t.Errorf("asked about a registration that is already this copy: %q", ask2.asked)
+	}
+}
+
+// The program is read from `claude mcp get`.
+func TestCommandLine(t *testing.T) {
+	t.Parallel()
+	out := "proton-mail:\n  Scope: User config\n  Status: ✔ Connected\n  Type: stdio\n  Command: C:\\Tools\\proton-mail-mcp\\proton-mail-mcp.exe\n  Args:\n"
+	if got := commandLine(out); got != `C:\Tools\proton-mail-mcp\proton-mail-mcp.exe` {
+		t.Errorf("commandLine = %q", got)
+	}
+	if got := commandLine("nothing here"); got != "" {
+		t.Errorf("commandLine without a Command line = %q", got)
 	}
 }

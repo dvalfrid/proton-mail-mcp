@@ -32,8 +32,10 @@ type Prompter interface {
 // Client is an MCP client the server can be registered in.
 type Client interface {
 	Name() string
-	Available() bool  // the client is installed
-	Registered() bool // it already has the server
+	Available() bool // the client is installed
+	// Registration is the program the client starts as the server, and
+	// whether it has the server at all.
+	Registration() (exe string, ok bool)
 	Register(exe string) error
 	// Unregister removes the server if it is registered to start exe, and
 	// reports whether it did. A registration for another program is left
@@ -255,11 +257,18 @@ func (o *Options) register(say func(string, ...any)) {
 			continue
 		}
 		found = true
-		if c.Registered() {
+		current, registered := c.Registration()
+		question := "Register proton-mail-mcp in " + c.Name() + "?"
+		switch {
+		case registered && SameExe(current, o.Exe):
 			say("✓ %s already has proton-mail-mcp", c.Name())
 			continue
+		case registered:
+			// Another copy, for example one from an earlier zip (issue #103).
+			say("  %s starts proton-mail-mcp from %s", c.Name(), cmpOr(current, "another program"))
+			question = "Switch " + c.Name() + " to this copy (" + o.Exe + ")?"
 		}
-		ok, err := o.Prompt.Confirm("Register proton-mail-mcp in "+c.Name()+"?", true)
+		ok, err := o.Prompt.Confirm(question, true)
 		if err != nil || !ok {
 			say("  Skipped %s", c.Name())
 			continue

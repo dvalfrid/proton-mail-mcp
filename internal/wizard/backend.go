@@ -11,6 +11,7 @@
 package wizard
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -136,7 +137,8 @@ type State struct {
 // ClientState is one installed MCP client.
 type ClientState struct {
 	Name       string `json:"name"`
-	Registered bool   `json:"registered"`
+	Registered bool   `json:"registered"`      // it starts this copy
+	Other      string `json:"other,omitempty"` // it starts another copy: this one (issue #103)
 }
 
 func (b *Backend) state() State {
@@ -151,7 +153,15 @@ func (b *Backend) state() State {
 	}
 	for _, c := range b.o.Clients {
 		if c.Available() {
-			s.Clients = append(s.Clients, ClientState{Name: c.Name(), Registered: c.Registered()})
+			cs := ClientState{Name: c.Name()}
+			if cmd, ok := c.Registration(); ok {
+				if setup.SameExe(cmd, b.o.Exe) {
+					cs.Registered = true
+				} else {
+					cs.Other = cmp.Or(cmd, "another program")
+				}
+			}
+			s.Clients = append(s.Clients, cs)
 		}
 	}
 	return s
@@ -283,7 +293,8 @@ type RegisterResult struct {
 	Error string `json:"error,omitempty"`
 }
 
-// register adds the server to the named clients, among the installed ones.
+// register adds the server to the named clients, among the installed ones,
+// or switches them to this copy when they start another.
 func (b *Backend) register(names []string) ([]RegisterResult, error) {
 	if !b.saved {
 		return nil, errOrder
@@ -294,7 +305,7 @@ func (b *Backend) register(names []string) ([]RegisterResult, error) {
 			continue
 		}
 		r := RegisterResult{Name: c.Name(), OK: true}
-		if !c.Registered() {
+		if cmd, ok := c.Registration(); !ok || !setup.SameExe(cmd, b.o.Exe) {
 			if err := c.Register(b.o.Exe); err != nil {
 				r.OK, r.Error = false, err.Error()
 			}
