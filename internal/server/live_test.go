@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"os"
 	"slices"
 	"testing"
@@ -268,4 +269,95 @@ func TestLiveLargeFolderSearch(t *testing.T) {
 		}
 		t.Logf("%d messages, search %v: %v", largest.Messages, args, took)
 	}
+}
+
+// The organize tools on one test message the owner sent themself (issue
+// #54). Set:
+//
+//	PROTON_LIVE_SUBJECT  an ASCII marker only that message's subject contains
+//	PROTON_LIVE_LABEL    an existing label, e.g. Labels/Test
+//	PROTON_LIVE_FOLDER   an existing folder, e.g. Folders/Test
+//
+// It refuses unless exactly one INBOX message matches. It marks the message
+// read and unread, stars and unstars it, labels it, moves it to the folder
+// and then to Trash, checking each step. Only uids, flags and folder names
+// are logged, never the subject. The message ends in Trash, restorable.
+func TestLiveOrganize(t *testing.T) {
+	marker, label, folder := os.Getenv("PROTON_LIVE_SUBJECT"), os.Getenv("PROTON_LIVE_LABEL"), os.Getenv("PROTON_LIVE_FOLDER")
+	if marker == "" || label == "" || folder == "" {
+		t.Skip("set PROTON_LIVE_SUBJECT, PROTON_LIVE_LABEL and PROTON_LIVE_FOLDER to run the organize live test")
+	}
+	e := liveSession(t, liveConfig(t))
+	find := func(f string) (SearchMessagesOutput, mail.Summary, bool) {
+		t.Helper()
+		var out SearchMessagesOutput
+		e.callOK(t, "search_messages", map[string]any{"folder": f, "subject": marker, "limit": 5}, &out)
+		if len(out.Messages) > 1 {
+			t.Fatalf("%d messages in %s match the marker; it must be unique", len(out.Messages), f)
+		}
+		if len(out.Messages) == 0 {
+			return out, mail.Summary{}, false
+		}
+		return out, out.Messages[0], true
+	}
+	change := func(tool, f string, extra map[string]any) {
+		t.Helper()
+		l, m, ok := find(f)
+		if !ok {
+			t.Fatalf("the test message is not in %s before %s", f, tool)
+		}
+		args := map[string]any{"folder": f, "uids": []uint32{m.UID}, "uidvalidity": l.UIDValidity}
+		maps.Copy(args, extra)
+		var out ChangeOutput
+		e.callOK(t, tool, args, &out)
+		t.Logf("%s: uid %d in %s, changed %d", tool, m.UID, f, out.Changed)
+	}
+
+	if _, m, ok := find("INBOX"); !ok {
+		t.Fatal("no INBOX message matches PROTON_LIVE_SUBJECT")
+	} else {
+		t.Logf("start: uid %d, unread %v, flagged %v", m.UID, m.Unread, m.Flagged)
+	}
+	steps := []struct {
+		tool  string
+		extra map[string]any
+		check func(m mail.Summary) bool
+	}{
+		{"mark_read", nil, func(m mail.Summary) bool { return !m.Unread }},
+		{"mark_unread", nil, func(m mail.Summary) bool { return m.Unread }},
+		{"flag", nil, func(m mail.Summary) bool { return m.Flagged }},
+		{"unflag", nil, func(m mail.Summary) bool { return !m.Flagged }},
+	}
+	for _, s := range steps {
+		change(s.tool, "INBOX", s.extra)
+		if _, m, ok := find("INBOX"); !ok || !s.check(m) {
+			t.Fatalf("after %s: found %v, unread %v, flagged %v", s.tool, ok, m.Unread, m.Flagged)
+		}
+	}
+
+	change("add_label", "INBOX", map[string]any{"label": label})
+	if _, _, ok := find(label); !ok {
+		t.Fatalf("not under %s after add_label", label)
+	}
+	if _, _, ok := find("INBOX"); !ok {
+		t.Fatal("add_label took the message out of INBOX")
+	}
+
+	change("move_message", "INBOX", map[string]any{"to": folder})
+	if _, _, ok := find(folder); !ok {
+		t.Fatalf("not in %s after move_message", folder)
+	}
+	if _, _, ok := find("INBOX"); ok {
+		t.Fatal("still in INBOX after move_message")
+	}
+
+	change("trash_message", folder, nil)
+	if _, _, ok := find("Trash"); !ok {
+		t.Fatal("not in Trash after trash_message")
+	}
+	if _, _, ok := find(folder); ok {
+		t.Fatalf("still in %s after trash_message", folder)
+	}
+	_, _, labelled := find(label)
+	t.Logf("in Trash; still under %s: %v", label, labelled)
 }
