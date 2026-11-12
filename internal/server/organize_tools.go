@@ -134,4 +134,22 @@ func registerOrganizeTools(s *mcp.Server, m *mail.Client) {
 		}
 		return nil, ChangeOutput{Folder: in.Folder, Changed: n}, nil
 	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "trash_message",
+		Description: "Move messages to Trash. Nothing is deleted: the owner can restore them from Trash until it is emptied. " +
+			"There is no permanent delete. Not for drafts, or for messages already in Trash or listed under All Mail (trash them from their own folder). " +
+			"Applies to all the given messages or, if any uid is stale or missing, to none.",
+		Annotations: organize("Move to Trash", true),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ChangeInput) (*mcp.CallToolResult, ChangeOutput, error) {
+		sel, err := selection(in)
+		if err != nil {
+			return nil, ChangeOutput{}, err
+		}
+		n, err := m.Trash(ctx, sel)
+		if err != nil {
+			return nil, ChangeOutput{}, changeError("move to Trash", in, err)
+		}
+		return nil, ChangeOutput{Folder: in.Folder, Changed: n}, nil
+	})
 }

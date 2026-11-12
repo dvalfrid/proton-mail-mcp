@@ -753,6 +753,67 @@
   },
   {
     "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Move to Trash"
+    },
+    "description": "Move messages to Trash. Nothing is deleted: the owner can restore them from Trash until it is emptied. There is no permanent delete. Not for drafts, or for messages already in Trash or listed under All Mail (trash them from their own folder). Applies to all the given messages or, if any uid is stale or missing, to none.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "folder": {
+          "description": "the folder the messages are in, as list_folders names it",
+          "type": "string"
+        },
+        "uids": {
+          "description": "the messages' uids, from list_messages or search_messages in this folder (1 to 50)",
+          "items": {
+            "maximum": 4294967295,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "uidvalidity": {
+          "description": "the uidvalidity that came with the uids; required, so a folder renumbered by Bridge is detected instead of changing other messages",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "folder",
+        "uids",
+        "uidvalidity"
+      ],
+      "type": "object"
+    },
+    "name": "trash_message",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "changed": {
+          "description": "how many messages the call applied to",
+          "type": "integer"
+        },
+        "folder": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "folder",
+        "changed"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
       "destructiveHint": false,
       "idempotentHint": true,
       "openWorldHint": false,

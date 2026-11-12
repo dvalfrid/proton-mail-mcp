@@ -201,3 +201,40 @@ func TestMoveRefusals(t *testing.T) {
 		t.Error("a refused call moved the message")
 	}
 }
+
+func TestTrash(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	c, srv, _ := newClient(t)
+	s := inbox(t, c, func(f string) {
+		srv.AddMessage(t, f, message("bob@example.org", "Hi", "Mon, 02 Nov 2026 10:00:00 +0000"))
+	}, 2)
+	if n, err := c.Trash(ctx, s); err != nil || n != 2 {
+		t.Fatalf("trash: %d, %v", n, err)
+	}
+	if count(t, c, "INBOX") != 0 || count(t, c, "Trash") != 2 {
+		t.Error("the messages didn't move to Trash")
+	}
+	if srv.Sent("EXPUNGE") || srv.Sent(`\Deleted`) {
+		t.Error(`trash used EXPUNGE or \Deleted`)
+	}
+}
+
+func TestTrashRefusals(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	c, srv, _ := newClient(t)
+	for _, f := range []string{"Trash", "Drafts", "All Mail"} {
+		srv.AddMessage(t, f, message("bob@example.org", "Hi", "Mon, 02 Nov 2026 10:00:00 +0000"))
+	}
+	for _, f := range []string{"Trash", "Drafts", "All Mail", "Folders/Nope"} {
+		l, _ := c.ListMessages(ctx, f, ListOptions{})
+		sel := Selection{Folder: f, UIDs: []uint32{1}, UIDValidity: max(l.UIDValidity, 1)}
+		if _, err := c.Trash(ctx, sel); !errors.Is(err, ErrNotAllowed) && !errors.Is(err, ErrNoSuchFolder) {
+			t.Errorf("trash from %q: err = %v, want a refusal", f, err)
+		}
+	}
+	if srv.Sent("MOVE") {
+		t.Error("a refused trash sent MOVE")
+	}
+}
