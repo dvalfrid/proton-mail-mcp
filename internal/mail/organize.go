@@ -187,8 +187,8 @@ type mailbox struct{ name, role string }
 
 func (m mailbox) label() bool { return strings.HasPrefix(m.name, "Labels/") }
 
-// ordinary is a folder a message lives in and can be moved to: INBOX,
-// Archive, Spam or a user folder. Not Trash (trash_message), Drafts, Sent,
+// ordinary is a folder a message lives in: INBOX, Archive, Spam or a user
+// folder; all but Spam can be moved to (movable). Not Trash (trash_message), Drafts, Sent,
 // a label, Starred, All Mail or Scheduled.
 func (m mailbox) ordinary() bool {
 	return m.role == "inbox" || m.role == "archive" || m.role == "spam" || strings.HasPrefix(m.name, "Folders/")
@@ -239,8 +239,13 @@ func movable(src, dst mailbox) error {
 		return fmt.Errorf("%w: to move messages to Trash, use trash_message", ErrNotAllowed)
 	case dst.label():
 		return fmt.Errorf("%w: %q is a label; use add_label", ErrNotAllowed, dst.name)
+	case dst.role == "spam":
+		// Proton can delete Spam automatically after 30 days, and marking
+		// spam may train its filter: the owner does that in Proton Mail
+		// (issue #74). Moving out of Spam is fine.
+		return fmt.Errorf("%w: messages aren't moved to Spam from here; Proton can delete Spam automatically, so the owner marks spam in Proton Mail", ErrNotAllowed)
 	case !dst.ordinary():
-		return fmt.Errorf("%w: messages can't be moved to %q; move them to INBOX, Archive, Spam or a folder under Folders/", ErrNotAllowed, dst.name)
+		return fmt.Errorf("%w: messages can't be moved to %q; move them to INBOX, Archive or a folder under Folders/", ErrNotAllowed, dst.name)
 	case src.label():
 		return fmt.Errorf("%w: moving out of a label also removes the label; that isn't supported yet", ErrNotAllowed)
 	case !src.ordinary() && src.role != "trash" && src.role != "sent":

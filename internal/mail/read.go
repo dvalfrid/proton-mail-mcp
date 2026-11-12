@@ -355,7 +355,13 @@ func formatNameAddr(name, addr string) string {
 // spaces, whitespace is collapsed, and the text is capped at max runes.
 func clean(s string, max int) string {
 	s = strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) || r == ' ' || r == ' ' {
+		switch {
+		case unicode.Is(unicode.Cf, r):
+			// Bidi overrides and zero-width characters: a filename like
+			// "invoice<U+202E>fdp.exe" would read as "invoice exe.pdf"
+			// (issue #74). cleanBody drops them too.
+			return -1
+		case unicode.IsControl(r) || r == ' ' || r == ' ':
 			return ' '
 		}
 		return r

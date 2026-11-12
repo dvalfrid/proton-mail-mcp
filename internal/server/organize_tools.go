@@ -21,7 +21,7 @@ type ChangeInput struct {
 // MoveInput are the arguments of move_message.
 type MoveInput struct {
 	ChangeInput
-	To string `json:"to" jsonschema:"the folder to move them to: INBOX, Archive, Spam or a folder under Folders/"`
+	To string `json:"to" jsonschema:"the folder to move them to: INBOX, Archive or a folder under Folders/"`
 }
 
 // LabelInput are the arguments of add_label.
@@ -100,7 +100,7 @@ func registerOrganizeTools(s *mcp.Server, m *mail.Client) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "move_message",
-		Description: "Move messages from one folder to another: INBOX, Archive, Spam or a folder under Folders/. Nothing is deleted. " +
+		Description: "Move messages from one folder to another: INBOX, Archive or a folder under Folders/, also out of Spam. Nothing is deleted. Not into Spam: the owner marks spam in Proton Mail. " +
 			"Use trash_message for Trash and add_label for labels; messages can't be moved out of a label, Drafts or All Mail. " +
 			"Applies to all the given messages or, if any uid is stale or missing, to none. The messages get new uids in the target folder: list it to see them.",
 		Annotations: organize("Move messages", false),

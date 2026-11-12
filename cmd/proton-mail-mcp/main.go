@@ -86,7 +86,7 @@ func loadConfig() (config.Config, string, error) {
 		return config.Config{}, where, err
 	}
 	files := config.Chain(config.Lookup(dotenv), config.FromMap(saved.Values()))
-	cfg, err := config.Load(config.Chain(files, config.PasswordFrom(files, keystore.OS{}.Get)))
+	cfg, err := loadWithStore(files, keystore.OS{}.Get)
 	if err != nil {
 		return config.Config{}, where, fmt.Errorf("%w (run `proton-mail-mcp setup`, or see %s)", err, where)
 	}
@@ -188,4 +188,23 @@ func envFilePath() (string, error) {
 		return "", fmt.Errorf("locate executable: %w", err)
 	}
 	return filepath.Join(filepath.Dir(exe), ".env"), nil
+}
+
+// loadWithStore loads the settings, with the password from the credential
+// store when it is in neither the environment nor .env. A store that fails
+// (locked, no D-Bus) is reported as such, not as a missing password
+// (issue #74).
+func loadWithStore(files func(string) (string, bool), get func(string) (string, error)) (config.Config, error) {
+	var storeErr error
+	cfg, err := config.Load(config.Chain(files, config.PasswordFrom(files, func(user string) (string, error) {
+		pw, err := get(user)
+		if err != nil && !errors.Is(err, keystore.ErrNotFound) {
+			storeErr = err
+		}
+		return pw, err
+	})))
+	if err != nil && storeErr != nil {
+		return config.Config{}, fmt.Errorf("the OS credential store could not be read (%w); unlock it, or run `proton-mail-mcp setup` again: %w", storeErr, err)
+	}
+	return cfg, err
 }
