@@ -138,10 +138,10 @@ func TestParseMessage(t *testing.T) {
 			from: "alice@example.com", subject: "Files", format: "html",
 			body: []string{"See attached."}, notInBody: []string{"not shown", "forwarded body"},
 			attachments: []Attachment{
-				{Name: "", Type: "image/png", Size: 8, Inline: true},
-				{Name: "report.pdf", Type: "application/pdf", Size: 9},
-				{Name: "nötes.txt", Type: "text/plain", Size: 17},
-				{Name: "", Type: "message/rfc822", Size: 64},
+				{Index: 1, Name: "", Type: "image/png", Size: 8, Inline: true},
+				{Index: 2, Name: "report.pdf", Type: "application/pdf", Size: 9},
+				{Index: 3, Name: "nötes.txt", Type: "text/plain", Size: 17},
+				{Index: 4, Name: "", Type: "message/rfc822", Size: 64},
 			},
 		},
 		{

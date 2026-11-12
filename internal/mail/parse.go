@@ -2,6 +2,7 @@ package mail
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"strings"
@@ -47,8 +48,10 @@ type Message struct {
 	Truncated   bool         `json:"truncated" jsonschema:"true if a limit cut the body, parts or lists"`
 }
 
-// Attachment is listed only: never opened, saved or executed.
+// Attachment is listed by ParseMessage: never opened, saved or executed.
+// Only an image is ever decoded, and only when asked for by Index (Image).
 type Attachment struct {
+	Index  int    `json:"index" jsonschema:"the attachment's number in this list, from 1; view_image takes it"`
 	Name   string `json:"name"`
 	Type   string `json:"type"`
 	Size   int64  `json:"size_bytes" jsonschema:"decoded size"`
@@ -108,6 +111,13 @@ type parser struct {
 	plain []string
 	html  [][]byte // raw HTML parts, converted only if there is no plain text
 	parts int
+
+	// want, if not zero, is the Index of the attachment whose content is
+	// kept, up to wantLimit bytes (ExtractAttachment).
+	want      int
+	wantLimit int64
+	wantData  []byte
+	wantCut   bool
 }
 
 // maxBodyBytes bounds the body text kept before it is cut to MaxBodyRunes:
@@ -224,10 +234,20 @@ func (p *parser) walk(e *gomessage.Entity, depth int) {
 }
 
 func (p *parser) attachment(e *gomessage.Entity, mediaType, disposition string) {
-	size, _ := io.Copy(io.Discard, e.Body)
 	if len(p.msg.Attachments) >= MaxAttachments {
+		_, _ = io.Copy(io.Discard, e.Body)
 		p.msg.Truncated = true
 		return
+	}
+	index := len(p.msg.Attachments) + 1
+	var size int64
+	if index == p.want {
+		data, _ := io.ReadAll(io.LimitReader(e.Body, p.wantLimit))
+		rest, _ := io.Copy(io.Discard, e.Body)
+		p.wantData, p.wantCut = data, rest > 0
+		size = int64(len(data)) + rest
+	} else {
+		size, _ = io.Copy(io.Discard, e.Body)
 	}
 	name, err := (&gomail.AttachmentHeader{Header: e.Header}).Filename()
 	if err != nil || name == "" {
@@ -235,11 +255,43 @@ func (p *parser) attachment(e *gomessage.Entity, mediaType, disposition string) 
 		name = decodeWord(params["name"])
 	}
 	p.msg.Attachments = append(p.msg.Attachments, Attachment{
+		Index:  index,
 		Name:   clean(name, maxFilenameRunes),
 		Type:   clean(mediaType, maxNameRunes),
 		Size:   size,
 		Inline: disposition == "inline" || (disposition == "" && e.Header.Get("Content-Id") != ""),
 	})
+}
+
+// ErrAttachmentNotFound means the message has no attachment with the Index
+// asked for.
+var ErrAttachmentNotFound = errors.New("the message has no attachment with that index; read_message lists them")
+
+// errAttachmentTooLarge means the attachment is larger than the limit
+// ExtractAttachment was given.
+var errAttachmentTooLarge = errors.New("attachment too large")
+
+// ExtractAttachment returns attachment number index (Attachment.Index, as
+// ParseMessage lists them) and at most limit bytes of its decoded content.
+// A larger attachment is an error wrapping errAttachmentTooLarge.
+func ExtractAttachment(r io.Reader, index int, limit int64) (Attachment, []byte, error) {
+	e, err := gomessage.ReadWithOptions(&io.LimitedReader{R: r, N: MaxMessageBytes}, &gomessage.ReadOptions{MaxHeaderBytes: maxHeaderBytes})
+	if err != nil && !gomessage.IsUnknownCharset(err) && !gomessage.IsUnknownEncoding(err) {
+		return Attachment{}, nil, ErrUnreadableMessage
+	}
+	if index < 1 || index > MaxAttachments {
+		return Attachment{}, nil, ErrAttachmentNotFound
+	}
+	p := &parser{msg: &Message{}, want: index, wantLimit: limit}
+	p.walk(e, 0)
+	if len(p.msg.Attachments) < index {
+		return Attachment{}, nil, ErrAttachmentNotFound
+	}
+	a := p.msg.Attachments[index-1]
+	if p.wantCut {
+		return a, nil, fmt.Errorf("%w: %d bytes, the limit is %d", errAttachmentTooLarge, a.Size, limit)
+	}
+	return a, p.wantData, nil
 }
 
 func decodeWord(s string) string {

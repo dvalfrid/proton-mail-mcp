@@ -261,6 +261,24 @@ var ErrUIDValidityChanged = errors.New("the folder was renumbered since its uids
 // UIDVALIDITY, or ErrUIDValidityChanged is returned before any message is
 // fetched.
 func (c *Client) ReadMessage(ctx context.Context, folder string, uid, uidValidity uint32) (*Message, error) {
+	raw, size, err := c.fetchMessage(ctx, folder, uid, uidValidity)
+	if err != nil {
+		return nil, err
+	}
+	m, err := ParseMessage(bytes.NewReader(raw))
+	if err != nil {
+		return nil, err
+	}
+	if size > c.maxFetch {
+		m.Truncated = true
+	}
+	return m, nil
+}
+
+// fetchMessage fetches at most maxFetch bytes of one raw message with
+// BODY.PEEK from a folder opened read-only, and returns them with the
+// message's full size. It checks uidValidity as ReadMessage describes.
+func (c *Client) fetchMessage(ctx context.Context, folder string, uid, uidValidity uint32) ([]byte, int64, error) {
 	var (
 		raw     []byte
 		size    int64
@@ -297,22 +315,15 @@ func (c *Client) ReadMessage(ctx context.Context, folder string, uid, uidValidit
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if stale {
-		return nil, fmt.Errorf("%w (uidvalidity %d, now %d)", ErrUIDValidityChanged, uidValidity, current)
+		return nil, 0, fmt.Errorf("%w (uidvalidity %d, now %d)", ErrUIDValidityChanged, uidValidity, current)
 	}
 	if !found {
-		return nil, ErrMessageNotFound
+		return nil, 0, ErrMessageNotFound
 	}
-	m, err := ParseMessage(bytes.NewReader(raw))
-	if err != nil {
-		return nil, err
-	}
-	if size > c.maxFetch {
-		m.Truncated = true
-	}
-	return m, nil
+	return raw, size, nil
 }
 
 func summarize(m *imapclient.FetchMessageBuffer) Summary {
