@@ -123,3 +123,20 @@ func TestMoveToolRefusals(t *testing.T) {
 		t.Errorf("add_label to Archive: IsError=%v text=%q", res.IsError, text(res))
 	}
 }
+
+func TestTrashTool(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	l := inboxListing(t, e)
+	var out ChangeOutput
+	e.callOK(t, "trash_message", map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity}, &out)
+	var trash ListMessagesOutput
+	e.callOK(t, "list_messages", map[string]any{"folder": "Trash"}, &trash)
+	if out.Changed != 2 || len(trash.Messages) != 2 {
+		t.Errorf("trash: changed %d, %d in Trash", out.Changed, len(trash.Messages))
+	}
+	res := e.call(t, "trash_message", map[string]any{"folder": "Trash", "uids": uidsOf(trash), "uidvalidity": trash.UIDValidity})
+	if !res.IsError || !strings.Contains(text(res), "already in Trash") {
+		t.Errorf("trash from Trash: IsError=%v text=%q", res.IsError, text(res))
+	}
+}

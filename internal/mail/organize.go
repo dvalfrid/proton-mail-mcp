@@ -143,8 +143,8 @@ func (m mailbox) ordinary() bool {
 	return m.role == "inbox" || m.role == "archive" || m.role == "spam" || strings.HasPrefix(m.name, "Folders/")
 }
 
-// mailboxes looks up the named folders with their roles, from one LIST.
-func (c *Client) mailboxes(ctx context.Context, names ...string) ([]mailbox, error) {
+// allMailboxes lists the selectable folders with their roles, by name.
+func (c *Client) allMailboxes(ctx context.Context) (map[string]mailbox, error) {
 	all := map[string]mailbox{}
 	err := c.do(ctx, func(ic *imapclient.Client) error {
 		list, err := ic.List("", "*", nil).Collect()
@@ -158,6 +158,12 @@ func (c *Client) mailboxes(ctx context.Context, names ...string) ([]mailbox, err
 		}
 		return nil
 	})
+	return all, err
+}
+
+// mailboxes looks up the named folders with their roles.
+func (c *Client) mailboxes(ctx context.Context, names ...string) ([]mailbox, error) {
+	all, err := c.allMailboxes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -234,6 +240,48 @@ func (c *Client) AddLabel(ctx context.Context, s Selection, label string) (int, 
 	return c.change(ctx, s, func(ic *imapclient.Client, set imap.UIDSet) error {
 		if _, err := ic.Copy(set, label).Wait(); err != nil {
 			return fmt.Errorf("label %q in %q: %w", label, s.Folder, err)
+		}
+		return nil
+	})
+}
+
+// Trash moves messages to the folder with the \Trash attribute, found by
+// attribute rather than by name, with UID MOVE. Nothing is deleted: the
+// owner can restore them from Trash until it is emptied (docs/bridge.md §6).
+// Never STORE \Deleted + EXPUNGE: in Trash and Drafts that is a permanent
+// delete on Bridge.
+func (c *Client) Trash(ctx context.Context, s Selection) (int, error) {
+	if _, err := s.check(); err != nil {
+		return 0, err
+	}
+	all, err := c.allMailboxes(ctx)
+	if err != nil {
+		return 0, err
+	}
+	src, ok := all[s.Folder]
+	if !ok {
+		return 0, fmt.Errorf("%w: %q; call list_folders to see the names", ErrNoSuchFolder, s.Folder)
+	}
+	var trash string
+	for name, m := range all {
+		if m.role == "trash" {
+			trash = name
+		}
+	}
+	switch {
+	case trash == "":
+		return 0, fmt.Errorf("%w: no folder is marked as Trash", ErrNoSuchFolder)
+	case src.role == "trash":
+		return 0, fmt.Errorf("%w: the messages are already in Trash", ErrNotAllowed)
+	case src.role == "drafts":
+		// Bridge before 3.23.1 deleted drafts moved to Trash permanently.
+		return 0, fmt.Errorf("%w: drafts can't be moved to Trash yet", ErrNotAllowed)
+	case src.role == "all" || src.name == "Scheduled":
+		return 0, fmt.Errorf("%w: Proton Mail Bridge refuses moves out of %q; trash the messages from their own folder", ErrNotAllowed, src.name)
+	}
+	return c.change(ctx, s, func(ic *imapclient.Client, set imap.UIDSet) error {
+		if _, err := ic.Move(set, trash).Wait(); err != nil {
+			return fmt.Errorf("move from %q to Trash: %w", s.Folder, err)
 		}
 		return nil
 	})
