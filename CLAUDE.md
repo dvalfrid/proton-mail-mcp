@@ -11,6 +11,7 @@ An MCP server in Go (official SDK `github.com/modelcontextprotocol/go-sdk/mcp`, 
 | Skill | When to use |
 |---|---|
 | `/commit-workflow` | Opening an issue, branching, committing, opening a PR |
+| `/pre-release` | A release candidate to test the installer: a pre-release, not Latest, not on winget |
 
 ## Commands
 
