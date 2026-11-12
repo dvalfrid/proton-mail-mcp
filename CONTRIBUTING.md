@@ -104,6 +104,7 @@ Closes #N
 
 - [Semantic Versioning](https://semver.org/). Before 1.0, a breaking change bumps the minor version (0.1 → 0.2) and a feature bumps the minor too.
 - Release Please keeps a release PR open. Merging it tags `vX.Y.Z`, creates the GitHub release and builds binaries for Windows, macOS and Linux with `SHA256SUMS.txt`.
+- The release PR is opened with Actions' own token, which starts no workflows, so its required checks never run by themselves. Run them on its branch before merging: `gh workflow run verify.yml --ref release-please--branches--main--components--proton-mail-mcp`.
 - The version is embedded in the binary from the tag (`-X main.version`).
 
 ## Continuous integration

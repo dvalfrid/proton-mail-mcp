@@ -75,7 +75,10 @@ jobs:
           ./tools/task.ps1 build -Version $version -GOOS $env:GOOS_T -GOARCH $env:GOARCH_T -Out "dist/$name/proton-mail-mcp$exe"
           Copy-Item LICENSE, README.md, .env.example "dist/$name/"
           if ($env:GOOS_T -eq 'windows') {
-            Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
+            # Not Compress-Archive: it leaves out hidden files, and on Linux
+            # that is .env.example (#49). .NET resolves relative paths from the
+            # process directory, so the paths are absolute.
+            [System.IO.Compression.ZipFile]::CreateFromDirectory("$PWD/dist/$name", "$PWD/dist/$name.zip", [System.IO.Compression.CompressionLevel]::Optimal, $true)
           } else {
             tar -C dist -czf "dist/$name.tar.gz" $name
             if ($LASTEXITCODE -ne 0) { throw 'tar failed' }
