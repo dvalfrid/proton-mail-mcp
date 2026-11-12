@@ -139,13 +139,13 @@ func runCheck() int {
 }
 
 func run(logger *slog.Logger) error {
-	mailClient := connect(logger)
+	mailClient, attachmentDir := connect(logger)
 	defer func() { _ = mailClient.Close() }() // best effort on shutdown
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	err := server.New(version, mailClient).Run(ctx, &mcp.StdioTransport{})
+	err := server.New(version, mailClient, attachmentDir).Run(ctx, &mcp.StdioTransport{})
 	if errors.Is(err, context.Canceled) {
 		return nil
 	}
@@ -156,7 +156,8 @@ func run(logger *slog.Logger) error {
 // settings it returns one whose every call says to run setup: the server
 // still starts, so Claude can tell the owner in the chat, rather than the
 // client only showing a disconnected server. No connection is made then.
-func connect(logger *slog.Logger) *mail.Client {
+// It also returns the attachment folder, empty without settings.
+func connect(logger *slog.Logger) (*mail.Client, string) {
 	cfg, _, err := loadConfig()
 	if err == nil {
 		var tlsCfg *tls.Config
@@ -172,11 +173,11 @@ func connect(logger *slog.Logger) *mail.Client {
 			return mail.New(mail.Options{
 				Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password,
 				TLSConfig: tlsCfg, MaxChanges: cfg.MaxChanges, Logger: logger,
-			})
+			}), cfg.AttachmentDir
 		}
 	}
 	logger.Error("not set up; every tool will say so", "version", version, "err", err, "help", help.URL(help.NotSetUp))
-	return mail.NewUnconfigured(err, logger)
+	return mail.NewUnconfigured(err, logger), ""
 }
 
 func envFilePath() (string, error) {

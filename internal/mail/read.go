@@ -383,3 +383,24 @@ func clean(s string, max int) string {
 	}
 	return s
 }
+
+// ErrMessageTooLarge means a message is larger than the bytes fetched
+// (MaxMessageBytes), so its attachments can't be read whole.
+var ErrMessageTooLarge = errors.New("the message is too large to read its attachments whole")
+
+// Attachment returns attachment number index (Attachment.Index, as
+// ReadMessage lists them) and its decoded content, at most limit bytes: a
+// larger one is an error wrapping errAttachmentTooLarge, with the
+// Attachment filled in. It never marks the message read, and checks
+// uidValidity like ReadMessage. A message larger than what is fetched is
+// refused, so a cut attachment is never returned as if it were whole.
+func (c *Client) Attachment(ctx context.Context, folder string, uid, uidValidity uint32, index int, limit int64) (Attachment, []byte, error) {
+	raw, size, err := c.fetchMessage(ctx, folder, uid, uidValidity)
+	if err != nil {
+		return Attachment{}, nil, err
+	}
+	if size > c.maxFetch {
+		return Attachment{}, nil, fmt.Errorf("%w: it is %d bytes, the limit is %d", ErrMessageTooLarge, size, c.maxFetch)
+	}
+	return ExtractAttachment(bytes.NewReader(raw), index, limit)
+}

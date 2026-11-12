@@ -22,7 +22,7 @@ import (
 func TestPanicInToolIsAnError(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	s := New("test", nil)
+	s := New("test", nil, "")
 	mcp.AddTool(s, &mcp.Tool{Name: "boom"}, func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, struct{}, error) {
 		var m map[string]int
 		m["x"] = 1 //nolint:staticcheck // SA5000: the nil map write is the runtime panic under test
@@ -117,7 +117,7 @@ func TestNotSetUpToolsSaySo(t *testing.T) {
 	ctx := context.Background()
 	m := mail.NewUnconfigured(errors.New("PROTON_BRIDGE_USER is not set"), slog.New(slog.DiscardHandler))
 	st, ct := mcp.NewInMemoryTransports()
-	ss, err := New("test", m).Connect(ctx, st, nil)
+	ss, err := New("test", m, t.TempDir()).Connect(ctx, st, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

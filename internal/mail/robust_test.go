@@ -2,6 +2,7 @@ package mail
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -68,5 +69,27 @@ func TestListLargeFolder(t *testing.T) {
 	}
 	if u := srv.Unseen(t, "INBOX"); u != n {
 		t.Errorf("unseen = %d after listing, want %d", u, n)
+	}
+}
+
+// An attachment of a message larger than the fetch cap is refused, not
+// returned cut as if it were whole.
+func TestAttachmentOverFetchCap(t *testing.T) {
+	t.Parallel()
+	c, srv, _ := newClient(t)
+	c.maxFetch = 100
+	srv.AddMessage(t, "INBOX", msgWithParts)
+
+	if _, _, err := c.Attachment(context.Background(), "INBOX", 1, 0, 1, 1<<20); !errors.Is(err, ErrMessageTooLarge) {
+		t.Errorf("err = %v, want ErrMessageTooLarge", err)
+	}
+}
+
+// An attachment whose encoding breaks off is refused as damaged.
+func TestAttachmentDamaged(t *testing.T) {
+	t.Parallel()
+	raw := strings.Replace(msgWithParts, "aW1hZ2UgYnl0ZXM=", "aW1hZ2Ug!!!", 1)
+	if _, _, err := ExtractAttachment(strings.NewReader(raw), 2, 1<<20); !errors.Is(err, ErrAttachmentDamaged) {
+		t.Errorf("err = %v, want ErrAttachmentDamaged", err)
 	}
 }

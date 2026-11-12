@@ -62,21 +62,14 @@ var imageSlot = make(chan struct{}, 1)
 // uidValidity the same way. Only the message's own MIME parts are read:
 // nothing is fetched from the network.
 func (c *Client) Image(ctx context.Context, folder string, uid, uidValidity uint32, index int) (*Image, error) {
-	raw, size, err := c.fetchMessage(ctx, folder, uid, uidValidity)
+	a, data, err := c.Attachment(ctx, folder, uid, uidValidity, index, MaxImageBytes)
+	if errors.Is(err, errAttachmentTooLarge) {
+		return nil, fmt.Errorf("%w: attachment %d is %d bytes, the limit is %d", ErrImageTooLarge, index, a.Size, MaxImageBytes)
+	}
 	if err != nil {
 		return nil, err
 	}
-	a, data, err := ExtractAttachment(bytes.NewReader(raw), index, MaxImageBytes)
-	switch {
-	case errors.Is(err, errAttachmentTooLarge):
-		return nil, fmt.Errorf("%w: attachment %d is %d bytes, the limit is %d", ErrImageTooLarge, index, a.Size, MaxImageBytes)
-	case err != nil:
-		return nil, err
-	}
 	img, err := DecodeImage(ctx, data)
-	if errors.Is(err, ErrNotAnImage) && size > c.maxFetch {
-		return nil, fmt.Errorf("%w, or it was cut: the message is larger than the %d bytes read", err, c.maxFetch)
-	}
 	if err != nil {
 		return nil, err
 	}

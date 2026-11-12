@@ -118,6 +118,7 @@ type parser struct {
 	wantLimit int64
 	wantData  []byte
 	wantCut   bool
+	wantErr   error // reading the attachment failed: wantData is not all of it
 }
 
 // maxBodyBytes bounds the body text kept before it is cut to MaxBodyRunes:
@@ -242,9 +243,9 @@ func (p *parser) attachment(e *gomessage.Entity, mediaType, disposition string) 
 	index := len(p.msg.Attachments) + 1
 	var size int64
 	if index == p.want {
-		data, _ := io.ReadAll(io.LimitReader(e.Body, p.wantLimit))
-		rest, _ := io.Copy(io.Discard, e.Body)
-		p.wantData, p.wantCut = data, rest > 0
+		data, err := io.ReadAll(io.LimitReader(e.Body, p.wantLimit))
+		rest, err2 := io.Copy(io.Discard, e.Body)
+		p.wantData, p.wantCut, p.wantErr = data, rest > 0, errors.Join(err, err2)
 		size = int64(len(data)) + rest
 	} else {
 		size, _ = io.Copy(io.Discard, e.Body)
@@ -271,6 +272,10 @@ var ErrAttachmentNotFound = errors.New("the message has no attachment with that 
 // ExtractAttachment was given.
 var errAttachmentTooLarge = errors.New("attachment too large")
 
+// ErrAttachmentDamaged means an attachment's content could not be read to
+// its end: its encoding or the message's structure is broken.
+var ErrAttachmentDamaged = errors.New("the attachment is damaged: its content could not be read to the end")
+
 // ExtractAttachment returns attachment number index (Attachment.Index, as
 // ParseMessage lists them) and at most limit bytes of its decoded content.
 // A larger attachment is an error wrapping errAttachmentTooLarge.
@@ -290,6 +295,9 @@ func ExtractAttachment(r io.Reader, index int, limit int64) (Attachment, []byte,
 	a := p.msg.Attachments[index-1]
 	if p.wantCut {
 		return a, nil, fmt.Errorf("%w: %d bytes, the limit is %d", errAttachmentTooLarge, a.Size, limit)
+	}
+	if p.wantErr != nil {
+		return a, nil, ErrAttachmentDamaged
 	}
 	return a, p.wantData, nil
 }
