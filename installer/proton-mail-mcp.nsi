@@ -6,6 +6,7 @@
 ;   SRCDIR       the folder with proton-mail-mcp.exe, proton-mail-mcp-setup.exe,
 ;                LICENSE and README.md
 ;   OUTFILE      the installer to write
+;   COPYRIGHT    the copyright line from LICENSE
 ;
 ; Per user, no administrator rights, into a fixed folder, so Claude's
 ; registration survives updates (issue #89):
@@ -44,7 +45,7 @@ VIAddVersionKey "FileDescription" "${PRODUCT} installer"
 VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "CompanyName" "${PUBLISHER}"
-VIAddVersionKey "LegalCopyright" "Copyright (c) Code By AB"
+VIAddVersionKey "LegalCopyright" "${COPYRIGHT}"
 
 Var Update   ; 1 when an earlier version is installed
 Var NoSetup  ; 1 with /NOSETUP
