@@ -8,8 +8,10 @@ This is the sequence for every bug fix and feature. Do not skip steps or reorder
 ## 1. Open a GitHub issue before starting work
 
 ```powershell
-gh issue create --title "..." --body "..." --label bug   # or --label enhancement
+gh issue create --title "..." --body "..." --label bug --milestone 0.2   # or --label enhancement
 ```
+
+- **Milestone:** every issue gets the milestone of the release it will ship in (`gh api repos/dvalfrid/proton-mail-mcp/milestones` lists them). Work that is deferred gets the later milestone, or none if it isn't planned yet. When a release is out, close its milestone.
 
 - **Bug:** incorrect behaviour, steps to reproduce, expected behaviour. Never email content or addresses.
 - **Feature:** the user-visible change, why, and its permission level (read / organize / draft / send).
