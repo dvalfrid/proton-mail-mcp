@@ -16,7 +16,7 @@ What a pre-release reaches, and what it doesn't — checked against the code:
 
 - **Code:** ask if it isn't said: `main` (what is merged) or a PR/branch (not merged yet). Use the commit **on origin**: `git fetch` then `git rev-parse origin/<branch>`. The build uses `release.yml` from `main` but the code, the installer script and `task.ps1` at the tag.
 - **Version:** the next real version + `-rc.N`.
-  - Open release PR (`gh pr list --search "chore(main): release" --state open`): its version, e.g. `chore(main): release 0.4.0` → `v0.4.0-rc.1`.
+  - Open release PR (`gh pr list --state open --json number,title -q '.[] | select(.title | startswith("chore(main): release")) | .title'`; `--search` found nothing for v0.4.0-rc.1): its version, e.g. `chore(main): release 0.4.0` → `v0.4.0-rc.1`.
   - No release PR: `.release-please-manifest.json`'s version with the minor +1 (before 1.0 a feature bumps the minor), and tell the owner the real number may differ.
   - Earlier RCs of the same version (`gh release list | grep -- -rc.`): the next N.
 
