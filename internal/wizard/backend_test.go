@@ -25,9 +25,17 @@ type fakeClient struct {
 	got        string
 }
 
-func (c *fakeClient) Name() string                  { return c.name }
-func (*fakeClient) Available() bool                 { return true }
-func (c *fakeClient) Registered() bool              { return c.registered }
+func (c *fakeClient) Name() string  { return c.name }
+func (*fakeClient) Available() bool { return true }
+func (c *fakeClient) Registration() (string, bool) {
+	if c.got != "" {
+		return c.got, true
+	}
+	if c.registered {
+		return "/elsewhere/proton-mail-mcp", true
+	}
+	return "", false
+}
 func (c *fakeClient) Register(exe string) error     { c.got = exe; return nil }
 func (*fakeClient) Unregister(string) (bool, error) { return false, nil }
 
@@ -368,5 +376,32 @@ func TestPageIconIsTheProjectIcon(t *testing.T) {
 		if !strings.Contains(Page, line) {
 			t.Errorf("the page's icon differs from assets/icon.svg at %s", line)
 		}
+	}
+}
+
+// A client that starts another copy shows it, and registering switches it
+// to this copy (issue #103).
+func TestWizardSwitchesAnotherCopy(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t, true)
+	f.client.registered = true // starts /elsewhere/proton-mail-mcp
+	var st State
+	if err := f.call(t, "state", nil, &st); err != nil {
+		t.Fatal(err)
+	}
+	if len(st.Clients) != 1 || st.Clients[0].Registered || st.Clients[0].Other != "/elsewhere/proton-mail-mcp" {
+		t.Fatalf("state clients = %+v", st.Clients)
+	}
+	_ = f.call(t, "findBridge", nil, nil)
+	var r SignInResult
+	if err := f.call(t, "signIn", signIn{testutil.User, testutil.Password}, &r); err != nil || !r.OK {
+		t.Fatalf("signIn = %+v, %v", r, err)
+	}
+	var reg []RegisterResult
+	if err := f.call(t, "register", map[string]any{"names": []string{"Fake Claude"}}, &reg); err != nil {
+		t.Fatal(err)
+	}
+	if len(reg) != 1 || !reg[0].OK || f.client.got != "/opt/proton-mail-mcp" {
+		t.Errorf("register = %+v, registration %q", reg, f.client.got)
 	}
 }
