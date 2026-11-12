@@ -5,6 +5,8 @@
 An MCP server that lets Claude manage a Proton Mail inbox through
 [Proton Mail Bridge](https://proton.me/mail/bridge) (local IMAP/SMTP).
 
+Website: [proton-mail-mcp.codeby.se](https://proton-mail-mcp.codeby.se)
+
 ```
 Claude ──MCP──► proton-mail-mcp ──IMAP/SMTP (127.0.0.1)──► Proton Mail Bridge ──► Proton
 ```
