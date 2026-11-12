@@ -6,15 +6,19 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
-// PortOwner reports which program listens on 127.0.0.1:port, and whether
-// its Authenticode signature is valid. It is advice for the user, never a
-// gate: an impostor could be signed too, and pinning the certificate is
-// what actually protects the password (docs/installation-research.md §C).
+// PortOwner reports which program listens on 127.0.0.1:port, whether its
+// Authenticode signature is valid, and whether it lies under Program Files.
+// setup pins Bridge's certificate without asking only when all of that
+// holds (Owner.TrustedBridge); otherwise the user decides. Pinning the
+// certificate is what protects the password afterwards
+// (docs/installation-research.md §C).
 func PortOwner(port int) (Owner, error) {
 	pid, err := listenerPID(port)
 	if err != nil {
@@ -24,7 +28,18 @@ func PortOwner(port int) (Owner, error) {
 	if err != nil {
 		return Owner{PID: pid}, err
 	}
-	return Owner{PID: pid, Path: path, Signed: signatureValid(path)}, nil
+	return Owner{PID: pid, Path: path, Signed: signatureValid(path), ProtectedDir: underProgramFiles(path)}, nil
+}
+
+// underProgramFiles reports whether path is inside Program Files. The folder
+// comes from Windows' known-folder API, not from the environment, which a
+// program running as the user could change.
+func underProgramFiles(path string) bool {
+	dir, err := windows.KnownFolderPath(windows.FOLDERID_ProgramFiles, 0)
+	if err != nil || dir == "" {
+		return false
+	}
+	return insideDir(path, dir)
 }
 
 var procGetExtendedTCPTable = windows.NewLazySystemDLL("iphlpapi.dll").NewProc("GetExtendedTcpTable")
@@ -100,4 +115,12 @@ func signatureValid(path string) bool {
 	data.StateAction = windows.WTD_STATEACTION_CLOSE
 	_ = windows.WinVerifyTrustEx(windows.InvalidHWND, &windows.WINTRUST_ACTION_GENERIC_VERIFY_V2, &data) // releases the state
 	return err == nil
+}
+
+// insideDir reports whether path is inside dir, comparing as Windows does:
+// case-insensitive, and only at a separator, so "C:\Program Files Evil"
+// is not inside "C:\Program Files".
+func insideDir(path, dir string) bool {
+	path, dir = strings.ToLower(filepath.Clean(path)), strings.ToLower(filepath.Clean(dir))
+	return strings.HasPrefix(path, strings.TrimRight(dir, `\/`)+`\`)
 }

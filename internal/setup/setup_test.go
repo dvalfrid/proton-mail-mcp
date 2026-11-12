@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -182,7 +183,7 @@ func TestSetupPinsWithoutAskingWhenOwnerIsVerified(t *testing.T) {
 	f.o.PortOwner = func(int) (bridge.Owner, error) {
 		// filepath.Join, so the path splits on this OS's separator: the real
 		// owner check only exists on Windows, but the test runs everywhere.
-		return bridge.Owner{Path: filepath.Join("Proton AG", "Proton Mail Bridge", "bridge.exe"), Signed: true}, nil
+		return bridge.Owner{Path: filepath.Join("Proton AG", "Proton Mail Bridge", "bridge.exe"), Signed: true, ProtectedDir: true}, nil
 	}
 	if err := Run(context.Background(), f.o); err != nil {
 		t.Fatalf("%v\n%s", err, f.out)
@@ -191,6 +192,26 @@ func TestSetupPinsWithoutAskingWhenOwnerIsVerified(t *testing.T) {
 		if strings.Contains(q, "certificate") {
 			t.Errorf("asked about the certificate: %q", q)
 		}
+	}
+}
+
+// A signed program renamed bridge.exe outside Program Files is not trusted:
+// setup asks before pinning its certificate (issue #71).
+func TestSetupAsksForASignedImpostor(t *testing.T) {
+	t.Parallel()
+	ask := &script{confirms: []bool{false}}
+	f := newFixture(t, ask)
+	f.o.PortOwner = func(int) (bridge.Owner, error) {
+		return bridge.Owner{Path: filepath.Join("Temp", "bridge.exe"), Signed: true}, nil
+	}
+	if err := Run(context.Background(), f.o); !errors.Is(err, ErrAborted) {
+		t.Fatalf("err = %v, want ErrAborted after the user said no\n%s", err, f.out)
+	}
+	if !slices.ContainsFunc(ask.asked, func(q string) bool { return strings.Contains(q, "certificate") }) {
+		t.Errorf("setup didn't ask about the certificate: %q", ask.asked)
+	}
+	if _, err := os.Stat(f.o.Dir); !errors.Is(err, os.ErrNotExist) {
+		t.Error("settings were written")
 	}
 }
 
