@@ -101,18 +101,34 @@ Function SkipOnUpdate
 FunctionEnd
 
 ; On an update the finish page only says it is done: setup has run before.
+; The text box is made as tall as the page: MUI sizes it to leave room for
+; the checkbox, which is hidden here. Plain ASCII only: NSIS reads this file in
+; the Windows code page, so a bullet came out as three odd characters.
 Function FinishShow
   ${If} $Update == 1
     ShowWindow $mui.FinishPage.Run ${SW_HIDE}
     SendMessage $mui.FinishPage.Run ${BM_SETCHECK} ${BST_UNCHECKED} 0
-    SendMessage $mui.FinishPage.Text ${WM_SETTEXT} 0 "STR:${PRODUCT} is updated to ${VERSION}. Your settings are kept.$\r$\n$\r$\nClaude keeps running the old version until you restart it:$\r$\n• Claude Desktop: quit it completely (right-click its icon by the clock, Quit), then start it again.$\r$\n• Claude Code: start a new session.$\r$\n$\r$\nTo check, ask Claude: $\"Which version of Proton Mail MCP runs?$\""
+    ; Text box: from its top down to the bottom of the page, less the gap
+    ; on its left, in page coordinates.
+    System::Call "*(i,i,i,i)p.r0"
+    System::Call "user32::GetWindowRect(p $mui.FinishPage.Text, p r0)"
+    System::Call "user32::MapWindowPoints(p 0, p $mui.FinishPage, p r0, i 2)"
+    System::Call "*$0(i.r1,i.r2,i.r3,i)"
+    System::Call "user32::GetClientRect(p $mui.FinishPage, p r0)"
+    System::Call "*$0(i,i,i,i.r4)"
+    System::Free $0
+    IntOp $3 $3 - $1
+    IntOp $4 $4 - $2
+    IntOp $4 $4 - 10
+    System::Call "user32::SetWindowPos(p $mui.FinishPage.Text, p 0, i 0, i 0, i r3, i r4, i 0x16)"
+    SendMessage $mui.FinishPage.Text ${WM_SETTEXT} 0 "STR:${PRODUCT} is updated to ${VERSION}. Your settings are kept.$\r$\n$\r$\nClaude keeps the old version until you restart it:$\r$\n- Claude Desktop: right-click its icon by the clock, Quit, then start it again.$\r$\n- Claude Code: start a new session.$\r$\n$\r$\nTo check, ask Claude which version of Proton Mail MCP runs."
   ${EndIf}
 FunctionEnd
 
 ; Replaces a program that may be running (Claude keeps the server open): a
 ; running exe can't be overwritten, but it can be renamed. Claude can still
 ; run copies from earlier updates too (issue #139), so the exe is renamed to
-; a free name (NAME.old0, .old1, …). Old copies are removed now if they
+; a free name (NAME.old0, .old1, ...). Old copies are removed now if they
 ; aren't running, or on the next update.
 !macro Replace NAME
   Delete "$INSTDIR\${NAME}.old*"
