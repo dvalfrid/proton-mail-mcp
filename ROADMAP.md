@@ -58,7 +58,7 @@ Install without a terminal, and updates that keep Claude's registration:
 - ✅ Tool: `create_draft`: a new plain-text draft in Drafts, nothing sent (#130). No `list_drafts`: `list_messages` on Drafts does it.
 - ✅ Tool: `update_draft`: the new version in Drafts, the old one to Trash on Bridge 3.23.1 or later, otherwise left in Drafts with a note (#132).
 - ✅ `trash_message` takes drafts, on Bridge 3.23.1 or later (#134).
-- Tool: `create_reply_draft` (threading headers: `In-Reply-To`, `References`).
+- ✅ Tool: `create_reply_draft` (#137). Bridge drops `In-Reply-To`/`References` on APPEND, so Proton may not link the draft to the original; to check on a real Bridge.
 - ✅ `remove_label` (#55), which completes organizing: `UID EXPUNGE` in the label only, the owner's one exception to "no EXPUNGE".
 - ✅ Tool: `view_image`: Claude sees the images in a message, attachments and inline images, never remote ones (#106).
 - ✅ Tool: `save_attachment`: saves an attachment, only into the owner's attachment folder, never opened by the server (#107).

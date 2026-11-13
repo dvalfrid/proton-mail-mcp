@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	netmail "net/mail"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +34,10 @@ type Draft struct {
 	To, Cc, Bcc []string
 	Subject     string
 	Body        string
+	// InReplyTo and References thread a reply (message IDs without <>).
+	// Bridge drops them on APPEND (docs/bridge.md §7); they are set anyway.
+	InReplyTo  string
+	References []string
 }
 
 // Created is a draft saved in Drafts.
@@ -290,6 +295,12 @@ func (c *Client) buildDraft(d Draft, now time.Time) ([]byte, error) {
 		h.SetAddressList("Bcc", bcc)
 	}
 	h.SetSubject(d.Subject)
+	if msgID(d.InReplyTo) {
+		h.SetMsgIDList("In-Reply-To", []string{d.InReplyTo})
+	}
+	if refs := slices.DeleteFunc(slices.Clone(d.References), func(id string) bool { return !msgID(id) }); len(refs) > 0 {
+		h.SetMsgIDList("References", refs)
+	}
 	h.SetDate(now)
 	if err := h.GenerateMessageID(); err != nil {
 		return nil, fmt.Errorf("make a Message-ID: %w", err)
