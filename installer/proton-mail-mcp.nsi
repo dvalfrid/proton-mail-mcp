@@ -110,15 +110,21 @@ Function FinishShow
 FunctionEnd
 
 ; Replaces a program that may be running (Claude keeps the server open): a
-; running exe can't be overwritten, but it can be renamed. The old copy is
-; removed now if it isn't running, or on the next update.
+; running exe can't be overwritten, but it can be renamed. Claude can still
+; run copies from earlier updates too (issue #139), so the exe is renamed to
+; a free name (NAME.old0, .old1, …). Old copies are removed now if they
+; aren't running, or on the next update.
 !macro Replace NAME
-  Delete "$INSTDIR\${NAME}.old"
+  Delete "$INSTDIR\${NAME}.old*"
   ${If} ${FileExists} "$INSTDIR\${NAME}"
-    Rename "$INSTDIR\${NAME}" "$INSTDIR\${NAME}.old"
+    StrCpy $R0 0
+    ${DoWhile} ${FileExists} "$INSTDIR\${NAME}.old$R0"
+      IntOp $R0 $R0 + 1
+    ${Loop}
+    Rename "$INSTDIR\${NAME}" "$INSTDIR\${NAME}.old$R0"
   ${EndIf}
   File "${SRCDIR}\${NAME}"
-  Delete "$INSTDIR\${NAME}.old"
+  Delete "$INSTDIR\${NAME}.old*"
 !macroend
 
 Section "Install"
@@ -178,9 +184,9 @@ Section "-un.Program" SecUnProgram
   ${If} ${Errors}
     MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "Claude is still using ${PRODUCT}. Close Claude Desktop and Claude Code, then choose Retry." /SD IDCANCEL IDRETRY retry
   ${EndIf}
-  Delete "$INSTDIR\${SERVER}.old"
+  Delete "$INSTDIR\${SERVER}.old*"
   Delete "$INSTDIR\${WIZARD}"
-  Delete "$INSTDIR\${WIZARD}.old"
+  Delete "$INSTDIR\${WIZARD}.old*"
   Delete "$INSTDIR\LICENSE"
   Delete "$INSTDIR\README.md"
   Delete "$INSTDIR\uninstall.exe"
