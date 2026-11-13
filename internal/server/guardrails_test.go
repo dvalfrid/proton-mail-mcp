@@ -62,7 +62,7 @@ func TestReadToolsAreAnnotatedReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readTools := map[string]bool{"list_folders": true, "list_messages": true, "read_message": true, "search_messages": true, "view_image": true}
+	readTools := map[string]bool{"about": true, "list_folders": true, "list_messages": true, "read_message": true, "search_messages": true, "view_image": true}
 	for _, tool := range res.Tools {
 		if readTools[tool.Name] && (tool.Annotations == nil || !tool.Annotations.ReadOnlyHint) {
 			t.Errorf("%s is not annotated read-only", tool.Name)
@@ -120,7 +120,7 @@ func TestEveryToolIsClassified(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readTools := map[string]bool{"list_folders": true, "list_messages": true, "read_message": true, "search_messages": true, "view_image": true}
+	readTools := map[string]bool{"about": true, "list_folders": true, "list_messages": true, "read_message": true, "search_messages": true, "view_image": true}
 	for _, tool := range res.Tools {
 		a := tool.Annotations
 		if readTools[tool.Name] {

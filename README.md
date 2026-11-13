@@ -34,6 +34,7 @@ Claude can list, search and read messages, mark them read or unread, star them, 
 
 | Tool | What it does | Changes the mailbox |
 |---|---|---|
+| `about` | The running version and every tool in one line, grouped. Ask Claude "which version of Proton Mail MCP runs?" or "what can the Proton Mail tools do?" | No |
 | `list_folders` | Folders with message and unread counts | No |
 | `list_messages` | Newest messages in a folder: uid, date, sender, subject, read/flagged, plus the folder's `uidvalidity` | No (messages stay unread) |
 | `search_messages` | Messages in one folder matching all given criteria: `from`, `to`, `subject`, `body` (case-insensitive text), `since` / `before` (dates received), `unread_only`. At least one criterion; same result shape as `list_messages` | No (messages stay unread) |
