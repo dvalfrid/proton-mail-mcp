@@ -3,8 +3,10 @@ package mail
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
+	"unicode"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
@@ -35,15 +37,90 @@ var blocks = map[atom.Atom]bool{
 	atom.Fieldset: true, atom.Figure: true, atom.Address: true, atom.Center: true,
 }
 
-// htmlToText converts sender-written HTML to plain text: the visible text,
-// with line breaks for blocks and link targets in angle brackets. Scripts,
-// styles, embedded objects and text hidden with the hidden attribute or
-// display:none / visibility:hidden are dropped. Images become their alt
-// text; nothing is fetched. It reports whether the input was cut short.
+// RemoteImage is an image a message shows from the internet: listed, never
+// fetched by reading. Its address and alt text are written by the sender.
+type RemoteImage struct {
+	Index int    `json:"index" jsonschema:"the image's number, as [image N] marks it in the body"`
+	URL   string `json:"url"`
+	Alt   string `json:"alt,omitempty"`
+}
+
+const (
+	maxRemoteImages = 100  // images numbered per message; the rest are marked without a number
+	maxImageURL     = 2048 // a longer address is marked, not listed
+	maxAltRunes     = 200
+)
+
+// htmlToText is htmlToTextImages without the list of remote images.
+func htmlToText(data []byte, maxOut int) (string, bool) {
+	text, _, cut := htmlToTextImages(data, maxOut, 1)
+	return text, cut
+}
+
+// htmlToTextImages converts sender-written HTML to plain text: the visible
+// text, with line breaks for blocks and link targets in angle brackets.
+// Scripts, styles, embedded objects and text hidden with the hidden
+// attribute or display:none / visibility:hidden are dropped. It reports
+// whether the input was cut short.
+//
+// Every image a reader would see is marked where it stands: an image from
+// the internet as [image N] (or [image N: alt]), numbered from first and
+// returned in the list; an image embedded in the message as [embedded
+// image]; any other as [image]. Hidden images and 1×1 tracking pixels are
+// left out. Nothing is fetched (issue #149).
 //
 // It stops once the text is longer than maxOut bytes (reported as cut), so
 // a large part costs no more than the text that will be returned.
-func htmlToText(data []byte, maxOut int) (string, bool) {
+func htmlToTextImages(data []byte, maxOut, first int) (string, []RemoteImage, bool) {
+	var images []RemoteImage
+	text, cut := convertHTML(data, maxOut, func(attrs map[string]string) string {
+		return imageMarker(attrs, first, &images)
+	})
+	return text, images, cut
+}
+
+// imageMarker is the text for one <img>, adding it to images if it is from
+// the internet.
+func imageMarker(attrs map[string]string, first int, images *[]RemoteImage) string {
+	if hidden(attrs) || tiny(attrs["width"]) || tiny(attrs["height"]) {
+		return ""
+	}
+	alt := clean(strings.TrimSpace(attrs["alt"]), maxAltRunes)
+	with := func(s string) string {
+		if alt != "" {
+			return "[" + s + ": " + alt + "]"
+		}
+		return "[" + s + "]"
+	}
+	src := strings.TrimSpace(attrs["src"])
+	lower := strings.ToLower(src)
+	switch {
+	case strings.HasPrefix(lower, "cid:"):
+		return with("embedded image")
+	case (strings.HasPrefix(lower, "https://") || strings.HasPrefix(lower, "http://")) &&
+		len(src) <= maxImageURL && !strings.ContainsFunc(src, unsafeURLRune) && len(*images) < maxRemoteImages:
+		n := first + len(*images)
+		*images = append(*images, RemoteImage{Index: n, URL: src, Alt: alt})
+		return with(fmt.Sprintf("image %d", n))
+	}
+	return with("image")
+}
+
+// tiny is a width or height of at most 1 pixel: a tracking pixel, not an
+// image a reader sees.
+func tiny(v string) bool {
+	v = strings.TrimSuffix(strings.TrimSpace(v), "px")
+	return v == "0" || v == "1"
+}
+
+// unsafeURLRune is a rune that has no place in an image address shown back
+// to Claude: spaces, controls and format characters (bidi overrides).
+func unsafeURLRune(r rune) bool {
+	return unicode.IsSpace(r) || unicode.IsControl(r) || unicode.Is(unicode.Cf, r)
+}
+
+// convertHTML does the conversion; img gives the text for each <img>.
+func convertHTML(data []byte, maxOut int, img func(map[string]string) string) (string, bool) {
 	z := html.NewTokenizer(bytes.NewReader(data))
 	z.SetMaxBuf(maxHTMLTokenBytes)
 
@@ -108,9 +185,7 @@ func htmlToText(data []byte, maxOut int) (string, bool) {
 					b.WriteString("\t")
 				}
 			case tag == atom.Img:
-				if alt := strings.TrimSpace(attrs["alt"]); alt != "" {
-					b.WriteString("[" + alt + "]")
-				}
+				b.WriteString(img(attrs))
 			case tag == atom.A && tt == html.StartTagToken:
 				links = append(links, link{href: linkTarget(attrs["href"]), start: b.Len()})
 			case blocks[tag]:

@@ -125,7 +125,7 @@ func TestParseMessage(t *testing.T) {
 			name: "html only", raw: htmlOnlyMsg,
 			from: "alice@example.com", subject: "Offer", format: "html",
 			body: []string{
-				"Big offer", "Click here <https://example.com/x> or there.", "[logo]",
+				"Big offer", "Click here <https://example.com/x> or there.", "[image 1: logo]",
 				"- one\n- two", "Visit https://example.org\n", "a&b <tag>",
 			},
 			notInBody: []string{
@@ -348,5 +348,43 @@ func TestUnreadableMessageErrorHasNoSenderText(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "INSTRUCTIONS") || strings.Contains(err.Error(), "trash") {
 		t.Errorf("the error quotes the sender's header: %q", err)
+	}
+}
+
+// Every image a reader sees is marked where it stands, also without alt
+// text; images from the internet are numbered and listed, never fetched;
+// hidden images and tracking pixels are left out (issue #149).
+func TestHTMLImages(t *testing.T) {
+	t.Parallel()
+	in := `<p>Top</p><img src="https://cdn.example.com/a.jpg" alt="Logo">` +
+		`<p>Book</p><img src="https://cdn.example.com/b.jpg">` +
+		`<img src="cid:part1@example.com" alt="chart">` +
+		`<img src="data:image/png;base64,AAAA">` +
+		`<img src="https://t.example.net/p.gif" width="1" height="1">` +
+		`<img src="https://t.example.net/q.gif" style="display:none">` +
+		`<div hidden><img src="https://cdn.example.com/hidden.jpg"></div>` +
+		`<img src="https://cdn.example.com/c d.jpg">` +
+		`<img src="javascript:alert(1)">`
+	text, images, cut := htmlToTextImages([]byte(in), maxBodyBytes, 1)
+	if cut {
+		t.Error("cut")
+	}
+	want := "Top\n[image 1: Logo]\nBook\n[image 2][embedded image: chart][image][image][image]"
+	if text != want {
+		t.Errorf("text = %q,\nwant %q", text, want)
+	}
+	if len(images) != 2 || images[0] != (RemoteImage{1, "https://cdn.example.com/a.jpg", "Logo"}) || images[1] != (RemoteImage{2, "https://cdn.example.com/b.jpg", ""}) {
+		t.Errorf("images = %+v", images)
+	}
+
+	// Numbers run on across the HTML parts of one message.
+	m, err := ParseMessage(strings.NewReader("Content-Type: multipart/mixed; boundary=B\r\n\r\n" +
+		"--B\r\nContent-Type: text/html\r\n\r\n<img src=\"https://a.example.com/1.png\">\r\n" +
+		"--B\r\nContent-Type: text/html\r\n\r\n<img src=\"https://a.example.com/2.png\">\r\n--B--\r\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.RemoteImages) != 2 || m.RemoteImages[1].Index != 2 || !strings.Contains(m.Body, "[image 2]") {
+		t.Errorf("two parts: %+v\n%s", m.RemoteImages, m.Body)
 	}
 }

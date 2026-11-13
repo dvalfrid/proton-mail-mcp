@@ -45,7 +45,10 @@ type Message struct {
 	Body        string       `json:"body"`
 	BodyFormat  string       `json:"body_format" jsonschema:"text (from text/plain), html (converted to text) or empty"`
 	Attachments []Attachment `json:"attachments,omitempty"`
-	Truncated   bool         `json:"truncated" jsonschema:"true if a limit cut the body, parts or lists"`
+	// RemoteImages are the images an HTML body shows from the internet,
+	// marked [image N] in Body. They are never fetched by reading.
+	RemoteImages []RemoteImage `json:"remote_images,omitempty" jsonschema:"images the message shows from the internet, marked [image N] in the body; not fetched"`
+	Truncated    bool          `json:"truncated" jsonschema:"true if a limit cut the body, parts or lists"`
 }
 
 // Attachment is listed by ParseMessage: never opened, saved or executed.
@@ -87,11 +90,12 @@ func ParseMessage(r io.Reader) (*Message, error) {
 		// HTML is converted only when there is no plain text to use.
 		texts := make([]string, 0, len(p.html))
 		for _, data := range p.html {
-			text, cut := htmlToText(data, maxBodyBytes)
+			text, images, cut := htmlToTextImages(data, maxBodyBytes, len(m.RemoteImages)+1)
 			if cut {
 				m.Truncated = true
 			}
 			texts = append(texts, text)
+			m.RemoteImages = append(m.RemoteImages, images...)
 		}
 		m.Body, m.BodyFormat = joinCapped(texts, maxBodyBytes, m), "html"
 	}
