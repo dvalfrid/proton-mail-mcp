@@ -86,7 +86,7 @@ var fileTools = map[string]bool{"save_attachment": true}
 
 // draftTools write a new draft into Drafts: not read-only, not destructive
 // (they never change an existing message), and they send nothing.
-var draftTools = map[string]bool{"create_draft": true}
+var draftTools = map[string]bool{"create_draft": true, "update_draft": true}
 
 // organizeArgs adds a tool's own arguments to the common ones.
 func organizeArgs(name string, common map[string]any) map[string]any {

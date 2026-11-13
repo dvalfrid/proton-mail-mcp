@@ -86,6 +86,10 @@ type Client struct {
 	// notSetUp, if set, is returned by every operation: see NewUnconfigured.
 	notSetUp error
 
+	// bridgeVersion asks Bridge its version (askBridgeVersion), replaced
+	// only by tests: the in-memory server doesn't answer ID.
+	bridgeVersion func(*imapclient.Client) (bridgeRelease, error)
+
 	// changed counts the messages the organize operations were asked to
 	// change, against MaxChanges. It has its own lock: it is reserved
 	// before an operation takes mu.
@@ -114,7 +118,7 @@ func New(opts Options) *Client {
 	if opts.Location == nil {
 		opts.Location = time.Local
 	}
-	return &Client{opts: opts, maxFetch: MaxMessageBytes}
+	return &Client{opts: opts, maxFetch: MaxMessageBytes, bridgeVersion: askBridgeVersion}
 }
 
 // NewUnconfigured returns a Client for a server that has no usable settings.

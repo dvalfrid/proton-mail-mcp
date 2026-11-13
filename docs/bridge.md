@@ -29,6 +29,10 @@ In the text, "Proton" means the Proton servers and API, "gluon" means the IMAP s
   - `IDLE` is added unless a remote feature flag, `InboxBridgeImapIdleCapabilityDisabled`, turns it off. So Proton can switch IDLE off remotely.
   - `AUTH=PLAIN` is added unless the "disable IMAP AUTHENTICATE" setting is on.
   - `STARTTLS` is added when a TLS config is set (`SetTLSConfig`).
+- **`ID` gives Bridge's name and version. Verified in source and on a real Bridge.** `ID NIL` is answered with `* ID ("name" "Proton Mail Bridge" "version" "03.27.01" "os" "windows" "vendor" "TODO" "support-url" "TODO")` (seen before login; after login it is not yet tried on a real Bridge, and if it fails `update_draft` leaves the old draft).
+  - gluon builds it from `version.Info` (`NewIMAPIDFromVersionInfo`, [imap/id.go](https://github.com/ProtonMail/gluon/blob/master/imap/id.go)) and prints each part with two digits (`%02v`).
+  - Bridge passes its own version and `FullAppName` ("Proton Mail Bridge", set at build time) in `getGluonVersionInfo` ([imapsmtpserver/imap.go](https://github.com/ProtonMail/proton-bridge/blob/master/internal/services/imapsmtpserver/imap.go)).
+  - Asked after STARTTLS, the answer comes over the verified TLS connection. `update_draft` uses it to decide whether a draft may go to Trash (section 6).
 - **Verified in source.** None of these are advertised or implemented: CONDSTORE, QRESYNC, ESEARCH, SPECIAL-USE (the capability), LITERAL+, COMPRESS, NAMESPACE, ENABLE, QUOTA, SORT or THREAD.
   - `imap/command/` has a parser only for the base commands (APPEND, AUTHENTICATE, CAPABILITY, CHECK, CLOSE, COPY, CREATE, DELETE, EXAMINE, EXPUNGE, FETCH, ID, IDLE, LIST, LOGIN, LOGOUT, LSUB, MOVE, NOOP, RENAME, SEARCH, SELECT, STARTTLS, STATUS, STORE, SUBSCRIBE, UID, UNSELECT, UNSUBSCRIBE).
   - SORT/THREAD (RFC 5256) is an open feature request: [gluon#378](https://github.com/ProtonMail/gluon/issues/378).
@@ -485,7 +489,7 @@ SMTP never sends an existing draft directly.
   - Test this against a real Bridge before relying on it.
 - **`update_draft`** can't edit in place. To change a draft:
   1. APPEND the new version.
-  2. **MOVE the old one to Trash.** Changelog 3.23.1: drafts moved to Trash are not perma-deleted. Don't EXPUNGE it from Drafts, which deletes it permanently.
+  2. **MOVE the old one to Trash** only if `ID` says Bridge is 3.23.1 or later (section 1). Changelog 3.23.1: drafts moved to Trash are not perma-deleted; before it they were. Otherwise leave it in Drafts and say so. Don't EXPUNGE it from Drafts, which deletes it permanently.
   3. Return the new UID.
   - Expect the UID to change whenever the owner edits the draft in another Proton app.
 - **`list_drafts`.** Sort by INTERNALDATE as everywhere else.
