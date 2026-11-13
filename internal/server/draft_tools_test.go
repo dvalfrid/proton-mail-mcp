@@ -141,3 +141,38 @@ func TestUpdateDraftRefuses(t *testing.T) {
 		t.Errorf("refused updates sent %d APPENDs", n-appends)
 	}
 }
+
+// A reply draft goes to the sender, quotes the original, and leaves the
+// original unread.
+func TestCreateReplyDraft(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	l := inboxListing(t, e)
+	var bob mail.Summary
+	for _, m := range l.Messages {
+		if strings.Contains(m.From, "bob@") {
+			bob = m
+		}
+	}
+	var out CreateReplyDraftOutput
+	e.callOK(t, "create_reply_draft", map[string]any{
+		"folder": "INBOX", "uid": bob.UID, "uidvalidity": l.UIDValidity, "body": "Tack, det låter bra!",
+	}, &out)
+	if out.UID == 0 || len(out.To) != 1 || !strings.Contains(out.To[0], "bob@") || !strings.HasPrefix(out.Subject, "Re: ") ||
+		!strings.Contains(out.Note, "not sent") {
+		t.Fatalf("create_reply_draft = %+v", out)
+	}
+	var msg ReadMessageOutput
+	e.callOK(t, "read_message", map[string]any{"folder": "Drafts", "uid": out.UID, "uidvalidity": out.UIDValidity}, &msg)
+	if b := msg.UntrustedContent.Body; !strings.HasPrefix(b, "Tack, det låter bra!") || !strings.Contains(b, "\n> ") {
+		t.Errorf("reply draft body %q", b)
+	}
+	if n := e.imap.Unseen(t, "INBOX"); n != 2 {
+		t.Errorf("unseen in INBOX = %d, want 2: the original was marked read", n)
+	}
+
+	res := e.call(t, "create_reply_draft", map[string]any{"folder": "INBOX", "uid": bob.UID, "uidvalidity": l.UIDValidity + 1, "body": "x"})
+	if !res.IsError || !strings.Contains(text(res), "renumbered") {
+		t.Errorf("stale uidvalidity: IsError=%v %q", res.IsError, text(res))
+	}
+}
