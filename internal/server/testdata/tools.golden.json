@@ -1,6 +1,84 @@
 [
   {
     "annotations": {
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "About Proton Mail MCP"
+    },
+    "description": "Which version of proton-mail-mcp is running, and every tool in one line, grouped. Use it when the owner asks which version runs or what the tools can do. Does not touch the mailbox.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "name": "about",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "groups": {
+          "description": "every tool, grouped by what it may do",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "group": {
+                "type": "string"
+              },
+              "tools": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "description": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "description"
+                  ],
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              }
+            },
+            "required": [
+              "group",
+              "tools"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "version": {
+          "description": "the running server's version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "groups",
+        "note"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
       "destructiveHint": false,
       "idempotentHint": true,
       "openWorldHint": false,
