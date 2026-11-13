@@ -68,16 +68,21 @@ type CreateReplyDraftOutput struct {
 	Note        string   `json:"note"`
 }
 
+// showDraft ends every draft tool's note: the owner sees the draft as an
+// email, not as one paragraph.
+const showDraft = " Show the owner the draft as an email: To, Cc, Bcc (those given) and Subject, one per line, then the body exactly as written, keeping its lines and paragraphs, not reworded or summarised."
+
 // replyNote accompanies create_reply_draft.
 const replyNote = "The reply is saved in Drafts and was not sent. The owner reads it, can edit it, and sends it from Proton Mail. " +
 	"Proton Mail Bridge drops reply headers from drafts, so Proton Mail may not show it as a reply to the original. " +
-	"Its recipients come from the original email: tell the owner who they are."
+	"Its recipients come from the original email: tell the owner who they are." +
+	showDraft + " After the body, say that the original is quoted below it."
 
 // draftNote accompanies create_draft.
-const draftNote = "The draft is saved in Drafts and was not sent. The owner reads it, can edit it, and sends it from Proton Mail."
+const draftNote = "The draft is saved in Drafts and was not sent. The owner reads it, can edit it, and sends it from Proton Mail." + showDraft
 
 // replacedNote accompanies update_draft when the old draft went to Trash.
-const replacedNote = "The draft is replaced and was not sent. The old version is in Trash, where the owner can restore it from."
+const replacedNote = "The draft is replaced and was not sent. The old version is in Trash, where the owner can restore it from." + showDraft
 
 func registerDraftTools(s *mcp.Server, m *mail.Client) {
 	closed, notDestructive := false, false
@@ -119,7 +124,7 @@ func registerDraftTools(s *mcp.Server, m *mail.Client) {
 		}
 		note := replacedNote
 		if !r.OldTrashed {
-			note = "The new draft is saved and was not sent. Tell the owner: " + r.Kept
+			note = "The new draft is saved and was not sent. Tell the owner: " + r.Kept + showDraft
 		}
 		return nil, UpdateDraftOutput{Folder: r.Folder, UID: r.UID, UIDValidity: r.UIDValidity, OldMovedToTrash: r.OldTrashed, Note: note}, nil
 	})

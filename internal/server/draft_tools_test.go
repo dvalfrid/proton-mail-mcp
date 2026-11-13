@@ -21,7 +21,7 @@ func TestCreateDraft(t *testing.T) {
 		"subject": "Mötet på fredag",
 		"body":    "Hej Åsa,\n\nkan vi flytta mötet till 14.00?\n\n/D",
 	}, &out)
-	if out.Folder != "Drafts" || out.UID == 0 || out.UIDValidity == 0 || !strings.Contains(out.Note, "not sent") {
+	if out.Folder != "Drafts" || out.UID == 0 || out.UIDValidity == 0 || !strings.Contains(out.Note, "not sent") || !strings.Contains(out.Note, "as an email") {
 		t.Fatalf("create_draft = %+v", out)
 	}
 
@@ -104,7 +104,7 @@ func TestUpdateDraft(t *testing.T) {
 		"to": []string{"bob@example.org"}, "subject": "Utkast", "body": "Andra versionen.",
 	}, &out)
 	if out.Folder != "Drafts" || out.UID == 0 || out.UID == old.UID || out.OldMovedToTrash ||
-		!strings.Contains(out.Note, "still in Drafts") || !strings.Contains(out.Note, "3.23.1") {
+		!strings.Contains(out.Note, "still in Drafts") || !strings.Contains(out.Note, "3.23.1") || !strings.Contains(out.Note, "as an email") {
 		t.Fatalf("update_draft = %+v", out)
 	}
 	var msg ReadMessageOutput
@@ -159,7 +159,7 @@ func TestCreateReplyDraft(t *testing.T) {
 		"folder": "INBOX", "uid": bob.UID, "uidvalidity": l.UIDValidity, "body": "Tack, det låter bra!",
 	}, &out)
 	if out.UID == 0 || len(out.To) != 1 || !strings.Contains(out.To[0], "bob@") || !strings.HasPrefix(out.Subject, "Re: ") ||
-		!strings.Contains(out.Note, "not sent") {
+		!strings.Contains(out.Note, "not sent") || !strings.Contains(out.Note, "as an email") {
 		t.Fatalf("create_reply_draft = %+v", out)
 	}
 	var msg ReadMessageOutput
