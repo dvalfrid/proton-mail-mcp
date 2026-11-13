@@ -247,7 +247,7 @@ func movable(src, dst mailbox) error {
 	case !dst.ordinary():
 		return fmt.Errorf("%w: messages can't be moved to %q; move them to INBOX, Archive or a folder under Folders/", ErrNotAllowed, dst.name)
 	case src.label():
-		return fmt.Errorf("%w: moving out of a label also removes the label; that isn't supported yet", ErrNotAllowed)
+		return fmt.Errorf("%w: moving out of a label also files the message elsewhere; to remove the label, use remove_label", ErrNotAllowed)
 	case !src.ordinary() && src.role != "trash" && src.role != "sent":
 		return fmt.Errorf("%w: messages can't be moved out of %q", ErrNotAllowed, src.name)
 	case src.role == "sent" && dst.role == "inbox":

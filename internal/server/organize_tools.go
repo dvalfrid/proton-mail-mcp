@@ -101,7 +101,7 @@ func registerOrganizeTools(s *mcp.Server, m *mail.Client) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "move_message",
 		Description: "Move messages from one folder to another: INBOX, Archive or a folder under Folders/, also out of Spam. Nothing is deleted. Not into Spam: the owner marks spam in Proton Mail. " +
-			"Use trash_message for Trash and add_label for labels; messages can't be moved out of a label, Drafts or All Mail. " +
+			"Use trash_message for Trash, add_label and remove_label for labels; messages can't be moved out of a label, Drafts or All Mail. " +
 			"Applies to all the given messages or, if any uid is stale or missing, to none. The messages get new uids in the target folder: list it to see them.",
 		Annotations: organize("Move messages", false),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in MoveInput) (*mcp.CallToolResult, ChangeOutput, error) {
@@ -135,6 +135,24 @@ func registerOrganizeTools(s *mcp.Server, m *mail.Client) {
 		n, err := m.AddLabel(ctx, sel, in.Label)
 		if err != nil {
 			return nil, ChangeOutput{}, changeError("add label", in.ChangeInput, err)
+		}
+		return nil, ChangeOutput{Folder: in.Folder, Changed: n}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "remove_label",
+		Description: "Remove a label from messages. Give the label (a folder under Labels/) as folder, with uids and uidvalidity listed from that label. " +
+			"The messages stay in their own folder and keep their other labels; nothing is deleted, and add_label puts the label back. " +
+			"Applies to all the given messages or, if any uid is stale or missing, to none.",
+		Annotations: organize("Remove label", false),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ChangeInput) (*mcp.CallToolResult, ChangeOutput, error) {
+		sel, err := selection(in)
+		if err != nil {
+			return nil, ChangeOutput{}, err
+		}
+		n, err := m.RemoveLabel(ctx, sel)
+		if err != nil {
+			return nil, ChangeOutput{}, changeError("remove label", in, err)
 		}
 		return nil, ChangeOutput{Folder: in.Folder, Changed: n}, nil
 	})

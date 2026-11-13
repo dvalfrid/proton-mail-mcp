@@ -15,6 +15,17 @@ func inboxListing(t *testing.T, e *env) ListMessagesOutput {
 	return l
 }
 
+// labelListing puts the two messages in Labels/Travel, as Bridge lists a
+// labelled message there too, and lists the label.
+func labelListing(t *testing.T, e *env) ListMessagesOutput {
+	t.Helper()
+	e.imap.AddMessage(t, "Labels/Travel", msgFromBob)
+	e.imap.AddMessage(t, "Labels/Travel", msgFromCarol)
+	var l ListMessagesOutput
+	e.callOK(t, "list_messages", map[string]any{"folder": "Labels/Travel"}, &l)
+	return l
+}
+
 func uidsOf(l ListMessagesOutput) []uint32 {
 	uids := make([]uint32, 0, len(l.Messages))
 	for _, m := range l.Messages {
@@ -138,5 +149,32 @@ func TestTrashTool(t *testing.T) {
 	res := e.call(t, "trash_message", map[string]any{"folder": "Trash", "uids": uidsOf(trash), "uidvalidity": trash.UIDValidity})
 	if !res.IsError || !strings.Contains(text(res), "already in Trash") {
 		t.Errorf("trash from Trash: IsError=%v text=%q", res.IsError, text(res))
+	}
+}
+
+// remove_label takes the label off the given messages only: they leave
+// Labels/Travel, the rest stay, and the copy in INBOX is untouched.
+func TestRemoveLabel(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	inbox := inboxListing(t, e)
+	l := labelListing(t, e)
+	var out ChangeOutput
+	e.callOK(t, "remove_label", map[string]any{"folder": "Labels/Travel", "uids": uidsOf(l)[:1], "uidvalidity": l.UIDValidity}, &out)
+	if out.Changed != 1 || out.Folder != "Labels/Travel" {
+		t.Errorf("remove_label = %+v", out)
+	}
+	var after ListMessagesOutput
+	e.callOK(t, "list_messages", map[string]any{"folder": "Labels/Travel"}, &after)
+	if len(after.Messages) != 1 || after.Messages[0].UID != uidsOf(l)[1] {
+		t.Errorf("Labels/Travel after = %+v", after.Messages)
+	}
+	e.callOK(t, "list_messages", map[string]any{"folder": "INBOX"}, &after)
+	if len(after.Messages) != len(inbox.Messages) {
+		t.Errorf("INBOX has %d messages, want %d", len(after.Messages), len(inbox.Messages))
+	}
+	res := e.call(t, "remove_label", map[string]any{"folder": "Labels/Travel", "uids": uidsOf(l)[:1], "uidvalidity": l.UIDValidity})
+	if !res.IsError || !strings.Contains(text(res), "nothing was changed") {
+		t.Errorf("removing it again: IsError=%v %q", res.IsError, text(res))
 	}
 }

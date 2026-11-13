@@ -75,7 +75,7 @@ func TestReadToolsAreAnnotatedReadOnly(t *testing.T) {
 // that is destructive asks clients that honour the hint to confirm first.
 var organizeTools = map[string]struct{ destructive bool }{
 	"mark_read": {}, "mark_unread": {}, "flag": {}, "unflag": {},
-	"move_message": {}, "add_label": {},
+	"move_message": {}, "add_label": {}, "remove_label": {},
 	"trash_message": {destructive: true},
 }
 
@@ -98,6 +98,17 @@ func organizeArgs(name string, common map[string]any) map[string]any {
 		args["label"] = "Labels/Travel"
 	}
 	return args
+}
+
+// toolArgs gives an organize tool its arguments for the messages in l
+// (INBOX). remove_label works in a label, so it gets the same two messages
+// in Labels/Travel instead.
+func toolArgs(t *testing.T, e *env, name string, l ListMessagesOutput) map[string]any {
+	t.Helper()
+	if name == "remove_label" {
+		l = labelListing(t, e)
+	}
+	return organizeArgs(name, map[string]any{"folder": l.Folder, "uids": uidsOf(l), "uidvalidity": l.UIDValidity})
 }
 
 // Every tool is either a read tool or a listed organize tool with the right
@@ -142,7 +153,7 @@ func TestOnlyMarkReadMarksAsRead(t *testing.T) {
 		e := newEnv(t)
 		l := inboxListing(t, e)
 		var out ChangeOutput
-		e.callOK(t, name, organizeArgs(name, map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity}), &out)
+		e.callOK(t, name, toolArgs(t, e, name, l), &out)
 		if n := e.imap.Unseen(t, "INBOX") + e.imap.Unseen(t, "Archive") + e.imap.Unseen(t, "Trash"); n != 2 {
 			t.Errorf("unseen = %d after %s, want 2", n, name)
 		}
@@ -152,16 +163,21 @@ func TestOnlyMarkReadMarksAsRead(t *testing.T) {
 // No tool call, valid or stale, sends EXPUNGE or sets \Deleted: on Bridge
 // that is a permanent delete in Trash and Drafts (docs/bridge.md §6). Only
 // the client's commands are checked: Bridge answers a MOVE with
-// "* n EXPUNGE", which is not a command we sent.
+// "* n EXPUNGE", which is not a command we sent. The one exception,
+// remove_label in a user label, is TestExpungeOnlyInLabels.
 func TestNoToolExpunges(t *testing.T) {
 	t.Parallel()
 	for name := range organizeTools {
+		if name == "remove_label" {
+			continue // TestExpungeOnlyInLabels
+		}
 		e := newEnv(t)
 		l := inboxListing(t, e)
-		stale := map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity + 1}
-		good := map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity}
-		e.call(t, name, organizeArgs(name, stale))
-		if res := e.call(t, name, organizeArgs(name, good)); res.IsError {
+		good := toolArgs(t, e, name, l)
+		stale := maps.Clone(good)
+		stale["uidvalidity"] = l.UIDValidity + 1
+		e.call(t, name, stale)
+		if res := e.call(t, name, good); res.IsError {
 			t.Errorf("%s: %s", name, text(res))
 		}
 		for _, bad := range []string{"EXPUNGE", `\Deleted`} {
@@ -183,13 +199,57 @@ func TestOrganizeToolsHaveAnOverallLimit(t *testing.T) {
 	var out ChangeOutput
 	e.callOK(t, "flag", args, &out)
 	for name := range organizeTools {
-		res := e.call(t, name, organizeArgs(name, args))
+		res := e.call(t, name, toolArgs(t, e, name, l))
 		if !res.IsError || !strings.Contains(text(res), "PROTON_MAX_CHANGES") || !strings.Contains(text(res), "Help: "+help.URL(help.ChangeLimit)) {
 			t.Errorf("%s past the limit: IsError=%v text=%q", name, res.IsError, text(res))
 		}
 	}
 	if n := e.imap.Unseen(t, "INBOX"); n != 2 {
 		t.Errorf("unseen = %d: a call past the limit changed something", n)
+	}
+}
+
+// remove_label is the only EXPUNGE (owner's exception, STANDARDS.md#deletion):
+// UID EXPUNGE of the given uids, only while a user label is open, where
+// Bridge removes the label and deletes nothing. Asked for any other folder,
+// it sends neither EXPUNGE nor \Deleted.
+func TestExpungeOnlyInLabels(t *testing.T) {
+	t.Parallel()
+	for _, folder := range testutil.Folders {
+		if strings.HasPrefix(folder, "Labels/") {
+			continue
+		}
+		e := newEnv(t)
+		e.imap.AddMessage(t, folder, msgFromBob)
+		var l ListMessagesOutput
+		e.callOK(t, "list_messages", map[string]any{"folder": folder}, &l)
+		res := e.call(t, "remove_label", map[string]any{"folder": folder, "uids": uidsOf(l), "uidvalidity": l.UIDValidity})
+		if !res.IsError || !strings.Contains(text(res), "not a label") {
+			t.Errorf("remove_label in %q: IsError=%v %q", folder, res.IsError, text(res))
+		}
+		if e.imap.Sent("EXPUNGE") || e.imap.Sent(`\Deleted`) {
+			t.Errorf("remove_label in %q sent EXPUNGE or a deleted flag", folder)
+		}
+	}
+
+	e := newEnv(t)
+	l := labelListing(t, e)
+	var out ChangeOutput
+	e.callOK(t, "remove_label", map[string]any{"folder": l.Folder, "uids": uidsOf(l)[:1], "uidvalidity": l.UIDValidity}, &out)
+	selected := ""
+	for _, cmd := range e.imap.Commands() {
+		_, rest, _ := strings.Cut(cmd, " ")
+		switch {
+		case strings.HasPrefix(rest, "SELECT ") || strings.HasPrefix(rest, "EXAMINE "):
+			selected = rest[strings.Index(rest, " ")+1:]
+		case strings.Contains(rest, "EXPUNGE"):
+			if !strings.HasPrefix(rest, "UID EXPUNGE ") || !strings.Contains(selected, "Labels/Travel") {
+				t.Errorf("%q sent with %s open; want UID EXPUNGE in Labels/Travel", rest, selected)
+			}
+		}
+	}
+	if !e.imap.Sent("UID EXPUNGE") {
+		t.Error("remove_label didn't expunge in the label")
 	}
 }
 

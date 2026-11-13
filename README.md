@@ -44,6 +44,7 @@ Claude can list, search and read messages, mark them read or unread, star them, 
 | `flag` / `unflag` | Star or unstar messages (Proton's Starred) | Yes (undoable) |
 | `move_message` | Move messages to INBOX, Archive or a folder under `Folders/` (also out of Spam). Not into Spam, to Trash (`trash_message`) or a label (`add_label`); not out of a label, Drafts or All Mail | Yes (undoable) |
 | `add_label` | Add a label (`Labels/…`); the messages stay in their folder | Yes (undoable) |
+| `remove_label` | Remove a label from messages (listed from the label itself); they stay in their folder and nothing is deleted | Yes (undoable) |
 | `trash_message` | Move messages to Trash. Nothing is deleted; they can be restored until Trash is emptied. Annotated destructive, so clients that honour it ask first. Drafts too, with Proton Mail Bridge 3.23.1 or later; older Bridge would delete them permanently, so they are refused | Yes (undoable) |
 | `create_draft` | Write a new plain-text email (`to`, `cc`, `bcc`, `subject`, `body`) as a draft in Drafts, from your Proton address. Nothing is sent: you read, edit and send it in Proton Mail. Counts toward `PROTON_MAX_CHANGES` | Adds a draft |
 | `update_draft` | Replace a draft in Drafts with new content. The old version goes to Trash, where you can restore it from; with Proton Mail Bridge older than 3.23.1 it stays in Drafts instead, and Claude tells you. Nothing is sent. Counts toward `PROTON_MAX_CHANGES` | Replaces a draft |

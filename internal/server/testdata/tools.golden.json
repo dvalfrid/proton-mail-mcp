@@ -500,7 +500,7 @@
       "readOnlyHint": false,
       "title": "Move messages"
     },
-    "description": "Move messages from one folder to another: INBOX, Archive or a folder under Folders/, also out of Spam. Nothing is deleted. Not into Spam: the owner marks spam in Proton Mail. Use trash_message for Trash and add_label for labels; messages can't be moved out of a label, Drafts or All Mail. Applies to all the given messages or, if any uid is stale or missing, to none. The messages get new uids in the target folder: list it to see them.",
+    "description": "Move messages from one folder to another: INBOX, Archive or a folder under Folders/, also out of Spam. Nothing is deleted. Not into Spam: the owner marks spam in Proton Mail. Use trash_message for Trash, add_label and remove_label for labels; messages can't be moved out of a label, Drafts or All Mail. Applies to all the given messages or, if any uid is stale or missing, to none. The messages get new uids in the target folder: list it to see them.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -715,6 +715,67 @@
         "uid",
         "note",
         "untrusted_content"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Remove label"
+    },
+    "description": "Remove a label from messages. Give the label (a folder under Labels/) as folder, with uids and uidvalidity listed from that label. The messages stay in their own folder and keep their other labels; nothing is deleted, and add_label puts the label back. Applies to all the given messages or, if any uid is stale or missing, to none.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "folder": {
+          "description": "the folder the messages are in, as list_folders names it",
+          "type": "string"
+        },
+        "uids": {
+          "description": "the messages' uids, from list_messages or search_messages in this folder (1 to 50)",
+          "items": {
+            "maximum": 4294967295,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "uidvalidity": {
+          "description": "the uidvalidity that came with the uids; required, so a folder renumbered by Bridge is detected instead of changing other messages",
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "folder",
+        "uids",
+        "uidvalidity"
+      ],
+      "type": "object"
+    },
+    "name": "remove_label",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "changed": {
+          "description": "how many messages the call applied to",
+          "type": "integer"
+        },
+        "folder": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "folder",
+        "changed"
       ],
       "type": "object"
     }

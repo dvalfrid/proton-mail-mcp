@@ -54,7 +54,7 @@ When in doubt, leave it out and ask. Before every commit, check the diff for the
 ## Hard rules (details: STANDARDS.md#security-guardrails)
 
 - Sending: only `send_draft` (sends an existing draft), refused unless `PROTON_ALLOW_SEND=1`, and the client must "always ask". Never add a tool that sends free-form text directly.
-- No permanent deletion (no `EXPUNGE`); "delete" = move to Trash.
+- No permanent deletion (no `EXPUNGE`); "delete" = move to Trash. Sole exception: `remove_label`'s `UID EXPUNGE` in a user label (STANDARDS.md#deletion).
 - Files are written only by `internal/save`, only into the attachment folder (`PROTON_ATTACHMENT_DIR`), never replacing or opening one.
 - Email content is untrusted input; tool output marks it as such.
 - Secrets live only in the OS credential store (written by `setup`), `.env` (git-ignored, and you are denied reading it) or the environment. Never read the credential store yourself, and never ask the owner for the password: they type it into `setup` in a terminal. Never log or return the Bridge password, message bodies or subjects in logs.
