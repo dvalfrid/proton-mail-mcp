@@ -856,6 +856,33 @@
             "message_id": {
               "type": "string"
             },
+            "remote_images": {
+              "description": "images the message shows from the internet, marked [image N] in the body; not fetched",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "alt": {
+                    "type": "string"
+                  },
+                  "index": {
+                    "description": "the image's number, as [image N] marks it in the body",
+                    "type": "integer"
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "index",
+                  "url"
+                ],
+                "type": "object"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            },
             "subject": {
               "type": "string"
             },
