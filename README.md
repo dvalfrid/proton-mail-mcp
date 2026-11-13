@@ -26,7 +26,7 @@ Full rules and threat model: [STANDARDS.md](STANDARDS.md#security-guardrails), [
 
 ## Status
 
-Claude can list, search and read messages, mark them read or unread, star them, move and label them, and move them to Trash. Drafts and sending follow: see [ROADMAP.md](ROADMAP.md).
+Claude can list, search and read messages, mark them read or unread, star them, move and label them, move them to Trash, and write new drafts. Reply drafts and sending follow: see [ROADMAP.md](ROADMAP.md).
 
 "Newest first" in `list_messages` and `search_messages` means by date. Proton Mail Bridge doesn't number messages by date and has no IMAP `SORT`, so the server sorts itself ([docs/architecture.md](docs/architecture.md#newest-first-and-what-newest-means-on-bridge)). In a large folder this takes about a second.
 
@@ -45,6 +45,7 @@ Claude can list, search and read messages, mark them read or unread, star them, 
 | `move_message` | Move messages to INBOX, Archive or a folder under `Folders/` (also out of Spam). Not into Spam, to Trash (`trash_message`) or a label (`add_label`); not out of a label, Drafts or All Mail | Yes (undoable) |
 | `add_label` | Add a label (`Labels/…`); the messages stay in their folder | Yes (undoable) |
 | `trash_message` | Move messages to Trash. Nothing is deleted; they can be restored until Trash is emptied. Annotated destructive, so clients that honour it ask first. Not for drafts | Yes (undoable) |
+| `create_draft` | Write a new plain-text email (`to`, `cc`, `bcc`, `subject`, `body`) as a draft in Drafts, from your Proton address. Nothing is sent: you read, edit and send it in Proton Mail. Counts toward `PROTON_MAX_CHANGES` | Adds a draft |
 
 The tools that change messages take a folder, 1 to 50 `uids` from that folder and the `uidvalidity` that came with them (required). If the folder was renumbered or any uid is missing, the call changes nothing. No tool ever deletes permanently.
 
@@ -94,7 +95,7 @@ For the certificate, export it from Bridge (Settings → Advanced → Export TLS
 | `PROTON_BRIDGE_CERT` | — | Path to Bridge's certificate (PEM). Required |
 | `PROTON_ALLOW_SEND` | `0` | Sending is not implemented yet |
 | `PROTON_ATTACHMENT_DIR` | `Proton Mail MCP` in your Downloads folder | The only folder `save_attachment` saves into, as a full path. Created on the first save |
-| `PROTON_MAX_CHANGES` | `200` | How many messages the organize tools may change, together, per server run: a guard against instructions hidden in emails. Restart Claude to reset the count |
+| `PROTON_MAX_CHANGES` | `200` | How many messages the organize tools may change, and drafts `create_draft` may write, together, per server run: a guard against instructions hidden in emails. Restart Claude to reset the count |
 | `PROTON_MCP_CONFIG_DIR` | your config dir | Where setup's settings are kept |
 Check the program: `proton-mail-mcp --version`.
 

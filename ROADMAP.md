@@ -55,7 +55,8 @@ Install without a terminal, and updates that keep Claude's registration:
 
 ## 0.4 — Drafts and attachments
 
-- Tools: `create_draft`, `create_reply_draft` (threading headers: `In-Reply-To`, `References`), `update_draft`, `list_drafts`.
+- ✅ Tool: `create_draft`: a new plain-text draft in Drafts, nothing sent (#130). No `list_drafts`: `list_messages` on Drafts does it.
+- Tools: `create_reply_draft` (threading headers: `In-Reply-To`, `References`), `update_draft` (how to replace a draft safely is an open question in #130).
 - `remove_label` without `EXPUNGE` (#55), which completes organizing.
 - ✅ Tool: `view_image`: Claude sees the images in a message, attachments and inline images, never remote ones (#106).
 - ✅ Tool: `save_attachment`: saves an attachment, only into the owner's attachment folder, never opened by the server (#107).

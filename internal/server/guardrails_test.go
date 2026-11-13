@@ -84,6 +84,10 @@ var organizeTools = map[string]struct{ destructive bool }{
 // in the mailbox.
 var fileTools = map[string]bool{"save_attachment": true}
 
+// draftTools write a new draft into Drafts: not read-only, not destructive
+// (they never change an existing message), and they send nothing.
+var draftTools = map[string]bool{"create_draft": true}
+
 // organizeArgs adds a tool's own arguments to the common ones.
 func organizeArgs(name string, common map[string]any) map[string]any {
 	args := maps.Clone(common)
@@ -111,7 +115,7 @@ func TestEveryToolIsClassified(t *testing.T) {
 		if readTools[tool.Name] {
 			continue // TestReadToolsAreAnnotatedReadOnly
 		}
-		if fileTools[tool.Name] {
+		if fileTools[tool.Name] || draftTools[tool.Name] {
 			if a == nil || a.ReadOnlyHint || a.DestructiveHint == nil || *a.DestructiveHint {
 				t.Errorf("%s: annotations %+v, want not read-only and not destructive", tool.Name, a)
 			}
