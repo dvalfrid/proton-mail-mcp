@@ -105,7 +105,7 @@ Function FinishShow
   ${If} $Update == 1
     ShowWindow $mui.FinishPage.Run ${SW_HIDE}
     SendMessage $mui.FinishPage.Run ${BM_SETCHECK} ${BST_UNCHECKED} 0
-    SendMessage $mui.FinishPage.Text ${WM_SETTEXT} 0 "STR:${PRODUCT} is updated to ${VERSION}. Your settings are kept.$\r$\n$\r$\nRestart Claude Desktop and Claude Code to use the new version."
+    SendMessage $mui.FinishPage.Text ${WM_SETTEXT} 0 "STR:${PRODUCT} is updated to ${VERSION}. Your settings are kept.$\r$\n$\r$\nClaude keeps running the old version until you restart it:$\r$\n• Claude Desktop: quit it completely (right-click its icon by the clock, Quit), then start it again.$\r$\n• Claude Code: start a new session.$\r$\n$\r$\nTo check, ask Claude: $\"Which version of Proton Mail MCP runs?$\""
   ${EndIf}
 FunctionEnd
 
