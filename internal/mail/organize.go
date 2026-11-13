@@ -305,7 +305,8 @@ func (c *Client) AddLabel(ctx context.Context, s Selection, label string) (int, 
 // attribute rather than by name, with UID MOVE. Nothing is deleted: the
 // owner can restore them from Trash until it is emptied (docs/bridge.md §6).
 // Never STORE \Deleted + EXPUNGE: in Trash and Drafts that is a permanent
-// delete on Bridge.
+// delete on Bridge. Drafts are moved only if Bridge is 3.23.1 or later,
+// since older Bridge deleted drafts moved to Trash permanently.
 func (c *Client) Trash(ctx context.Context, s Selection) (int, error) {
 	if _, err := s.check(); err != nil {
 		return 0, err
@@ -329,11 +330,22 @@ func (c *Client) Trash(ctx context.Context, s Selection) (int, error) {
 		return 0, fmt.Errorf("%w: no folder is marked as Trash", ErrNoSuchFolder)
 	case src.role == "trash":
 		return 0, fmt.Errorf("%w: the messages are already in Trash", ErrNotAllowed)
-	case src.role == "drafts":
-		// Bridge before 3.23.1 deleted drafts moved to Trash permanently.
-		return 0, fmt.Errorf("%w: drafts can't be moved to Trash yet", ErrNotAllowed)
 	case src.role == "all" || src.name == "Scheduled":
 		return 0, fmt.Errorf("%w: Proton Mail Bridge refuses moves out of %q; trash the messages from their own folder", ErrNotAllowed, src.name)
+	}
+	if src.role == "drafts" {
+		// Bridge before 3.23.1 deleted drafts moved to Trash permanently.
+		var safe bool
+		var why string
+		if err := c.do(ctx, func(ic *imapclient.Client) (err error) {
+			safe, why, err = c.draftTrashSafe(ic)
+			return err
+		}); err != nil {
+			return 0, err
+		}
+		if !safe {
+			return 0, fmt.Errorf("%w: the drafts were not moved: %s. The owner can delete them in Proton Mail, or update Bridge", ErrNotAllowed, why)
+		}
 	}
 	return c.change(ctx, s, func(ic *imapclient.Client, set imap.UIDSet) error {
 		if _, err := ic.Move(set, trash).Wait(); err != nil {

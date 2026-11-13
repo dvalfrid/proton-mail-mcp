@@ -57,6 +57,7 @@ Install without a terminal, and updates that keep Claude's registration:
 
 - ✅ Tool: `create_draft`: a new plain-text draft in Drafts, nothing sent (#130). No `list_drafts`: `list_messages` on Drafts does it.
 - ✅ Tool: `update_draft`: the new version in Drafts, the old one to Trash on Bridge 3.23.1 or later, otherwise left in Drafts with a note (#132).
+- ✅ `trash_message` takes drafts, on Bridge 3.23.1 or later (#134).
 - Tool: `create_reply_draft` (threading headers: `In-Reply-To`, `References`).
 - `remove_label` without `EXPUNGE` (#55), which completes organizing.
 - ✅ Tool: `view_image`: Claude sees the images in a message, attachments and inline images, never remote ones (#106).

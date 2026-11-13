@@ -152,3 +152,39 @@ func TestBridgeVersion(t *testing.T) {
 		}
 	}
 }
+
+// trash_message moves a draft to Trash only on Bridge 3.23.1 or later, and
+// otherwise refuses before anything changes, saying why.
+func TestTrashDrafts(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	for name, tc := range map[string]struct {
+		version func(*imapclient.Client) (bridgeRelease, error)
+		moved   bool
+		want    string
+	}{
+		"new":     {fixedBridge(bridgeRelease{3, 23, 1}), true, ""},
+		"older":   {fixedBridge(bridgeRelease{3, 22, 0}), false, "version 3.22.0"},
+		"unknown": {askBridgeVersion, false, "didn't say which version"},
+	} {
+		c, srv, _ := newClient(t)
+		c.bridgeVersion = tc.version
+		old := oldDraft(t, c, srv)
+		n, err := c.Trash(ctx, old)
+		if tc.moved {
+			if err != nil || n != 1 || count(t, c, "Trash") != 1 || count(t, c, "Drafts") != 0 {
+				t.Errorf("%s: Trash = %d, %v", name, n, err)
+			}
+		} else {
+			if !errors.Is(err, ErrNotAllowed) || !strings.Contains(err.Error(), tc.want) || !strings.Contains(err.Error(), "update Bridge") {
+				t.Errorf("%s: err = %v", name, err)
+			}
+			if srv.Sent("MOVE") || count(t, c, "Drafts") != 1 {
+				t.Errorf("%s: the draft was moved", name)
+			}
+		}
+		if srv.Sent("EXPUNGE") || srv.Sent(`\Deleted`) {
+			t.Errorf("%s: sent EXPUNGE or a deleted flag", name)
+		}
+	}
+}

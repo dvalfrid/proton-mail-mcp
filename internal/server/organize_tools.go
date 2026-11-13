@@ -142,7 +142,7 @@ func registerOrganizeTools(s *mcp.Server, m *mail.Client) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "trash_message",
 		Description: "Move messages to Trash. Nothing is deleted: the owner can restore them from Trash until it is emptied. " +
-			"There is no permanent delete. Not for drafts, or for messages already in Trash or listed under All Mail (trash them from their own folder). " +
+			"There is no permanent delete. Drafts too, but only with Proton Mail Bridge 3.23.1 or later (older Bridge deletes them permanently, so they are refused). Not for messages already in Trash or listed under All Mail (trash them from their own folder). " +
 			"Applies to all the given messages or, if any uid is stale or missing, to none.",
 		Annotations: organize("Move to Trash", true),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ChangeInput) (*mcp.CallToolResult, ChangeOutput, error) {

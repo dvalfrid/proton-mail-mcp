@@ -108,24 +108,17 @@ func (c *Client) UpdateDraft(ctx context.Context, uid, uidValidity uint32, d Dra
 	var out Replaced
 	sel := Selection{Folder: drafts, UIDs: []uint32{uid}, UIDValidity: uidValidity}
 	_, err = c.change(ctx, sel, func(ic *imapclient.Client, set imap.UIDSet) error {
-		rel, err := c.bridgeVersion(ic)
-		var imapErr *imap.Error
-		if err != nil && !errors.Is(err, errVersionUnknown) && !errors.As(err, &imapErr) {
+		safe, why, err := c.draftTrashSafe(ic)
+		if err != nil {
 			return err // the connection, before anything changed
 		}
-		created, aerr := appendDraft(ic, drafts, raw)
-		if aerr != nil {
-			return aerr
+		created, err := appendDraft(ic, drafts, raw)
+		if err != nil {
+			return err
 		}
 		out.Created = created
-		switch {
-		case err != nil:
-			out.Kept = "the old draft is still in Drafts: Proton Mail Bridge didn't say which version it is, and Bridge before " +
-				trashDraftsSince.String() + " deletes a draft moved to Trash permanently. The owner can delete the old draft in Proton Mail."
-			return nil
-		case !rel.atLeast(trashDraftsSince):
-			out.Kept = "the old draft is still in Drafts: this Proton Mail Bridge is version " + rel.String() + ", and Bridge before " +
-				trashDraftsSince.String() + " deletes a draft moved to Trash permanently. The owner can delete the old draft in Proton Mail, or update Bridge."
+		if !safe {
+			out.Kept = "the old draft is still in Drafts: " + why + ". The owner can delete the old draft in Proton Mail, or update Bridge."
 			return nil
 		}
 		if _, err := ic.Move(set, trash).Wait(); err != nil {
@@ -138,6 +131,24 @@ func (c *Client) UpdateDraft(ctx context.Context, uid, uidValidity uint32, d Dra
 		return Replaced{}, err
 	}
 	return out, nil
+}
+
+// draftTrashSafe asks Bridge its version and says whether a draft moved to
+// Trash stays there; if not, why says why. err is only a broken connection.
+func (c *Client) draftTrashSafe(ic *imapclient.Client) (safe bool, why string, err error) {
+	rel, err := c.bridgeVersion(ic)
+	var imapErr *imap.Error
+	switch {
+	case err != nil && !errors.Is(err, errVersionUnknown) && !errors.As(err, &imapErr):
+		return false, "", err
+	case err != nil:
+		return false, "Proton Mail Bridge didn't say which version it is, and Bridge before " +
+			trashDraftsSince.String() + " deletes a draft moved to Trash permanently", nil
+	case !rel.atLeast(trashDraftsSince):
+		return false, "this Proton Mail Bridge is version " + rel.String() + ", and Bridge before " +
+			trashDraftsSince.String() + " deletes a draft moved to Trash permanently", nil
+	}
+	return true, "", nil
 }
 
 // roleFolders maps each special-use role (drafts, trash, …) to its folder.
