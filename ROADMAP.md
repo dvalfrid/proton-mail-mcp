@@ -65,7 +65,7 @@ Install without a terminal, and updates that keep Claude's registration:
 - `setup`, keyring and Claude registration tried on macOS and Linux, and fixed where they differ (#66).
 - The setup wizard on macOS and Linux (#91).
 - Homebrew tap, Linux `.deb`/`.rpm`, a Claude Desktop extension (MCPB) (#33).
-- Ask Claude which version is installed and whether an update exists, and how to update (#125): `server_version` without network, `check_for_update` only when asked (the one connection outside localhost, a written guardrail exception first).
+- Ask Claude which version is installed and whether an update exists, and how to update (#125): `proton_mail_version` without network, `proton_mail_check_update` only when asked (the one connection outside localhost, a written guardrail exception first).
 
 Before sending, so that organizing and drafts have been in daily use for a while when 0.6 starts.
 
