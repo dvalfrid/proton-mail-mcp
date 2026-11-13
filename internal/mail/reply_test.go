@@ -40,7 +40,7 @@ func TestReply(t *testing.T) {
 		"own mail": {strings.Replace(original, "From: Bob <bob@example.org>", "From: alice@example.com", 1), false,
 			[]string{`"Dave" <dave@example.net>`}, nil, "Re: Lunch?"},
 	} {
-		d, err := c.reply([]byte(tc.raw), Reply{Body: "Gärna!\n", All: tc.all})
+		d, err := c.reply([]byte(tc.raw), Reply{Body: "Gärna!\n", All: tc.all}, false)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -65,16 +65,51 @@ func TestReply(t *testing.T) {
 	}
 }
 
+// A message in Sent is the owner's own even when it went out from an alias,
+// not the account address: the reply goes to its recipients, never to the
+// owner (issue #148).
+func TestReplyToOwnMailFromAnAlias(t *testing.T) {
+	t.Parallel()
+	c := New(Options{User: "alice@example.com", Location: time.UTC})
+	sent := "From: Alice <alice@example.org>\r\n" + // an alias of the account
+		"To: bob@example.net\r\n" +
+		"Cc: Carol <carol@example.net>, =?utf-8?q?=C3=85sa?= <asa@example.net>\r\n" +
+		"Subject: Plan\r\nMessage-ID: <s1@example.org>\r\n\r\nThe plan.\r\n"
+	for name, tc := range map[string]struct {
+		all    bool
+		to, cc []string
+	}{
+		"reply":     {false, []string{"<bob@example.net>"}, nil},
+		"reply all": {true, []string{"<bob@example.net>"}, []string{`"Carol" <carol@example.net>`, "=?utf-8?q?=C3=85sa?= <asa@example.net>"}},
+	} {
+		d, err := c.reply([]byte(sent), Reply{Body: "ok", All: tc.all}, true)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !slices.Equal(d.To, tc.to) || !slices.Equal(d.Cc, tc.cc) {
+			t.Errorf("%s: to %q cc %q, want %q and %q", name, d.To, d.Cc, tc.to, tc.cc)
+		}
+	}
+	// Outside Sent, the alias isn't known to be the owner's: it is replied to.
+	d, err := c.reply([]byte(sent), Reply{Body: "ok"}, false)
+	if err != nil || !slices.Equal(d.To, []string{`"Alice" <alice@example.org>`}) {
+		t.Errorf("not in Sent: to %q, %v", d.To, err)
+	}
+	if got := shown([]string{"=?utf-8?q?=C3=85sa?= <asa@example.net>", `"bob@example.net" <bob@example.net>`}); !slices.Equal(got, []string{"Åsa <asa@example.net>", "bob@example.net"}) {
+		t.Errorf("shown = %q", got)
+	}
+}
+
 // A message with nobody to reply to is refused; a long original is cut so
 // the draft stays within the size limit.
 func TestReplyLimits(t *testing.T) {
 	t.Parallel()
 	c := New(Options{User: "alice@example.com", Location: time.UTC})
-	if _, err := c.reply([]byte("Subject: x\r\n\r\nhi\r\n"), Reply{Body: "b"}); err == nil || !strings.Contains(err.Error(), "no address to reply to") {
+	if _, err := c.reply([]byte("Subject: x\r\n\r\nhi\r\n"), Reply{Body: "b"}, false); err == nil || !strings.Contains(err.Error(), "no address to reply to") {
 		t.Errorf("no sender: %v", err)
 	}
 	long := strings.Replace(original, "Ska vi äta lunch?", strings.Repeat("åäö ", MaxDraftBodyBytes/4), 1)
-	d, err := c.reply([]byte(long), Reply{Body: "ok"})
+	d, err := c.reply([]byte(long), Reply{Body: "ok"}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
