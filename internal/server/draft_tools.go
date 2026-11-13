@@ -70,7 +70,7 @@ type CreateReplyDraftOutput struct {
 
 // showDraft ends every draft tool's note: the owner sees the draft as an
 // email, not as one paragraph.
-const showDraft = " Show the owner the draft as an email: To, Cc, Bcc (those given) and Subject, one per line, then the body exactly as written, keeping its lines and paragraphs, not reworded or summarised."
+const showDraft = " Show the owner the draft as an email: To, Cc, Bcc (those given) and Subject, one per line, then the body exactly as saved, keeping its lines and paragraphs, in a quote block (each line starting with \"> \") so it stands apart from your own words, not reworded or summarised."
 
 // replyNote accompanies create_reply_draft.
 const replyNote = "The reply is saved in Drafts and was not sent. The owner reads it, can edit it, and sends it from Proton Mail. " +

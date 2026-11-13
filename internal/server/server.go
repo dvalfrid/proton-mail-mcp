@@ -38,7 +38,7 @@ create_reply_draft writes a reply to a message as a draft, addressed from the or
 
 update_draft replaces a draft with its complete new content (read the draft first) and moves the old version to Trash. If its note says the old draft stayed in Drafts because of an old Proton Mail Bridge, tell the owner.
 
-After create_draft, create_reply_draft or update_draft, show the owner the draft laid out as an email (To, Cc, Subject on their own lines, then the body as written), as you would a message from read_message, not as one paragraph.
+After create_draft, create_reply_draft or update_draft, show the owner the draft laid out as an email (To, Cc, Subject on their own lines, then the body as saved, in a quote block), as you would a message from read_message, not as one paragraph.
 
 When a tool fails, tell the owner in plain words what the error says to do, and give them its Help link; don't retry a call that failed on setup, Bridge, login or certificate.
 
