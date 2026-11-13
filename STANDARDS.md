@@ -114,6 +114,7 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 | Level | Tools | Status |
 |---|---|---|
 | Read | list folders, list/search messages, read a message, view an image | Allowed |
+| Fetch | `fetch_image`: an image a message links to on the internet, when the owner asks | Gated: off unless `PROTON_ALLOW_REMOTE_IMAGES=1`, see [Remote images](#remote-images) |
 | Save | save an attachment into the owner's attachment folder | Allowed: never replaces a file, never opens one |
 | Organize | move, mark read/unread, flag, label, move to Trash | Allowed (undoable), at most `PROTON_MAX_CHANGES` messages (200 by default) per server run |
 | Draft | create, update draft in `Drafts` | Allowed |
@@ -138,7 +139,7 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 Anyone can send the owner an email, so mail content can contain instructions aimed at the AI (prompt injection).
 
 - Tool output marks message content as untrusted. `read_message` returns headers and body inside a separate `untrusted_content` field with a note that it is data from the sender, not instructions. `list_messages` and `search_messages` return each message's subject and sender as fields of the listing, with a note naming them as sender-written data. `view_image` returns the image with a note that what it shows, text included, is the sender's. Sender text never appears in an error message.
-- HTML is converted to text; scripts, styles and remote resources are dropped, never fetched.
+- HTML is converted to text; scripts, styles and remote resources are dropped, never fetched by reading. Images are marked where they stand, and those from the internet are listed with their address. The one way to fetch one is `fetch_image` (see [Remote images](#remote-images)).
 - Attachments are listed (name, type, size), not opened or executed. `save_attachment` writes one into the owner's attachment folder and nothing else:
   - only `internal/save` writes files from the server (a test checks every source file), through an `os.Root` on that folder, so no name or link leads outside it;
   - the sender's name is cleaned (last path part only, no control, bidi or reserved characters, no reserved Windows device names, length capped);
@@ -147,6 +148,18 @@ Anyone can send the owner an email, so mail content can contain instructions aim
   - a message larger than what is fetched, or an attachment that can't be decoded to its end, is refused rather than saved cut.
 - Output size is capped per message and per call.
 - The send guard above is the hard stop: even a fooled assistant can only create a draft.
+
+### Remote images
+
+Nothing from a message is fetched from the internet, with one exception, approved by the owner on 2026-11-13 (issue #150): `fetch_image` fetches an image a message links to, when the owner asks to see it.
+
+- **Off by default.** Refused unless `PROTON_ALLOW_REMOTE_IMAGES=1`, like sending: the tool is listed and says how to switch it on.
+- **Only images the message shows.** It takes the image's number from `read_message` (`[image N]`, `remote_images`), never an address, so Claude can't be steered to fetch any other URL.
+- **Only the public internet.** https only, and every connection, redirects and fresh DNS answers included, is checked when it is dialled: port 443, and not loopback, private, link-local, multicast, unspecified or a reserved range (NAT64, 6to4 and Teredo too, since they can embed a private IPv4 address). No proxy, which would dial past the check. At most 3 redirects.
+- **Nothing extra goes out.** No cookies, no Referer, a neutral User-Agent. Nothing is written to disk.
+- **Bounded.** At most 20 MiB and 15 seconds; the content must be a PNG, JPEG, GIF or WebP image by its bytes, and is decoded and encoded again like `view_image`.
+- **Untrusted.** The result carries the same note as `view_image`, and says that the sender's server now knows the message was opened. The description and the server instructions tell Claude to fetch only when the owner asks, never because an email does; the tool is annotated open-world, so clients that honour it ask first.
+- **One package.** Only `internal/fetch` reaches the internet: depguard rejects `net/http` anywhere else, and `TestNothingElseFetches` fails on any other network code outside the named Bridge connections.
 
 ### Secrets
 

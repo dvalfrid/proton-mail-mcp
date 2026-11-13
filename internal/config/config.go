@@ -34,6 +34,9 @@ const (
 	// EnvAttachmentDir is the one folder save_attachment writes into
 	// (DefaultAttachmentDir if unset).
 	EnvAttachmentDir = "PROTON_ATTACHMENT_DIR"
+	// EnvAllowRemoteImages turns on fetch_image, which fetches an image a
+	// message links to on the internet (off by default, issue #150).
+	EnvAllowRemoteImages = "PROTON_ALLOW_REMOTE_IMAGES"
 )
 
 // Bridge defaults.
@@ -54,6 +57,8 @@ type Config struct {
 	SMTPPort  int
 	CertFile  string // PEM certificate exported from Bridge; required, the server is always verified
 	AllowSend bool
+	// AllowRemoteImages turns on fetch_image.
+	AllowRemoteImages bool
 	// MaxChanges caps the messages changed per server run.
 	MaxChanges int
 	// AttachmentDir is the absolute path of the folder attachments are
@@ -77,6 +82,7 @@ func (c Config) LogValue() slog.Value {
 		slog.Int("smtp_port", c.SMTPPort),
 		slog.Bool("cert", c.CertFile != ""),
 		slog.Bool("allow_send", c.AllowSend),
+		slog.Bool("allow_remote_images", c.AllowRemoteImages),
 		slog.Int("max_changes", c.MaxChanges),
 		slog.Bool("attachment_dir", c.AttachmentDir != ""),
 	)
@@ -148,6 +154,15 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		cfg.AllowSend = true
 	default:
 		errs = append(errs, fmt.Errorf("%s=%q: use 1 or 0", EnvAllowSend, v))
+	}
+
+	switch v := get(EnvAllowRemoteImages); v {
+	case "", "0", "false":
+		cfg.AllowRemoteImages = false
+	case "1", "true":
+		cfg.AllowRemoteImages = true
+	default:
+		errs = append(errs, fmt.Errorf("%s=%q: use 1 or 0", EnvAllowRemoteImages, v))
 	}
 
 	if err := errors.Join(errs...); err != nil {

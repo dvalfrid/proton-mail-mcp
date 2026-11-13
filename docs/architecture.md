@@ -113,8 +113,8 @@ Mail is written by whoever sends it, so it can contain text aimed at the AI (pro
 - **Size caps:** 32 MiB raw message, 2 MiB per text part, 30,000-character body, 50 addresses per header, 50 attachments, 200 MIME parts, nesting depth 10. Anything cut sets `truncated: true`.
 - **HTML becomes text:**
   - Scripts, styles, embedded objects and hidden elements are dropped. Hidden text is a common injection trick.
-  - Images become their alt text, and only `http(s)` and `mailto` links are kept.
-  - Nothing is ever fetched.
+  - Every image a reader sees is marked where it stands (`[image N]`, `[embedded image]`, `[image]`), with its alt text; images from the internet are listed with their address in `remote_images`. Hidden images and 1×1 tracking pixels are left out. Only `http(s)` and `mailto` links are kept.
+  - Nothing is fetched by reading. `fetch_image` below is the one way to fetch an image, and only on request.
 - **Characters that can fake or hide text are removed:** control characters, bidi overrides and zero-width characters. In headers, newlines become spaces, so a subject can't fake extra lines.
 - **Attachments are listed, never opened.** The one exception is `view_image` below.
 
@@ -127,6 +127,15 @@ Mail is written by whoever sends it, so it can contain text aimed at the AI (pro
 - **Encoded again, never passed through.** Claude gets what the decoder saw, as PNG (from PNG or GIF) or JPEG, scaled down to 1568 pixels on the longest side. Claude scales larger images down itself, so the extra pixels would only cost bytes. A re-encoded PNG over 1 MiB becomes JPEG.
 - **Untrusted, like the text.** Text in an image is an easy way to hide instructions from a reader of the HTML, so the result carries the same kind of note as `read_message`.
 - `golang.org/x/image` adds WebP and scaling; the standard library does the rest.
+
+### Remote images: fetched only on request, only from the public internet
+
+A newsletter shows its images from the sender's server, so `read_message` can only mark and list them. `fetch_image` fetches one when the owner asks to see it, an exception to "nothing is fetched" that the owner approved (STANDARDS.md#remote-images). It is off unless `PROTON_ALLOW_REMOTE_IMAGES=1`.
+
+- **By number, not by address.** It reads the message again and takes the address of image N from it. Claude can't name another URL.
+- **The address check is on the dial, not the name.** `internal/fetch` uses a `net.Dialer` whose `Control` sees the IP address actually connected to, for the first request, every redirect and every fresh DNS answer: a name that resolves to a public address once and to `127.0.0.1` the next time (DNS rebinding) is still refused. Only port 443, and no proxy, since a proxy would make the connection for us.
+- **Then the same as `view_image`:** checked by content, size-capped, decoded and encoded again.
+- Fetching tells the sender the message was opened; the note says so, and Claude is told to fetch only when the owner asks.
 
 ### Saving attachments: one folder, nothing replaced, nothing opened
 
@@ -237,6 +246,8 @@ Where each protection is enforced matters as much as the protection itself.
 | Reading never marks as read | `internal/mail` (EXAMINE, PEEK) | Yes |
 | No permanent deletion | No EXPUNGE except `remove_label`'s `UID EXPUNGE` in a user label, where Bridge only removes the label: lint (`forbidigo`) and tests. "Delete" means move to Trash | Yes |
 | Sending only an existing draft, only with `PROTON_ALLOW_SEND=1` (0.6) | The server: `send_draft` is the only send path; SMTP code in one package, enforced by lint | Yes |
+| Fetching only images a message shows, only from the public internet, only with `PROTON_ALLOW_REMOTE_IMAGES=1` | `internal/fetch`: https, port 443, public addresses checked on every dial; the tool takes an image number. depguard and a test keep network code to that package | Yes |
+| Fetching only when the owner asks | The tool description and server instructions; **obeying them is up to the model** | No: the gate above limits what a fooled model can fetch to images the message already shows |
 | The owner approves each send | **The MCP client** ("always ask") | Yes, if the client is configured so. Not every client can be |
 | Mail content treated as data | The note and field from the server; **obeying it is up to the model** | No: that's why the rows above exist |
 | The password never leaves the process except to Bridge | `Secret` type, TLS pinning, local host only | Yes |

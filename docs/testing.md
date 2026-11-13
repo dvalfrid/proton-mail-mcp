@@ -34,6 +34,7 @@ Each hard rule has a test that fails if the rule breaks. Most live in `internal/
 - **TLS always verified:** a server with another certificate gets no password (an impostor test), and `internal/bridge` reads Bridge's certificate without trusting it and sends no credentials.
 - **Local only:** a non-local Bridge host is refused at start-up.
 - **A renumbered folder is refused:** a uid with a stale `uidvalidity` is not read.
+- **Remote images only on request, only from the public internet:** reading never fetches (`TestFetchImage` checks the fetcher wasn't called); `fetch_image` is refused while `PROTON_ALLOW_REMOTE_IMAGES` is off and takes only an image the message shows (`TestFetchImageRefuses`); `internal/fetch` refuses loopback, private and link-local addresses, http, a user name in the URL, and a redirect to any of them, against real TLS test servers (`TestGetRefusesLocalAddresses`, `TestGetRefusesBadRedirects`, `TestPublic`); no other code imports `net/http` or dials (`TestNothingElseFetches`, depguard).
 
 **Planned, with the tools they guard:**
 

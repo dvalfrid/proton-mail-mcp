@@ -37,7 +37,8 @@ var catalog = []toolGroup{
 		{"list_messages", "List the newest messages in a folder."},
 		{"search_messages", "Search a folder by sender, recipient, subject, text or date."},
 		{"read_message", "Read one message, with its list of attachments. It stays unread."},
-		{"view_image", "Show an image from a message."},
+		{"view_image", "Show an image attached to or embedded in a message."},
+		{"fetch_image", "Fetch and show an image a message links to on the internet, when you ask (off unless switched on)."},
 	}},
 	{"Organize (syncs to Proton, deletes nothing)", []toolLine{
 		{"mark_read", "Mark messages as read."},

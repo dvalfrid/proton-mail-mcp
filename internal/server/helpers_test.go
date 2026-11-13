@@ -35,6 +35,13 @@ func newEnv(t *testing.T) *env {
 // newEnvWith is newEnv with the mail client's options changed by change.
 func newEnvWith(t *testing.T, change func(*mail.Options)) *env {
 	t.Helper()
+	return newEnvImages(t, change, nil)
+}
+
+// newEnvImages is newEnvWith with fetch_image switched on by images (off if
+// nil).
+func newEnvImages(t *testing.T, change func(*mail.Options), images ImageFetcher) *env {
+	t.Helper()
 	ctx := context.Background()
 	srv := testutil.NewIMAPServer(t)
 	logs := &syncBuffer{}
@@ -57,7 +64,7 @@ func newEnvWith(t *testing.T, change func(*mail.Options)) *env {
 
 	dir := filepath.Join(t.TempDir(), "attachments") // created by the first save
 	serverT, clientT := mcp.NewInMemoryTransports()
-	ss, err := New("test", m, dir).Connect(ctx, serverT, nil)
+	ss, err := New("test", m, dir, images).Connect(ctx, serverT, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

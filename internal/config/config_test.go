@@ -36,6 +36,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.AllowSend {
 		t.Error("AllowSend must default to false")
 	}
+	if cfg.AllowRemoteImages {
+		t.Error("AllowRemoteImages must default to false")
+	}
 	if cfg.Password.Reveal() != testPassword {
 		t.Error("password not loaded")
 	}
@@ -55,6 +58,7 @@ func TestLoadValidation(t *testing.T) {
 		{"remote name", map[string]string{EnvHost: "bridge.example.com"}, "only 127.0.0.1"},
 		{"bad port", map[string]string{EnvIMAPPort: "99999"}, "not a port"},
 		{"bad send flag", map[string]string{EnvAllowSend: "yes"}, EnvAllowSend},
+		{"bad remote images flag", map[string]string{EnvAllowRemoteImages: "yes"}, EnvAllowRemoteImages},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -99,6 +103,21 @@ func TestAllowSend(t *testing.T) {
 		}
 		if cfg.AllowSend != want {
 			t.Errorf("%s=%q: AllowSend = %v", EnvAllowSend, v, cfg.AllowSend)
+		}
+	}
+}
+
+func TestAllowRemoteImages(t *testing.T) {
+	t.Parallel()
+	for v, want := range map[string]bool{"1": true, "true": true, "0": false, "false": false, "": false} {
+		env := validEnv()
+		env[EnvAllowRemoteImages] = v
+		cfg, err := Load(lookupMap(env))
+		if err != nil {
+			t.Fatalf("%q: %v", v, err)
+		}
+		if cfg.AllowRemoteImages != want {
+			t.Errorf("%s=%q: AllowRemoteImages = %v", EnvAllowRemoteImages, v, cfg.AllowRemoteImages)
 		}
 	}
 }
