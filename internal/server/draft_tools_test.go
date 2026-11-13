@@ -21,7 +21,7 @@ func TestCreateDraft(t *testing.T) {
 		"subject": "Mötet på fredag",
 		"body":    "Hej Åsa,\n\nkan vi flytta mötet till 14.00?\n\n/D",
 	}, &out)
-	if out.Folder != "Drafts" || out.UID == 0 || out.UIDValidity == 0 || !strings.Contains(out.Note, "not sent") || !strings.Contains(out.Note, "as an email") {
+	if out.Folder != "Drafts" || out.UID == 0 || out.UIDValidity == 0 || !strings.Contains(out.Note, "not sent") || !strings.Contains(out.Note, "as an email") || !strings.Contains(out.Note, "quote block") {
 		t.Fatalf("create_draft = %+v", out)
 	}
 
