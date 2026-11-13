@@ -65,6 +65,7 @@ Install without a terminal, and updates that keep Claude's registration:
 - `setup`, keyring and Claude registration tried on macOS and Linux, and fixed where they differ (#66).
 - The setup wizard on macOS and Linux (#91).
 - Homebrew tap, Linux `.deb`/`.rpm`, a Claude Desktop extension (MCPB) (#33).
+- More AI assistants than Claude (#128): setup and the wizard register the server in OpenAI Codex, GitHub Copilot in VS Code, Cursor, Gemini CLI and LM Studio; texts say "the assistant"; the website says where each one sends the mail.
 - Ask Claude which version is installed and whether an update exists, and how to update (#125): `proton_mail_mcp_version` without network, `proton_mail_mcp_update` only when asked (the one connection outside localhost, a written guardrail exception first).
 
 Before sending, so that organizing and drafts have been in daily use for a while when 0.6 starts.
@@ -74,7 +75,7 @@ Before sending, so that organizing and drafts have been in daily use for a while
 - `internal/send`: SMTP over STARTTLS; the only package allowed to send.
 - Tool: `send_draft` — sends an existing draft, refused unless `PROTON_ALLOW_SEND=1`, moves the draft away after sending.
 - Guardrail tests: refused without the flag, refuses non-drafts, nothing else reaches SMTP.
-- README: configuring the client to always ask before `send_draft`.
+- README: configuring each supported client to always ask before `send_draft`; a client that can't ask for every call is not supported for sending (#128).
 
 ## Installation
 
