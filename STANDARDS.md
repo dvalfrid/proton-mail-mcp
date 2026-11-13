@@ -129,7 +129,8 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 
 ### Deletion
 
-- No IMAP `EXPUNGE` / `UID EXPUNGE`, ever. `forbidigo` rejects calls to `Expunge`/`UIDExpunge`.
+- No IMAP `EXPUNGE` / `UID EXPUNGE`, with one exception. `forbidigo` rejects calls to `Expunge`/`UIDExpunge`.
+- **The exception** (approved by the owner, 2026-11-13, issue #55): `remove_label` sends `\Deleted` + `UID EXPUNGE` of the given uids, only while a user label (`Labels/…`, no special-use role) is the open folder. There Bridge removes the label and deletes nothing (docs/bridge.md §4, §6); it is Bridge's only way to remove just a label. The call is in `internal/mail/label.go` alone, with a `//nolint:forbidigo` naming this rule, and checks the open folder again right before. `TestExpungeOnlyInLabels` fails if any other folder gets `EXPUNGE` or `\Deleted`. Never plain `EXPUNGE`, and never in Trash or Drafts, where it is a permanent delete.
 - "Delete" means move to `Trash`. Proton empties Trash on its own schedule; the owner can still restore.
 
 ### Email content is untrusted

@@ -468,7 +468,7 @@ SMTP never sends an existing draft directly.
 **`trash_message` (0.2).**
 
 - **Use `UID MOVE` to the mailbox with the `\Trash` attribute**, found by attribute rather than by the name "Trash". This calls the API's label-as-Trash, unlabels the source, and deletes nothing. Messages stay recoverable in Proton's Trash until it is emptied, or after 30 days if the owner has auto-delete on (section 6).
-- **Never use STORE `\Deleted` + EXPUNGE.** In Trash and Drafts it is a **permanent delete** on Proton. Elsewhere it unlabels or does nothing. This supports the planned "no EXPUNGE" guardrail test with concrete evidence.
+- **Never use STORE `\Deleted` + EXPUNGE.** In Trash and Drafts it is a **permanent delete** on Proton. Elsewhere it unlabels or does nothing. This supports the planned "no EXPUNGE" guardrail test with concrete evidence. The one exception is `remove_label`: `\Deleted` + `UID EXPUNGE` in `Labels/X`, which only unlabels (section 6). Not yet tried on a real Bridge.
 - **Know what MOVE does on Bridge** (section 4):
   - MOVE *to* `Labels/X` from a folder doesn't remove the message from that folder;
   - MOVE INBOX↔Sent, and anything into or out of All Mail or Scheduled, is refused;
