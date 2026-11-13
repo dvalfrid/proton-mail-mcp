@@ -25,6 +25,7 @@ import (
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/check"
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
+	"github.com/dvalfrid/proton-mail-mcp/internal/fetch"
 	"github.com/dvalfrid/proton-mail-mcp/internal/help"
 	"github.com/dvalfrid/proton-mail-mcp/internal/keystore"
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
@@ -139,13 +140,13 @@ func runCheck() int {
 }
 
 func run(logger *slog.Logger) error {
-	mailClient, attachmentDir := connect(logger)
+	mailClient, attachmentDir, images := connect(logger)
 	defer func() { _ = mailClient.Close() }() // best effort on shutdown
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	err := server.New(version, mailClient, attachmentDir).Run(ctx, &mcp.StdioTransport{})
+	err := server.New(version, mailClient, attachmentDir, images).Run(ctx, &mcp.StdioTransport{})
 	if errors.Is(err, context.Canceled) {
 		return nil
 	}
@@ -156,28 +157,33 @@ func run(logger *slog.Logger) error {
 // settings it returns one whose every call says to run setup: the server
 // still starts, so Claude can tell the owner in the chat, rather than the
 // client only showing a disconnected server. No connection is made then.
-// It also returns the attachment folder, empty without settings.
-func connect(logger *slog.Logger) (*mail.Client, string) {
+// It also returns the attachment folder, empty without settings, and the
+// image fetcher for fetch_image, nil unless PROTON_ALLOW_REMOTE_IMAGES=1.
+func connect(logger *slog.Logger) (*mail.Client, string, server.ImageFetcher) {
 	cfg, _, err := loadConfig()
 	if err == nil {
 		var tlsCfg *tls.Config
 		if tlsCfg, err = mail.TLSConfig(cfg.Host, cfg.CertFile); err == nil {
 			// Only non-secret fields are logged; the Config itself is never
 			// passed to the logger.
-			logger.Info("starting", "version", version, "imap", cfg.IMAPAddr(), "allow_send", cfg.AllowSend)
+			logger.Info("starting", "version", version, "imap", cfg.IMAPAddr(), "allow_send", cfg.AllowSend, "allow_remote_images", cfg.AllowRemoteImages)
 			// A clear warning in the client's log if Bridge isn't usable
 			// right now. The server starts anyway: Bridge may start later.
 			if err := check.Startup(context.Background(), cfg); err != nil {
 				logger.Warn("Bridge not ready", "err", err, "help", help.URL(help.BridgeDown))
 			}
+			var images server.ImageFetcher
+			if cfg.AllowRemoteImages {
+				images = fetch.New(mail.MaxImageBytes)
+			}
 			return mail.New(mail.Options{
 				Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password,
 				TLSConfig: tlsCfg, MaxChanges: cfg.MaxChanges, Logger: logger,
-			}), cfg.AttachmentDir
+			}), cfg.AttachmentDir, images
 		}
 	}
 	logger.Error("not set up; every tool will say so", "version", version, "err", err, "help", help.URL(help.NotSetUp))
-	return mail.NewUnconfigured(err, logger), ""
+	return mail.NewUnconfigured(err, logger), "", nil
 }
 
 func envFilePath() (string, error) {

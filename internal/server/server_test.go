@@ -15,7 +15,7 @@ func TestServerHandshake(t *testing.T) {
 	ctx := context.Background()
 	serverT, clientT := mcp.NewInMemoryTransports()
 
-	ss, err := New("test", nil, "").Connect(ctx, serverT, nil)
+	ss, err := New("test", nil, "", nil).Connect(ctx, serverT, nil)
 	if err != nil {
 		t.Fatalf("server connect: %v", err)
 	}

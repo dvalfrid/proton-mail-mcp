@@ -49,6 +49,15 @@ linters:
               desc: "use log/slog (to stderr)"
             - pkg: "github.com/pkg/errors"
               desc: "use the standard errors package and fmt.Errorf with %w"
+        # Guardrail: only internal/fetch reaches the internet (STANDARDS.md#remote-images).
+        internet:
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/internal/fetch/*.go"
+          deny:
+            - pkg: "net/http"
+              desc: "only internal/fetch reaches the internet (STANDARDS.md#remote-images)"
     nolintlint:
       require-explanation: true
       require-specific: true
