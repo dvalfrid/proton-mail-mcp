@@ -88,3 +88,56 @@ func TestCreateDraftCountsTowardTheLimit(t *testing.T) {
 		t.Errorf("second draft past the limit: IsError=%v %q", res.IsError, text(res))
 	}
 }
+
+// update_draft writes the new version; the in-memory server doesn't say it
+// is Bridge 3.23.1 or later, so the old draft stays and the note says so.
+// (Moving it to Trash on a new Bridge is tested in internal/mail.)
+func TestUpdateDraft(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	var old CreateDraftOutput
+	e.callOK(t, "create_draft", map[string]any{"to": []string{"bob@example.org"}, "subject": "Utkast", "body": "Första."}, &old)
+
+	var out UpdateDraftOutput
+	e.callOK(t, "update_draft", map[string]any{
+		"uid": old.UID, "uidvalidity": old.UIDValidity,
+		"to": []string{"bob@example.org"}, "subject": "Utkast", "body": "Andra versionen.",
+	}, &out)
+	if out.Folder != "Drafts" || out.UID == 0 || out.UID == old.UID || out.OldMovedToTrash ||
+		!strings.Contains(out.Note, "still in Drafts") || !strings.Contains(out.Note, "3.23.1") {
+		t.Fatalf("update_draft = %+v", out)
+	}
+	var msg ReadMessageOutput
+	e.callOK(t, "read_message", map[string]any{"folder": "Drafts", "uid": out.UID, "uidvalidity": out.UIDValidity}, &msg)
+	if !strings.Contains(msg.UntrustedContent.Body, "Andra versionen.") {
+		t.Errorf("new draft reads %q", msg.UntrustedContent.Body)
+	}
+	for _, bad := range []string{"EXPUNGE", `\Deleted`, "MOVE"} {
+		if e.imap.Sent(bad) {
+			t.Errorf("update_draft sent a command containing %q", bad)
+		}
+	}
+}
+
+// A bad draft or a draft that isn't there is refused before anything is
+// written.
+func TestUpdateDraftRefuses(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	var old CreateDraftOutput
+	e.callOK(t, "create_draft", map[string]any{"to": []string{"bob@example.org"}, "subject": "s"}, &old)
+	appends := strings.Count(strings.Join(e.imap.Commands(), "\n"), "APPEND")
+	for name, args := range map[string]map[string]any{
+		"header in to": {"uid": old.UID, "uidvalidity": old.UIDValidity, "to": []string{"a@example.com\r\nBcc: evil@example.net"}},
+		"missing uid":  {"uid": old.UID + 10, "uidvalidity": old.UIDValidity, "to": []string{"a@example.com"}},
+		"stale":        {"uid": old.UID, "uidvalidity": old.UIDValidity + 1, "to": []string{"a@example.com"}},
+	} {
+		res := e.call(t, "update_draft", args)
+		if !res.IsError || strings.Contains(text(res), "evil") {
+			t.Errorf("%s: IsError=%v %q", name, res.IsError, text(res))
+		}
+	}
+	if n := strings.Count(strings.Join(e.imap.Commands(), "\n"), "APPEND"); n != appends {
+		t.Errorf("refused updates sent %d APPENDs", n-appends)
+	}
+}

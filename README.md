@@ -46,6 +46,7 @@ Claude can list, search and read messages, mark them read or unread, star them, 
 | `add_label` | Add a label (`Labels/…`); the messages stay in their folder | Yes (undoable) |
 | `trash_message` | Move messages to Trash. Nothing is deleted; they can be restored until Trash is emptied. Annotated destructive, so clients that honour it ask first. Not for drafts | Yes (undoable) |
 | `create_draft` | Write a new plain-text email (`to`, `cc`, `bcc`, `subject`, `body`) as a draft in Drafts, from your Proton address. Nothing is sent: you read, edit and send it in Proton Mail. Counts toward `PROTON_MAX_CHANGES` | Adds a draft |
+| `update_draft` | Replace a draft in Drafts with new content. The old version goes to Trash, where you can restore it from; with Proton Mail Bridge older than 3.23.1 it stays in Drafts instead, and Claude tells you. Nothing is sent. Counts toward `PROTON_MAX_CHANGES` | Replaces a draft |
 
 The tools that change messages take a folder, 1 to 50 `uids` from that folder and the `uidvalidity` that came with them (required). If the folder was renumbered or any uid is missing, the call changes nothing. No tool ever deletes permanently.
 
@@ -95,7 +96,7 @@ For the certificate, export it from Bridge (Settings → Advanced → Export TLS
 | `PROTON_BRIDGE_CERT` | — | Path to Bridge's certificate (PEM). Required |
 | `PROTON_ALLOW_SEND` | `0` | Sending is not implemented yet |
 | `PROTON_ATTACHMENT_DIR` | `Proton Mail MCP` in your Downloads folder | The only folder `save_attachment` saves into, as a full path. Created on the first save |
-| `PROTON_MAX_CHANGES` | `200` | How many messages the organize tools may change, and drafts `create_draft` may write, together, per server run: a guard against instructions hidden in emails. Restart Claude to reset the count |
+| `PROTON_MAX_CHANGES` | `200` | How many messages the organize tools may change, and drafts `create_draft` and `update_draft` may write, together, per server run: a guard against instructions hidden in emails. Restart Claude to reset the count |
 | `PROTON_MCP_CONFIG_DIR` | your config dir | Where setup's settings are kept |
 Check the program: `proton-mail-mcp --version`.
 

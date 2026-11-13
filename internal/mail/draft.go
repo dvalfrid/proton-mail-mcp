@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	netmail "net/mail"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -50,17 +51,12 @@ func (c *Client) CreateDraft(ctx context.Context, d Draft) (Created, error) {
 	if err != nil {
 		return Created{}, err
 	}
-	all, err := c.allMailboxes(ctx)
+	folders, err := c.roleFolders(ctx)
 	if err != nil {
 		return Created{}, err
 	}
-	var folder string
-	for name, m := range all {
-		if m.role == "drafts" {
-			folder = name
-		}
-	}
-	if folder == "" {
+	drafts := folders["drafts"]
+	if drafts == "" {
 		return Created{}, fmt.Errorf("%w: no folder is marked as Drafts", ErrNoSuchFolder)
 	}
 	if err := c.reserve(1); err != nil {
@@ -68,25 +64,173 @@ func (c *Client) CreateDraft(ctx context.Context, d Draft) (Created, error) {
 	}
 	var out Created
 	err = c.do(ctx, func(ic *imapclient.Client) error {
-		cmd := ic.Append(folder, int64(len(raw)), &imap.AppendOptions{Flags: []imap.Flag{imap.FlagDraft, imap.FlagSeen}})
-		if _, err := cmd.Write(raw); err != nil {
-			_ = cmd.Close() // the write error is the one to report
-			return fmt.Errorf("save the draft: %w", err)
-		}
-		if err := cmd.Close(); err != nil {
-			return fmt.Errorf("save the draft: %w", err)
-		}
-		data, err := cmd.Wait()
-		if err != nil {
-			return fmt.Errorf("save the draft: %w", err)
-		}
-		out = Created{Folder: folder, UID: uint32(data.UID), UIDValidity: data.UIDValidity}
-		return nil
+		out, err = appendDraft(ic, drafts, raw)
+		return err
 	})
 	if err != nil {
 		return Created{}, changeFailed(err)
 	}
 	return out, nil
+}
+
+// Replaced is a draft replaced by UpdateDraft.
+type Replaced struct {
+	Created
+	// OldTrashed says the old draft was moved to Trash. If not, it is
+	// still in Drafts and Kept says why.
+	OldTrashed bool
+	Kept       string
+}
+
+// UpdateDraft replaces the draft uid in Drafts with d. IMAP can't change a
+// message, so the new version is appended and the old one moved to Trash,
+// where the owner can restore it from (docs/bridge.md §7). Bridge before
+// 3.23.1 deleted a draft moved to Trash permanently, so the old draft is
+// moved only when Bridge says, in IMAP ID, that it is 3.23.1 or later;
+// otherwise it stays in Drafts and Kept says why. Never EXPUNGE. It counts
+// as one change against MaxChanges.
+func (c *Client) UpdateDraft(ctx context.Context, uid, uidValidity uint32, d Draft) (Replaced, error) {
+	raw, err := c.buildDraft(d, time.Now())
+	if err != nil {
+		return Replaced{}, err
+	}
+	folders, err := c.roleFolders(ctx)
+	if err != nil {
+		return Replaced{}, err
+	}
+	drafts, trash := folders["drafts"], folders["trash"]
+	switch {
+	case drafts == "":
+		return Replaced{}, fmt.Errorf("%w: no folder is marked as Drafts", ErrNoSuchFolder)
+	case trash == "":
+		return Replaced{}, fmt.Errorf("%w: no folder is marked as Trash", ErrNoSuchFolder)
+	}
+	var out Replaced
+	sel := Selection{Folder: drafts, UIDs: []uint32{uid}, UIDValidity: uidValidity}
+	_, err = c.change(ctx, sel, func(ic *imapclient.Client, set imap.UIDSet) error {
+		rel, err := c.bridgeVersion(ic)
+		var imapErr *imap.Error
+		if err != nil && !errors.Is(err, errVersionUnknown) && !errors.As(err, &imapErr) {
+			return err // the connection, before anything changed
+		}
+		created, aerr := appendDraft(ic, drafts, raw)
+		if aerr != nil {
+			return aerr
+		}
+		out.Created = created
+		switch {
+		case err != nil:
+			out.Kept = "the old draft is still in Drafts: Proton Mail Bridge didn't say which version it is, and Bridge before " +
+				trashDraftsSince.String() + " deletes a draft moved to Trash permanently. The owner can delete the old draft in Proton Mail."
+			return nil
+		case !rel.atLeast(trashDraftsSince):
+			out.Kept = "the old draft is still in Drafts: this Proton Mail Bridge is version " + rel.String() + ", and Bridge before " +
+				trashDraftsSince.String() + " deletes a draft moved to Trash permanently. The owner can delete the old draft in Proton Mail, or update Bridge."
+			return nil
+		}
+		if _, err := ic.Move(set, trash).Wait(); err != nil {
+			return fmt.Errorf("the new draft is saved (uid %d), but the old one wasn't moved to Trash: %w", created.UID, err)
+		}
+		out.OldTrashed = true
+		return nil
+	})
+	if err != nil {
+		return Replaced{}, err
+	}
+	return out, nil
+}
+
+// roleFolders maps each special-use role (drafts, trash, …) to its folder.
+func (c *Client) roleFolders(ctx context.Context) (map[string]string, error) {
+	all, err := c.allMailboxes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]string{}
+	for name, m := range all {
+		if m.role != "" {
+			out[m.role] = name
+		}
+	}
+	return out, nil
+}
+
+// appendDraft APPENDs raw to the Drafts folder and returns the new uid
+// from APPENDUID.
+func appendDraft(ic *imapclient.Client, folder string, raw []byte) (Created, error) {
+	cmd := ic.Append(folder, int64(len(raw)), &imap.AppendOptions{Flags: []imap.Flag{imap.FlagDraft, imap.FlagSeen}})
+	if _, err := cmd.Write(raw); err != nil {
+		_ = cmd.Close() // the write error is the one to report
+		return Created{}, fmt.Errorf("save the draft: %w", err)
+	}
+	if err := cmd.Close(); err != nil {
+		return Created{}, fmt.Errorf("save the draft: %w", err)
+	}
+	data, err := cmd.Wait()
+	if err != nil {
+		return Created{}, fmt.Errorf("save the draft: %w", err)
+	}
+	return Created{Folder: folder, UID: uint32(data.UID), UIDValidity: data.UIDValidity}, nil
+}
+
+// bridgeRelease is a Proton Mail Bridge version.
+type bridgeRelease struct{ major, minor, patch int }
+
+// trashDraftsSince is the first Bridge that keeps a draft moved to Trash
+// instead of deleting it permanently (changelog 3.23.1, BRIDGE-488;
+// docs/bridge.md §6).
+var trashDraftsSince = bridgeRelease{3, 23, 1}
+
+func (r bridgeRelease) atLeast(o bridgeRelease) bool {
+	if r.major != o.major {
+		return r.major > o.major
+	}
+	if r.minor != o.minor {
+		return r.minor > o.minor
+	}
+	return r.patch >= o.patch
+}
+
+func (r bridgeRelease) String() string { return fmt.Sprintf("%d.%d.%d", r.major, r.minor, r.patch) }
+
+// errVersionUnknown means Bridge's version couldn't be read.
+var errVersionUnknown = errors.New("the Bridge version is unknown")
+
+// bridgeName is the name Bridge gives in IMAP ID.
+const bridgeName = "Proton Mail Bridge"
+
+// askBridgeVersion asks the server its name and version with IMAP ID
+// (RFC 2971), over the verified TLS connection. Bridge answers
+// "name" "Proton Mail Bridge" "version" "03.27.01" (docs/bridge.md §1).
+func askBridgeVersion(ic *imapclient.Client) (bridgeRelease, error) {
+	if !ic.Caps().Has(imap.CapID) {
+		return bridgeRelease{}, errVersionUnknown
+	}
+	data, err := ic.ID(nil).Wait()
+	if err != nil {
+		return bridgeRelease{}, err
+	}
+	if data == nil || data.Name != bridgeName {
+		return bridgeRelease{}, errVersionUnknown
+	}
+	return parseBridgeVersion(data.Version)
+}
+
+// parseBridgeVersion reads "03.27.01" (gluon pads each part) or "3.27.1".
+func parseBridgeVersion(s string) (bridgeRelease, error) {
+	parts := strings.Split(s, ".")
+	if len(parts) != 3 {
+		return bridgeRelease{}, errVersionUnknown
+	}
+	var n [3]int
+	for i, p := range parts {
+		v, err := strconv.Atoi(p)
+		if err != nil || v < 0 {
+			return bridgeRelease{}, errVersionUnknown
+		}
+		n[i] = v
+	}
+	return bridgeRelease{n[0], n[1], n[2]}, nil
 }
 
 // buildDraft checks d and writes it as an RFC 822 message: UTF-8 plain
