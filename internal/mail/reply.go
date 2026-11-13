@@ -41,11 +41,15 @@ func (c *Client) CreateReplyDraft(ctx context.Context, r Reply) (ReplyCreated, e
 	if !utf8.ValidString(r.Body) {
 		return ReplyCreated{}, fmt.Errorf("%w: the body must be valid UTF-8", ErrBadDraft)
 	}
+	mbs, err := c.mailboxes(ctx, r.Folder)
+	if err != nil {
+		return ReplyCreated{}, err
+	}
 	raw, _, err := c.fetchMessage(ctx, r.Folder, r.UID, r.UIDValidity)
 	if err != nil {
 		return ReplyCreated{}, err
 	}
-	d, err := c.reply(raw, r)
+	d, err := c.reply(raw, r, mbs[0].role == "sent")
 	if err != nil {
 		return ReplyCreated{}, err
 	}
@@ -53,24 +57,45 @@ func (c *Client) CreateReplyDraft(ctx context.Context, r Reply) (ReplyCreated, e
 	if err != nil {
 		return ReplyCreated{}, err
 	}
-	return ReplyCreated{Created: created, To: d.To, Cc: d.Cc, Subject: d.Subject}, nil
+	return ReplyCreated{Created: created, To: shown(d.To), Cc: shown(d.Cc), Subject: d.Subject}, nil
 }
 
-// reply builds the draft that answers raw.
-func (c *Client) reply(raw []byte, r Reply) (Draft, error) {
+// shown is how addresses are told to Claude: "Name <addr>" with the name
+// decoded, not the encoded form that goes into the draft's header.
+func shown(list []string) []string {
+	out := make([]string, 0, len(list))
+	for _, s := range list {
+		if a, err := gomail.ParseAddress(s); err == nil {
+			s = formatNameAddr(a.Name, a.Address)
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+// reply builds the draft that answers raw. sent says raw is in the Sent
+// folder: then it is the owner's own message, whichever of their addresses
+// (an alias, say) it was sent from (issue #148).
+func (c *Client) reply(raw []byte, r Reply, sent bool) (Draft, error) {
 	e, err := gomessage.Read(bytes.NewReader(raw))
 	if e == nil {
 		return Draft{}, fmt.Errorf("%w (%w)", ErrUnreadableMessage, err)
 	}
 	h := gomail.Header{Header: e.Header}
-	own := ""
+	from, _ := h.AddressList("From")
+	own := map[string]bool{} // the owner's addresses, never replied to
 	if a, err := gomail.ParseAddress(c.opts.User); err == nil {
-		own = a.Address
+		own[strings.ToLower(a.Address)] = true
+	}
+	if sent {
+		for _, a := range from {
+			own[strings.ToLower(a.Address)] = true
+		}
 	}
 
 	sender, _ := h.AddressList("Reply-To")
 	if len(sender) == 0 {
-		sender, _ = h.AddressList("From")
+		sender = from
 	}
 	origTo, _ := h.AddressList("To")
 	origCc, _ := h.AddressList("Cc")
@@ -81,7 +106,7 @@ func (c *Client) reply(raw []byte, r Reply) (Draft, error) {
 		for _, l := range lists {
 			for _, a := range l {
 				key := strings.ToLower(a.Address)
-				if a.Address == "" || seen[key] || strings.EqualFold(a.Address, own) {
+				if a.Address == "" || seen[key] || own[key] {
 					continue
 				}
 				seen[key] = true
