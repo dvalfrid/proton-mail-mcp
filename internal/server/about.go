@@ -49,6 +49,7 @@ var catalog = []toolGroup{
 		{"add_label", "Add a label to messages."},
 		{"remove_label", "Remove a label from messages; they stay in their folder."},
 		{"trash_message", "Move messages, or drafts, to Trash, where they can be restored."},
+		{"mark_spam", "Mark messages as spam when you ask; Proton can delete Spam after 30 days."},
 	}},
 	{"Drafts (nothing is sent)", []toolLine{
 		{"create_draft", "Write a new email as a draft in Drafts."},

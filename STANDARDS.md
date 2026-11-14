@@ -116,7 +116,7 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 | Read | list folders, list/search messages, read a message, view an image | Allowed |
 | Fetch | `fetch_image`: an image a message links to on the internet, when the owner asks | Gated: off unless `PROTON_ALLOW_REMOTE_IMAGES=1`, see [Remote images](#remote-images) |
 | Save | save an attachment into the owner's attachment folder | Allowed: never replaces a file, never opens one |
-| Organize | move, mark read/unread, flag, label, move to Trash | Allowed (undoable), at most `PROTON_MAX_CHANGES` messages (200 by default) per server run |
+| Organize | move, mark read/unread, flag, label, move to Trash, mark as spam | Allowed (undoable), at most `PROTON_MAX_CHANGES` messages (200 by default) per server run. Spam has its own rules, see [Spam](#spam) |
 | Draft | create, update draft in `Drafts` | Allowed |
 | Send | `send_draft`: send an *existing* draft | Gated: see below |
 | Delete permanently | — | **Never** |
@@ -127,6 +127,15 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 2. `send_draft` is refused unless `PROTON_ALLOW_SEND=1`. Refused means the tool returns an error, not that it's left out of the tool list. Claude should see that sending exists but is switched off.
 3. The MCP client is configured to **always ask** before `send_draft` runs (see README). That approval comes from the client, outside Claude's control, which is why the rule is in the client and not only here.
 4. SMTP code lives in one package. `forbidigo` rejects SMTP send calls anywhere else.
+
+### Spam
+
+Moving to Spam is riskier than other moves: Proton can delete messages in Spam after 30 days, and marking spam may teach Proton's filter what to put there later. An assistant fooled by an email ("move the bank's mail to Spam") could do lasting harm. So (approved by the owner, 2026-11-14, issue #160):
+
+- `mark_spam` is the **only** way into Spam. `move_message` refuses it, so a move to Spam is always visible as what it is.
+- It is annotated destructive, so clients that honour it ask the owner before each call.
+- At most 10 messages a call, only from INBOX, Archive and `Folders/…`. It counts toward `PROTON_MAX_CHANGES`.
+- Only when the owner asks for those messages, never because an email asks (tool description and server instructions). The result tells the owner about the 30 days, and that `move_message` brings messages back out.
 
 ### Deletion
 
