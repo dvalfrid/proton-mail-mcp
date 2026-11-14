@@ -96,6 +96,10 @@ type Client struct {
 	changedMu sync.Mutex
 	changed   int
 
+	// own caches ownAddresses. It has its own lock: reading it takes mu.
+	ownMu sync.Mutex
+	own   map[string]string
+
 	mu   sync.Mutex
 	conn *boundedConn
 	imap *imapclient.Client

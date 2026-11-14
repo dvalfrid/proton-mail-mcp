@@ -31,6 +31,9 @@ var ErrBadDraft = errors.New("the draft was not created")
 
 // Draft is a new plain-text email to save in Drafts. Nothing sends it.
 type Draft struct {
+	// From is one of the owner's addresses (OwnAddress checks it), or ""
+	// for the account's address.
+	From        string
 	To, Cc, Bcc []string
 	Subject     string
 	Body        string
@@ -42,6 +45,7 @@ type Draft struct {
 
 // Created is a draft saved in Drafts.
 type Created struct {
+	From        string // the address in the draft's From
 	Folder      string
 	UID         uint32 // 0 if Bridge didn't say (no APPENDUID)
 	UIDValidity uint32
@@ -52,6 +56,10 @@ type Created struct {
 // (docs/bridge.md §7). It counts as one change against MaxChanges, so
 // instructions hidden in an email can't fill Drafts.
 func (c *Client) CreateDraft(ctx context.Context, d Draft) (Created, error) {
+	d, err := c.ownSender(ctx, d)
+	if err != nil {
+		return Created{}, err
+	}
 	raw, err := c.buildDraft(d, time.Now())
 	if err != nil {
 		return Created{}, err
@@ -75,6 +83,7 @@ func (c *Client) CreateDraft(ctx context.Context, d Draft) (Created, error) {
 	if err != nil {
 		return Created{}, changeFailed(err)
 	}
+	out.From = c.sender(d)
 	return out, nil
 }
 
@@ -95,6 +104,10 @@ type Replaced struct {
 // otherwise it stays in Drafts and Kept says why. Never EXPUNGE. It counts
 // as one change against MaxChanges.
 func (c *Client) UpdateDraft(ctx context.Context, uid, uidValidity uint32, d Draft) (Replaced, error) {
+	d, err := c.ownSender(ctx, d)
+	if err != nil {
+		return Replaced{}, err
+	}
 	raw, err := c.buildDraft(d, time.Now())
 	if err != nil {
 		return Replaced{}, err
@@ -135,6 +148,7 @@ func (c *Client) UpdateDraft(ctx context.Context, uid, uidValidity uint32, d Dra
 	if err != nil {
 		return Replaced{}, err
 	}
+	out.From = c.sender(d)
 	return out, nil
 }
 
@@ -249,8 +263,34 @@ func parseBridgeVersion(s string) (bridgeRelease, error) {
 	return bridgeRelease{n[0], n[1], n[2]}, nil
 }
 
+// ownSender checks d.From against the owner's addresses (issue #162): a
+// draft never claims to come from anyone else. "" stays "".
+func (c *Client) ownSender(ctx context.Context, d Draft) (Draft, error) {
+	if d.From == "" {
+		return d, nil
+	}
+	from, err := c.OwnAddress(ctx, d.From)
+	if err != nil {
+		return Draft{}, err
+	}
+	d.From = from
+	return d, nil
+}
+
+// sender is the address d is written from: d.From, else the account's.
+func (c *Client) sender(d Draft) string {
+	if d.From != "" {
+		return d.From
+	}
+	if a, err := netmail.ParseAddress(c.opts.User); err == nil {
+		return a.Address
+	}
+	return c.opts.User
+}
+
 // buildDraft checks d and writes it as an RFC 822 message: UTF-8 plain
-// text, quoted-printable, From the account's address.
+// text, quoted-printable, From d.From (checked by ownSender) or else the
+// account's address.
 func (c *Client) buildDraft(d Draft, now time.Time) ([]byte, error) {
 	to, err := addresses("to", d.To)
 	if err != nil {
@@ -282,9 +322,10 @@ func (c *Client) buildDraft(d Draft, now time.Time) ([]byte, error) {
 	}
 
 	var h gomail.Header
-	if from, err := netmail.ParseAddress(c.opts.User); err == nil {
-		// Bridge uses the account's default address if this isn't one of
-		// the account's own (docs/bridge.md §7).
+	if from, err := netmail.ParseAddress(c.sender(d)); err == nil {
+		// Bridge creates the draft on the address in From if it is one of
+		// the account's addresses that can send, else on the default
+		// address (docs/bridge.md §7).
 		h.SetAddressList("From", []*gomail.Address{{Name: from.Name, Address: from.Address}})
 	}
 	h.SetAddressList("To", to)

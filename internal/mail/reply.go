@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -20,6 +21,9 @@ type Reply struct {
 	UIDValidity uint32
 	Body        string
 	All         bool // also to the original's To and Cc
+	// From is the owner's address to reply from; "" picks the one the
+	// original was sent to, or from (issue #162).
+	From string
 }
 
 // ReplyCreated is a reply draft saved in Drafts, with what it was given
@@ -45,11 +49,15 @@ func (c *Client) CreateReplyDraft(ctx context.Context, r Reply) (ReplyCreated, e
 	if err != nil {
 		return ReplyCreated{}, err
 	}
+	own, err := c.ownAddresses(ctx, false)
+	if err != nil {
+		return ReplyCreated{}, err
+	}
 	raw, _, err := c.fetchMessage(ctx, r.Folder, r.UID, r.UIDValidity)
 	if err != nil {
 		return ReplyCreated{}, err
 	}
-	d, err := c.reply(raw, r, mbs[0].role == "sent")
+	d, err := c.reply(raw, r, own, mbs[0].role == "sent")
 	if err != nil {
 		return ReplyCreated{}, err
 	}
@@ -73,10 +81,12 @@ func shown(list []string) []string {
 	return out
 }
 
-// reply builds the draft that answers raw. sent says raw is in the Sent
-// folder: then it is the owner's own message, whichever of their addresses
-// (an alias, say) it was sent from (issue #148).
-func (c *Client) reply(raw []byte, r Reply, sent bool) (Draft, error) {
+// reply builds the draft that answers raw. ownAddrs are the owner's
+// addresses (ownAddresses): never replied to, and the reply comes from the
+// one the original was sent from or to (issue #162). sent says raw is in
+// the Sent folder: then it is the owner's own message, whichever address it
+// was sent from (issue #148).
+func (c *Client) reply(raw []byte, r Reply, ownAddrs map[string]string, sent bool) (Draft, error) {
 	e, err := gomessage.Read(bytes.NewReader(raw))
 	if e == nil {
 		return Draft{}, fmt.Errorf("%w (%w)", ErrUnreadableMessage, err)
@@ -84,9 +94,13 @@ func (c *Client) reply(raw []byte, r Reply, sent bool) (Draft, error) {
 	h := gomail.Header{Header: e.Header}
 	from, _ := h.AddressList("From")
 	own := map[string]bool{} // the owner's addresses, never replied to
+	for k := range ownAddrs {
+		own[k] = true
+	}
 	if a, err := gomail.ParseAddress(c.opts.User); err == nil {
 		own[strings.ToLower(a.Address)] = true
 	}
+	known := maps.Clone(own) // addresses OwnAddress accepts as a sender
 	if sent {
 		for _, a := range from {
 			own[strings.ToLower(a.Address)] = true
@@ -136,7 +150,17 @@ func (c *Client) reply(raw []byte, r Reply, sent bool) (Draft, error) {
 		subject = string([]rune(subject)[:MaxDraftSubjectRunes])
 	}
 
-	d := Draft{To: to, Cc: cc, Subject: subject, Body: r.Body}
+	d := Draft{From: r.From, To: to, Cc: cc, Subject: subject, Body: r.Body}
+	if d.From == "" {
+		// The owner's address the original came from (their own message)
+		// or was sent to, as Proton Mail's own reply does.
+		for _, l := range [][]*gomail.Address{from, origTo, origCc} {
+			if a := firstOwn(l, known); a != "" {
+				d.From = a
+				break
+			}
+		}
+	}
 	if id, err := h.MessageID(); err == nil && msgID(id) {
 		d.InReplyTo = id
 		refs, _ := h.MsgIDList("References")
@@ -153,6 +177,16 @@ func (c *Client) reply(raw []byte, r Reply, sent bool) (Draft, error) {
 		d.Body = text + quote(m, c.opts.Location, MaxDraftBodyBytes-len(text))
 	}
 	return d, nil
+}
+
+// firstOwn is the first address in l that is the owner's, or "".
+func firstOwn(l []*gomail.Address, own map[string]bool) string {
+	for _, a := range l {
+		if own[strings.ToLower(a.Address)] {
+			return a.Address
+		}
+	}
+	return ""
 }
 
 // msgID is a message ID safe to put back in a header: no spaces, angle
