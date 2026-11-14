@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.4.0](https://github.com/dvalfrid/proton-mail-mcp/compare/v0.3.0...v0.4.0) (2026-11-14)
+
+
+### Features
+
+* **tools:** ask Claude to show a written draft laid out as an email ([#144](https://github.com/dvalfrid/proton-mail-mcp/issues/144)) ([b2d5ee8](https://github.com/dvalfrid/proton-mail-mcp/commit/b2d5ee831a85779d7eb4a269807070b92c76a0ce))
+* **tools:** fetch an image a message links to, on the owner's request ([#153](https://github.com/dvalfrid/proton-mail-mcp/issues/153)) ([aed995a](https://github.com/dvalfrid/proton-mail-mcp/commit/aed995adede3e56136a22c5768568e10e7ff1418))
+* **tools:** let Claude view images in a message ([#117](https://github.com/dvalfrid/proton-mail-mcp/issues/117)) ([bf77f6e](https://github.com/dvalfrid/proton-mail-mcp/commit/bf77f6e88c2a855cc5bd94c691b93f9af31a5051))
+* **tools:** let trash_message move drafts on Bridge 3.23.1 or later ([#135](https://github.com/dvalfrid/proton-mail-mcp/issues/135)) ([35419b2](https://github.com/dvalfrid/proton-mail-mcp/commit/35419b2eb58b2a3639bb40e3ae31b3a77d0c2cc6))
+* **tools:** remove a label from messages ([#136](https://github.com/dvalfrid/proton-mail-mcp/issues/136)) ([b451746](https://github.com/dvalfrid/proton-mail-mcp/commit/b45174689736d02439c34581b9663ab463881491))
+* **tools:** replace a draft and move the old one to Trash ([#133](https://github.com/dvalfrid/proton-mail-mcp/issues/133)) ([92a524c](https://github.com/dvalfrid/proton-mail-mcp/commit/92a524c06fb0c9450dffa36765dcddc31f0e5ea7))
+* **tools:** save an attachment to the owner's attachment folder ([#119](https://github.com/dvalfrid/proton-mail-mcp/issues/119)) ([61ba6e7](https://github.com/dvalfrid/proton-mail-mcp/commit/61ba6e7b7846741e63f9d062e8930b96e4357ddf))
+* **tools:** show a written draft's body in a quote block ([#147](https://github.com/dvalfrid/proton-mail-mcp/issues/147)) ([3611c67](https://github.com/dvalfrid/proton-mail-mcp/commit/3611c67e90f69997bc7ec11955fdec2c270c24c9))
+* **tools:** tell the owner the running version and the tools in short ([#142](https://github.com/dvalfrid/proton-mail-mcp/issues/142)) ([b22a3e2](https://github.com/dvalfrid/proton-mail-mcp/commit/b22a3e276950587c126be463fba7a97e627d9fdf))
+* **tools:** write a new email as a draft in Drafts ([#131](https://github.com/dvalfrid/proton-mail-mcp/issues/131)) ([4efd282](https://github.com/dvalfrid/proton-mail-mcp/commit/4efd282643738b35641a84f29dc114533c58dd3b))
+* **tools:** write a reply to a message as a draft ([#138](https://github.com/dvalfrid/proton-mail-mcp/issues/138)) ([b838cad](https://github.com/dvalfrid/proton-mail-mcp/commit/b838cad326286b9ce40ea0c19132e6dca553cdb5))
+
+
+### Bug Fixes
+
+* **installer:** plain ASCII finish text that fits on the page ([#155](https://github.com/dvalfrid/proton-mail-mcp/issues/155)) ([dd27c25](https://github.com/dvalfrid/proton-mail-mcp/commit/dd27c2562ce0f4185447925fc30b3216f0f6e380))
+* **installer:** say how to restart Claude after an update ([#146](https://github.com/dvalfrid/proton-mail-mcp/issues/146)) ([b23ef03](https://github.com/dvalfrid/proton-mail-mcp/commit/b23ef03f059172f1f13c3e3e80425df27cd93cf0))
+* **installer:** update while Claude runs copies from several earlier versions ([#140](https://github.com/dvalfrid/proton-mail-mcp/issues/140)) ([b7110b1](https://github.com/dvalfrid/proton-mail-mcp/commit/b7110b1bd7b1216d179ec77f0d2bc7c8f2fe8626))
+* **tools:** mark every image in an HTML message and list the remote ones ([#152](https://github.com/dvalfrid/proton-mail-mcp/issues/152)) ([1ad34e6](https://github.com/dvalfrid/proton-mail-mcp/commit/1ad34e6909f31ea425e9f663d7dada9a673fa2aa))
+* **tools:** reply to own mail sent from an alias goes to its recipients ([#151](https://github.com/dvalfrid/proton-mail-mcp/issues/151)) ([9709abc](https://github.com/dvalfrid/proton-mail-mcp/commit/9709abce4db1b9687be0cb2237f5e4660022295a))
+* **tools:** show dates and search days in the owner's time zone ([#121](https://github.com/dvalfrid/proton-mail-mcp/issues/121)) ([2bbbdcf](https://github.com/dvalfrid/proton-mail-mcp/commit/2bbbdcf6150ac542c62d115e7a086ce0c9e143cb))
+
 ## [0.3.0](https://github.com/dvalfrid/proton-mail-mcp/compare/v0.2.0...v0.3.0) (2026-11-12)
 
 
