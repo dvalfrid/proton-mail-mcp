@@ -91,6 +91,7 @@ func loadConfig() (config.Config, string, error) {
 	if err != nil {
 		return config.Config{}, where, fmt.Errorf("%w (run `proton-mail-mcp setup`, or see %s)", err, where)
 	}
+	cfg.Options = config.Options(cfg, dotenv, saved)
 	return cfg, where, nil
 }
 
@@ -140,13 +141,13 @@ func runCheck() int {
 }
 
 func run(logger *slog.Logger) error {
-	mailClient, attachmentDir, images := connect(logger)
+	mailClient, attachmentDir, images, settings := connect(logger)
 	defer func() { _ = mailClient.Close() }() // best effort on shutdown
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	err := server.New(version, mailClient, attachmentDir, images).Run(ctx, &mcp.StdioTransport{})
+	err := server.New(version, mailClient, attachmentDir, images, settings...).Run(ctx, &mcp.StdioTransport{})
 	if errors.Is(err, context.Canceled) {
 		return nil
 	}
@@ -159,7 +160,7 @@ func run(logger *slog.Logger) error {
 // client only showing a disconnected server. No connection is made then.
 // It also returns the attachment folder, empty without settings, and the
 // image fetcher for fetch_image, nil unless PROTON_ALLOW_REMOTE_IMAGES=1.
-func connect(logger *slog.Logger) (*mail.Client, string, server.ImageFetcher) {
+func connect(logger *slog.Logger) (*mail.Client, string, server.ImageFetcher, []config.Option) {
 	cfg, _, err := loadConfig()
 	if err == nil {
 		var tlsCfg *tls.Config
@@ -179,11 +180,11 @@ func connect(logger *slog.Logger) (*mail.Client, string, server.ImageFetcher) {
 			return mail.New(mail.Options{
 				Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password,
 				TLSConfig: tlsCfg, MaxChanges: cfg.MaxChanges, Logger: logger,
-			}), cfg.AttachmentDir, images
+			}), cfg.AttachmentDir, images, cfg.Options
 		}
 	}
 	logger.Error("not set up; every tool will say so", "version", version, "err", err, "help", help.URL(help.NotSetUp))
-	return mail.NewUnconfigured(err, logger), "", nil
+	return mail.NewUnconfigured(err, logger), "", nil, nil
 }
 
 func envFilePath() (string, error) {

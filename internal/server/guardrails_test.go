@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -403,6 +404,33 @@ func TestNoMailContentInLogs(t *testing.T) {
 	for _, s := range []string{"Lunch on Friday", "bob@example.org", "Are you free", "chart.png", "Quarterly chart"} {
 		if strings.Contains(e.logs.String(), s) {
 			t.Errorf("logs contain mail content %q", s)
+		}
+	}
+}
+
+// Only the owner changes settings, never through Claude: no code a tool can
+// reach writes config.json or .env, so an email can't talk Claude into
+// switching a gate on (issue #158). The packages tools run in are scanned
+// for the settings writers.
+func TestNoToolWritesSettings(t *testing.T) {
+	t.Parallel()
+	writer := regexp.MustCompile(`config\.Write(File|Settings)\(|\.env"|SettingsFile\(`)
+	for _, dir := range []string{".", "../mail", "../fetch", "../save"} {
+		files, err := filepath.Glob(filepath.Join(dir, "*.go"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, f := range files {
+			if strings.HasSuffix(f, "_test.go") {
+				continue
+			}
+			src, err := os.ReadFile(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if m := writer.Find(src); m != nil {
+				t.Errorf("%s uses %q: tools must not touch the settings", f, m)
+			}
 		}
 	}
 }

@@ -65,6 +65,9 @@ type Config struct {
 	// saved into. Empty if it is unset and the default couldn't be found:
 	// saving then says how to set it.
 	AttachmentDir string
+	// Options are the owner's options with where each came from, filled in
+	// by the caller that knows the files (Options); nil from Load.
+	Options []Option
 }
 
 // IMAPAddr returns host:port for IMAP.

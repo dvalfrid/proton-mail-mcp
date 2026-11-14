@@ -104,6 +104,19 @@ For the certificate, export it from Bridge (Settings → Advanced → Export TLS
 | `PROTON_ATTACHMENT_DIR` | `Proton Mail MCP` in your Downloads folder | The only folder `save_attachment` saves into, as a full path. Created on the first save |
 | `PROTON_MAX_CHANGES` | `200` | How many messages the organize tools may change, and drafts the draft tools may write, together, per server run: a guard against instructions hidden in emails. Restart Claude to reset the count |
 | `PROTON_MCP_CONFIG_DIR` | your config dir | Where setup's settings are kept |
+
+### Options in config.json
+
+The three options above that aren't about Bridge can also be kept in `config.json`, the file setup writes in the settings folder (`PROTON_MCP_CONFIG_DIR`), so you don't need a `.env` file for them. Running setup again keeps them.
+
+```json
+"allow_remote_images": true,
+"attachment_dir": "D:\\Mail attachments",
+"max_changes": 300
+```
+
+The environment and `.env` override `config.json`. `proton-mail-mcp check` lists each option with its value and where it came from (environment, `.env`, `config.json` or default), and Claude's `about` shows the same. Only you change them: no tool can, so an email can't talk Claude into switching one on. Restart Claude after a change. A Settings page in the setup window is coming (issue #158).
+
 Check the program: `proton-mail-mcp --version`.
 
 Check the whole connection: `proton-mail-mcp check`. It goes through the settings, whether Bridge answers and is really Bridge, the pinned certificate, the login, SMTP, (on Windows) which program owns the port, and whether a Claude client has the server registered. Each line says what is wrong and how to fix it; the exit code is non-zero on failure. It reads no mail and prints no secrets. The server also logs a warning at start-up if Bridge isn't ready.

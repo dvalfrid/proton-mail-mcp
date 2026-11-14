@@ -130,8 +130,9 @@ func (o *Options) Save(user, password string, c Certificate) (string, error) {
 	if err := config.WriteFile(certFile, c.PEM()); err != nil {
 		return "", err
 	}
-	settings := config.Settings{User: user, Host: o.Host, IMAPPort: o.IMAPPort, SMTPPort: o.SMTPPort, CertFile: certFile, Fingerprint: c.Fingerprint}
 	file := config.SettingsFile(o.Dir)
+	prev, _ := config.ReadSettings(file) // an unreadable file is replaced, without options
+	settings := config.Settings{User: user, Host: o.Host, IMAPPort: o.IMAPPort, SMTPPort: o.SMTPPort, CertFile: certFile, Fingerprint: c.Fingerprint}.KeepOptions(prev)
 	if err := config.WriteSettings(file, settings); err != nil {
 		return "", err
 	}

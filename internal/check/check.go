@@ -68,6 +68,13 @@ func Run(ctx context.Context, in Input) []Step {
 	}
 	cfg := in.Config
 	add(Step{Name: "settings", Status: OK, Detail: "user, password and certificate are set (" + in.SettingsFile + ")"})
+	if len(cfg.Options) > 0 {
+		lines := make([]string, 0, len(cfg.Options))
+		for _, o := range cfg.Options {
+			lines = append(lines, o.Name+": "+o.Value+" ("+o.Origin+")")
+		}
+		add(Step{Name: "options", Status: OK, Detail: strings.Join(lines, "; ")})
+	}
 
 	imapAddr := cfg.IMAPAddr()
 	greeting, err := bridge.IMAPGreeting(ctx, imapAddr)

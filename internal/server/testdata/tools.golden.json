@@ -63,6 +63,34 @@
         "note": {
           "type": "string"
         },
+        "settings": {
+          "description": "the owner's options in effect and where each came from",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "origin": {
+                "description": "where the value came from: environment, .env, config.json or default",
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "value",
+              "origin"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
         "version": {
           "description": "the running server's version",
           "type": "string"

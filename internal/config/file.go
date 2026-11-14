@@ -19,6 +19,19 @@ type Settings struct {
 	SMTPPort    int    `json:"smtp_port"`
 	CertFile    string `json:"cert_file"`
 	Fingerprint string `json:"cert_sha256"` // shown by `check`; the file is what is trusted
+
+	// The owner's options (issue #158). Unset means the default applies;
+	// .env and the environment override them.
+	AllowRemoteImages *bool  `json:"allow_remote_images,omitempty"`
+	AttachmentDir     string `json:"attachment_dir,omitempty"`
+	MaxChanges        int    `json:"max_changes,omitempty"`
+}
+
+// KeepOptions returns s with the owner's options from prev, so running
+// setup again keeps them.
+func (s Settings) KeepOptions(prev Settings) Settings {
+	s.AllowRemoteImages, s.AttachmentDir, s.MaxChanges = prev.AllowRemoteImages, prev.AttachmentDir, prev.MaxChanges
+	return s
 }
 
 // EnvConfigDir overrides Dir, for tests and portable installs.
@@ -115,6 +128,16 @@ func (s Settings) Values() map[string]string {
 	}
 	if s.SMTPPort != 0 {
 		m[EnvSMTPPort] = strconv.Itoa(s.SMTPPort)
+	}
+	if s.AllowRemoteImages != nil {
+		m[EnvAllowRemoteImages] = "0"
+		if *s.AllowRemoteImages {
+			m[EnvAllowRemoteImages] = "1"
+		}
+	}
+	set(EnvAttachmentDir, s.AttachmentDir)
+	if s.MaxChanges != 0 {
+		m[EnvMaxChanges] = strconv.Itoa(s.MaxChanges)
 	}
 	return m
 }
