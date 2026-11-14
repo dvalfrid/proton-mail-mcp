@@ -5,7 +5,8 @@
 // The page asks; this package decides. The page can only call the methods
 // in Backend.Call, and the backend enforces the order: the certificate is
 // pinned only when verified or confirmed, nothing is written before the
-// login has worked, and registering needs a saved setup. The password goes
+// login has worked, and registering needs a saved setup. The Settings page
+// (saveSettings) writes only the owner's options into a saved setup. The password goes
 // from the page's hidden field to the login test and the OS credential
 // store, and nowhere else: it is never logged or sent back to the page.
 package wizard
@@ -48,6 +49,9 @@ type Backend struct {
 	cert      *setup.Certificate
 	confirmed bool
 	saved     bool
+
+	settingsOnly bool                               // open on the Settings page
+	pickFolder   func(start string) (string, error) // the native folder picker; nil in tests
 }
 
 // Accent is the system accent colour, in the shades the page uses in light
@@ -111,6 +115,16 @@ func (b *Backend) Call(ctx context.Context, method string, args json.RawMessage)
 			return nil, errors.New("bad link request")
 		}
 		return nil, b.openLink(a.Name)
+	case "getSettings":
+		return b.getSettings(), nil
+	case "saveSettings":
+		return b.saveSettings(args)
+	case "pickFolder":
+		var a struct{ Start string }
+		if err := json.Unmarshal(args, &a); err != nil {
+			return nil, errors.New("bad folder request")
+		}
+		return b.pickAttachmentDir(a.Start)
 	case "close":
 		if b.quit != nil {
 			b.quit()
@@ -132,6 +146,7 @@ type State struct {
 	Clients        []ClientState `json:"clients"` // the installed ones
 	Exe            string        `json:"exe"`     // the server, for registering by hand
 	Error          string        `json:"error,omitempty"`
+	Mode           string        `json:"mode"` // "setup", or "settings" for the Settings page
 }
 
 // ClientState is one installed MCP client.
@@ -143,7 +158,10 @@ type ClientState struct {
 
 func (b *Backend) state() State {
 	s := State{Platform: runtime.GOOS, Version: b.version, User: b.prev.User, Store: storeName(), CanVerifyOwner: setup.CanVerifyOwner(),
-		Accent: b.accent, Exe: b.o.Exe, Clients: []ClientState{}}
+		Accent: b.accent, Exe: b.o.Exe, Clients: []ClientState{}, Mode: "setup"}
+	if b.settingsOnly {
+		s.Mode = "settings"
+	}
 	if b.prev.User != "" {
 		_, err := b.o.Store.Get(b.prev.User)
 		s.SavedPassword = err == nil

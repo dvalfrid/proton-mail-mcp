@@ -35,7 +35,7 @@ body { font-family: var(--font); font-size: var(--fs); color: var(--fg); backgro
 .window { animation: appear .18s ease-out; }
 @keyframes appear { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .window { animation: none; } }
-.body { display: grid; grid-template-columns: 210px 1fr; min-height: 0; }
+.body { display: grid; grid-template-columns: 210px minmax(0, 1fr); min-height: 0; }
 .nav { background: var(--side); padding: 12px 8px; }
 .content { padding: 28px 36px; overflow: auto; min-height: 0; outline: none; }
 .win .content { background: var(--card); border-top-left-radius: 8px; border-left: 1px solid var(--card-border); border-top: 1px solid var(--card-border); }
@@ -161,6 +161,7 @@ const S = {
   step: 0, state: null, bridge: null, looking: false, confirmed: false,
   user: '', reveal: false, signing: false, signInError: '', typed: false,
   pick: {}, registering: false, registered: null, fatal: '',
+  settings: null, savingSettings: false, settingsSaved: false, settingsError: '',
 };
 
 // ---- Steps ----
@@ -256,7 +257,60 @@ function stepDone() {
     ${row(I.ok(), 'ok', 'Signed in as ' + esc(S.user), 'Password saved in ' + esc(S.state?.store))}
     ${added.length ? row(I.ok(), 'ok', 'Added to ' + esc(added.join(' and '))) : ''}
     ${failed.map(f => row(I.err, 'err', "Couldn't add to " + esc(f.name), esc(f.error))).join('')}</div>
-    <p class="small" style="margin-top:14px">Updates install without asking anything again. If something stops working, <a data-link="help" tabindex="0">see the troubleshooting guide</a>.</p>`;
+    <p class="small" style="margin-top:14px">Updates install without asking anything again. To change options later, such as fetching images, open <i>Proton Mail MCP Settings</i> in the Start menu. If something stops working, <a data-link="help" tabindex="0">see the troubleshooting guide</a>.</p>`;
+}
+
+// ---- Settings page (proton-mail-mcp-setup -settings) ----
+function viewSettings() {
+  const s = S.settings;
+  const head = `<h2>Settings</h2><p class="lead">Options for Proton Mail MCP. Only you change them, here: Claude can't.</p>`;
+  if (!s) return head + `<div class="card rows">${row(I.spin, '', 'Reading the settings…')}</div>`;
+  if (!s.setUp) return head + banner('warn', 'Not set up yet', 'Run <i>Proton Mail MCP Setup</i> from the Start menu first. The options are saved with its settings.');
+  const dis = n => (s.locked[n] || S.savingSettings) ? 'disabled' : '';
+  const lock = n => s.locked[n] ? `<div class="help warnc">Set in ${s.locked[n] === '.env' ? 'the .env file' : 'an environment variable'}, which overrides this.</div>` : '';
+  return head +
+    (S.settingsError ? banner('error', "Couldn't save", esc(S.settingsError)) : '') +
+    (S.settingsSaved ? `<div class="card rows" style="margin-bottom:14px">${row(I.ok(), 'ok', 'Saved', 'Restart Claude to use them. Claude Desktop: right-click its icon by the clock, Quit, then start it again. Claude Code: start a new session.')}</div>` : '') +
+    `<div class="field"><label class="check"><input type="checkbox" id="opt-images" ${s.allowRemoteImages ? 'checked' : ''} ${dis('allowRemoteImages')}> Fetch images from the internet</label>
+      <div class="help">Lets Claude fetch an image a message links to, when you ask. The sender then sees that the message was opened.</div>${lock('allowRemoteImages')}</div>
+    <div class="field"><label for="opt-dir">Attachment folder</label>
+      <div class="input" style="gap:8px"><input id="opt-dir" type="text" spellcheck="false" autocomplete="off" placeholder="${esc(s.defaultAttachmentDir)}" value="${esc(s.attachmentDir)}" ${dis('attachmentDir')}><button class="btn" id="opt-browse" style="min-width:0" ${dis('attachmentDir')}>Browse…</button></div>
+      <div class="help">Where Claude saves the attachments you ask for. Empty: ${esc(s.defaultAttachmentDir || 'Proton Mail MCP in Downloads')}.</div>${lock('attachmentDir')}</div>
+    <div class="field"><label for="opt-max">Changes per run</label><div class="input" style="max-width:140px"><input id="opt-max" type="number" min="1" max="10000" value="${esc(s.maxChanges)}" ${dis('maxChanges')}></div>
+      <div class="help">How many messages Claude may change, and drafts it may write, before Claude is restarted: a guard against instructions hidden in emails. Default ${esc(s.defaultMaxChanges)}.</div>${lock('maxChanges')}</div>
+    ${S.savingSettings ? `<div class="busy small">${I.spin} Saving…</div>` : ''}`;
+}
+
+function renderSettings() {
+  $('#steps').innerHTML = `<li class="current" aria-current="page"><span class="dot">${ICON.replace('<svg ', '<svg width="18" height="18" ')}</span>Settings</li>`;
+  $('#content').innerHTML = viewSettings();
+  $('#next').textContent = 'Save';
+  $('#next').disabled = !S.settings?.setUp || S.savingSettings;
+  $('#back').style.visibility = 'hidden';
+  $('#cancel').textContent = 'Close';
+  const im = $('#opt-images'), dir = $('#opt-dir'), max = $('#opt-max'), br = $('#opt-browse');
+  const changed = () => { S.settingsSaved = false; };
+  if (im) im.onchange = e => { S.settings.allowRemoteImages = e.target.checked; changed(); };
+  if (dir) dir.oninput = e => { S.settings.attachmentDir = e.target.value; changed(); };
+  if (max) max.oninput = e => { S.settings.maxChanges = e.target.value; changed(); };
+  if (br) br.onclick = async () => {
+    try {
+      const picked = await call('pickFolder', { start: S.settings.attachmentDir });
+      if (picked) { S.settings.attachmentDir = picked; S.settingsSaved = false; }
+    } catch (e) { S.settingsError = e.message; }
+    renderSettings();
+  };
+  wire();
+}
+
+async function saveSettings() {
+  const s = S.settings;
+  S.savingSettings = true; S.settingsError = ''; S.settingsSaved = false; renderSettings();
+  try {
+    S.settings = await call('saveSettings', { allowRemoteImages: !!s.allowRemoteImages, attachmentDir: s.attachmentDir || '', maxChanges: Number(s.maxChanges) });
+    S.settingsSaved = true;
+  } catch (e) { S.settingsError = e.message; }
+  S.savingSettings = false; renderSettings();
 }
 
 // ---- Rendering ----
@@ -276,6 +330,7 @@ function render() {
     $('#cancel').textContent = 'Close';
     return;
   }
+  if (S.state?.mode === 'settings') { renderSettings(); return; }
   // Keep a typed password across re-renders of the same step.
   const pass = $('#pass')?.value;
   $('#steps').innerHTML = STEPS.map((n, i) => `<li class="${i === S.step ? 'current' : i < S.step ? 'done' : ''}" ${i === S.step ? 'aria-current="step"' : ''}><span class="dot">${i < S.step ? I.ok() : i + 1}</span>${n}</li>`).join('');
@@ -350,6 +405,7 @@ function go(step) {
 }
 
 async function next() {
+  if (S.state?.mode === 'settings') { if (S.settings?.setUp && !S.savingSettings) saveSettings(); return; }
   if (!canNext()) return;
   switch (S.step) {
     case 1:
@@ -379,6 +435,10 @@ mq.addEventListener('change', theme);
   if (/^#[0-9a-f]{6}$/i.test(a.light || '')) document.documentElement.style.setProperty('--sys-accent-light', a.light);
   if (/^#[0-9a-f]{6}$/i.test(a.dark || '')) document.documentElement.style.setProperty('--sys-accent-dark', a.dark);
   theme(); render();
+  if (S.state?.mode === 'settings') {
+    try { S.settings = await call('getSettings'); } catch (e) { S.fatal = e.message; }
+    render();
+  }
   // The page is laid out: the window can be shown. (Not requestAnimationFrame:
   // a web view in a hidden window draws no frames.)
   window.__pmcpReady?.();

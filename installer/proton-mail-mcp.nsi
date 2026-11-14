@@ -153,6 +153,7 @@ Section "Install"
 
   CreateShortcut "$SMPROGRAMS\${PRODUCT} Setup.lnk" "$INSTDIR\${WIZARD}" "" "$INSTDIR\${WIZARD}" 0 "" "" "Set up ${PRODUCT}: Bridge, password, Claude"
   ; check prints to the console, which stays open to read it.
+  CreateShortcut "$SMPROGRAMS\${PRODUCT} Settings.lnk" "$INSTDIR\${WIZARD}" "-settings" "$INSTDIR\${WIZARD}" 0 "" "" "Change ${PRODUCT}'s options: images, attachment folder, changes per run"
   CreateShortcut "$SMPROGRAMS\${PRODUCT} Check.lnk" "$WINDIR\System32\cmd.exe" '/k ""$INSTDIR\${SERVER}" check"' "$INSTDIR\${WIZARD}" 0 "" "" "Test the connection to Proton Mail Bridge"
 
   WriteRegStr HKCU "${UNINSTKEY}" "DisplayName" "${PRODUCT}"
@@ -210,6 +211,7 @@ Section "-un.Program" SecUnProgram
 
   Delete "$SMPROGRAMS\${PRODUCT} Setup.lnk"
   Delete "$SMPROGRAMS\${PRODUCT} Check.lnk"
+  Delete "$SMPROGRAMS\${PRODUCT} Settings.lnk"
   DeleteRegKey HKCU "${UNINSTKEY}"
 SectionEnd
 

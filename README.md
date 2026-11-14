@@ -115,7 +115,9 @@ The three options above that aren't about Bridge can also be kept in `config.jso
 "max_changes": 300
 ```
 
-The environment and `.env` override `config.json`. `proton-mail-mcp check` lists each option with its value and where it came from (environment, `.env`, `config.json` or default), and Claude's `about` shows the same. Only you change them: no tool can, so an email can't talk Claude into switching one on. Restart Claude after a change. A Settings page in the setup window is coming (issue #158).
+On Windows, open **Proton Mail MCP Settings** in the Start menu to change them in a window: a switch for images, a folder picker for attachments, and the number of changes per run. It saves `config.json`, and shows an option that `.env` or the environment sets as locked.
+
+The environment and `.env` override `config.json`. `proton-mail-mcp check` lists each option with its value and where it came from (environment, `.env`, `config.json` or default), and Claude's `about` shows the same. Only you change them: no tool can, so an email can't talk Claude into switching one on. Restart Claude after a change.
 
 Check the program: `proton-mail-mcp --version`.
 
