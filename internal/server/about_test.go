@@ -3,7 +3,10 @@ package server
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/dvalfrid/proton-mail-mcp/internal/config"
 )
 
 // about gives the version it was built with, and its list names every
@@ -38,5 +41,14 @@ func TestAboutListsEveryTool(t *testing.T) {
 	slices.Sort(registered)
 	if !slices.Equal(listed, registered) {
 		t.Errorf("about lists %q,\nregistered are %q", listed, registered)
+	}
+}
+
+// about shows the owner's options as New was given them (issue #158).
+func TestAboutShowsTheSettings(t *testing.T) {
+	t.Parallel()
+	out := aboutOutput("v", []config.Option{{Name: "changes per run", Value: "200", Origin: config.FromDefault}})
+	if len(out.Settings) != 1 || out.Settings[0].Origin != "default" || !strings.Contains(out.Note, "only the owner changes them") {
+		t.Errorf("%+v", out)
 	}
 }

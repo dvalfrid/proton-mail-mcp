@@ -157,6 +157,23 @@ func TestSetupHappyPath(t *testing.T) {
 	}
 }
 
+// Running setup again keeps the owner's options in config.json (issue #158).
+func TestSetupKeepsTheOptions(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t, &script{confirms: []bool{true, true}, lines: []string{testutil.User}, secrets: []string{testutil.Password}})
+	on := true
+	if err := config.WriteSettings(config.SettingsFile(f.o.Dir), config.Settings{User: "old@example.com", AllowRemoteImages: &on, MaxChanges: 7}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(context.Background(), f.o); err != nil {
+		t.Fatalf("%v\n%s", err, f.out)
+	}
+	s, err := config.ReadSettings(config.SettingsFile(f.o.Dir))
+	if err != nil || s.User != testutil.User || s.AllowRemoteImages == nil || !*s.AllowRemoteImages || s.MaxChanges != 7 {
+		t.Errorf("settings = %+v, %v", s, err)
+	}
+}
+
 // Guardrail: the password is never printed, and never written to the
 // settings file.
 func TestSetupNeverShowsOrFilesThePassword(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/dvalfrid/proton-mail-mcp/internal/config"
 	"github.com/dvalfrid/proton-mail-mcp/internal/help"
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
 )
@@ -51,7 +52,8 @@ search_messages can miss words with non-ASCII letters (å, ä, ö, …): before 
 // attachmentDir is the only folder save_attachment writes into; if it is
 // empty, saving says how to set it. images fetches for fetch_image; nil
 // (the default, without PROTON_ALLOW_REMOTE_IMAGES=1) switches it off.
-func New(version string, mailClient *mail.Client, attachmentDir string, images ImageFetcher) *mcp.Server {
+// settings are the owner's options in effect, shown by about.
+func New(version string, mailClient *mail.Client, attachmentDir string, images ImageFetcher, settings ...config.Option) *mcp.Server {
 	s := mcp.NewServer(
 		&mcp.Implementation{Name: Name, Version: version},
 		&mcp.ServerOptions{Instructions: instructions},
@@ -63,7 +65,7 @@ func New(version string, mailClient *mail.Client, attachmentDir string, images I
 		registerFileTools(s, mailClient, attachmentDir)
 		registerDraftTools(s, mailClient)
 		registerFetchImageTool(s, mailClient, images)
-		registerAboutTool(s, version)
+		registerAboutTool(s, version, settings)
 	}
 	return s
 }
