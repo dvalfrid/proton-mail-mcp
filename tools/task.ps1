@@ -115,6 +115,10 @@ function Invoke-Installer {
     elseif (Get-Command makensis -ErrorAction SilentlyContinue) { 'makensis' }
     else { Join-Path ${env:ProgramFiles(x86)} 'NSIS/makensis.exe' }
     if (-not (Get-Command $makensis -ErrorAction SilentlyContinue)) { throw 'makensis (NSIS 3) not found: install NSIS, or set MAKENSIS' }
+    # makensis reads the script in the Windows code page, so a non-ASCII
+    # character shows as mojibake in the installer (a bullet became three).
+    $nonAscii = Select-String -Path installer/proton-mail-mcp.nsi -Pattern '[^\x00-\x7F]' -CaseSensitive
+    if ($nonAscii) { throw "installer/proton-mail-mcp.nsi must be plain ASCII; line $($nonAscii[0].LineNumber) is not" }
     $arch = if ($GOARCH) { $GOARCH } else { 'amd64' }
     $nsisArch = @{ amd64 = 'x64'; arm64 = 'arm64' }[$arch]
     if (-not $nsisArch) { throw "no Windows installer for $arch" }
