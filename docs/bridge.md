@@ -180,6 +180,8 @@ In the text, "Proton" means the Proton servers and API, "gluon" means the IMAP s
 - **Refused moves:** INBOX↔Sent, and anything to or from All Mail or Scheduled.
 - **Changelog** (3.24.0 BRIDGE-451, then 3.24.1 BRIDGE-522): the unlabel-on-folders behaviour was removed and then restored behind a feature flag. So it has changed recently and is controlled remotely.
 
+**MOVE into Spam. Verified in source.** It is the MOVE above with Spam (label ID 4) as the target: `LabelMessages(ids, "4")`, with no other option. Proton Mail's web app makes the same call for "Move to spam" (`labelMessagesApi` with `LabelID` Spam, `applications/mail/src/app/store/mailbox/mailboxActions.tsx` in ProtonMail/WebClients at de49d95), optionally with `SpamAction: 1` to unsubscribe too; Bridge never sends that, so nothing is unsubscribed. Whether Proton's servers learn from the move (filter training, the spam list) is **not known**: it happens on Proton's side, and it is whatever Proton does for the web app's move. `mark_spam` uses it (issue #160).
+
 **Removing a message from `Labels/X`. Verified in source.** EXPUNGE or MOVE out of `Labels/X` calls `UnlabelMessages(X)`. The message itself stays in its folder.
 
 **Starred and `\Flagged`. Verified in source.** They are the same thing, in both directions.

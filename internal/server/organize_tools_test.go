@@ -3,6 +3,8 @@ package server
 import (
 	"strings"
 	"testing"
+
+	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
 )
 
 // inboxListing adds Bob's and Carol's messages to INBOX and lists it.
@@ -149,6 +151,67 @@ func TestTrashTool(t *testing.T) {
 	res := e.call(t, "trash_message", map[string]any{"folder": "Trash", "uids": uidsOf(trash), "uidvalidity": trash.UIDValidity})
 	if !res.IsError || !strings.Contains(text(res), "already in Trash") {
 		t.Errorf("trash from Trash: IsError=%v text=%q", res.IsError, text(res))
+	}
+}
+
+// mark_spam moves to Spam and says what that means; move_message brings
+// the messages back, and still refuses Spam itself (issue #160).
+func TestMarkSpamTool(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	l := inboxListing(t, e)
+	var out SpamOutput
+	e.callOK(t, "mark_spam", map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity}, &out)
+	var spam ListMessagesOutput
+	e.callOK(t, "list_messages", map[string]any{"folder": "Spam"}, &spam)
+	if out.Changed != 2 || len(spam.Messages) != 2 || !strings.Contains(out.Note, "30 days") {
+		t.Errorf("mark_spam: changed %d, %d in Spam, note %q", out.Changed, len(spam.Messages), out.Note)
+	}
+
+	var back ChangeOutput
+	e.callOK(t, "move_message", map[string]any{"folder": "Spam", "uids": uidsOf(spam), "uidvalidity": spam.UIDValidity, "to": "INBOX"}, &back)
+	if back.Changed != 2 {
+		t.Errorf("move out of Spam: changed %d", back.Changed)
+	}
+	l = inboxListing(t, e)
+	res := e.call(t, "move_message", map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity, "to": "Spam"})
+	if !res.IsError || !strings.Contains(text(res), "mark_spam") {
+		t.Errorf("move_message to Spam: IsError=%v text=%q", res.IsError, text(res))
+	}
+}
+
+// mark_spam refuses, and changes nothing, for too many messages, a source
+// it doesn't take, or a stale uidvalidity.
+func TestMarkSpamRefusals(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	l := inboxListing(t, e)
+	many := make([]uint32, mail.MaxSpamUIDs+1)
+	for i := range many {
+		many[i] = uint32(i + 1)
+	}
+	e.imap.AddMessage(t, "Sent", msgFromBob)
+	var sent ListMessagesOutput
+	e.callOK(t, "list_messages", map[string]any{"folder": "Sent"}, &sent)
+	label := labelListing(t, e)
+	for name, c := range map[string]struct {
+		args map[string]any
+		want string
+	}{
+		"too many":  {map[string]any{"folder": "INBOX", "uids": many, "uidvalidity": l.UIDValidity}, "at most 10"},
+		"stale":     {map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity + 1}, "renumbered"},
+		"from Sent": {map[string]any{"folder": "Sent", "uids": uidsOf(sent), "uidvalidity": sent.UIDValidity}, "only from INBOX"},
+		"label":     {map[string]any{"folder": "Labels/Travel", "uids": uidsOf(label), "uidvalidity": label.UIDValidity}, "only from INBOX"},
+	} {
+		res := e.call(t, "mark_spam", c.args)
+		if !res.IsError || !strings.Contains(text(res), c.want) || !strings.Contains(text(res), "nothing was changed") {
+			t.Errorf("%s: IsError=%v text=%q, want %q", name, res.IsError, text(res), c.want)
+		}
+	}
+	var spam ListMessagesOutput
+	e.callOK(t, "list_messages", map[string]any{"folder": "Spam"}, &spam)
+	if len(spam.Messages) != 0 {
+		t.Errorf("%d messages in Spam after refused calls", len(spam.Messages))
 	}
 }
 

@@ -76,7 +76,7 @@ func TestReadToolsAreAnnotatedReadOnly(t *testing.T) {
 var organizeTools = map[string]struct{ destructive bool }{
 	"mark_read": {}, "mark_unread": {}, "flag": {}, "unflag": {},
 	"move_message": {}, "add_label": {}, "remove_label": {},
-	"trash_message": {destructive: true},
+	"trash_message": {destructive: true}, "mark_spam": {destructive: true},
 }
 
 // fileTools write a file into the owner's attachment folder: not read-only
@@ -154,7 +154,7 @@ func TestOnlyMarkReadMarksAsRead(t *testing.T) {
 		l := inboxListing(t, e)
 		var out ChangeOutput
 		e.callOK(t, name, toolArgs(t, e, name, l), &out)
-		if n := e.imap.Unseen(t, "INBOX") + e.imap.Unseen(t, "Archive") + e.imap.Unseen(t, "Trash"); n != 2 {
+		if n := e.imap.Unseen(t, "INBOX") + e.imap.Unseen(t, "Archive") + e.imap.Unseen(t, "Trash") + e.imap.Unseen(t, "Spam"); n != 2 {
 			t.Errorf("unseen = %d after %s, want 2", n, name)
 		}
 	}

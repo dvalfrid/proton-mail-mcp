@@ -241,9 +241,9 @@ func movable(src, dst mailbox) error {
 		return fmt.Errorf("%w: %q is a label; use add_label", ErrNotAllowed, dst.name)
 	case dst.role == "spam":
 		// Proton can delete Spam automatically after 30 days, and marking
-		// spam may train its filter: the owner does that in Proton Mail
-		// (issue #74). Moving out of Spam is fine.
-		return fmt.Errorf("%w: messages aren't moved to Spam from here; Proton can delete Spam automatically, so the owner marks spam in Proton Mail", ErrNotAllowed)
+		// spam may train its filter (issue #74): mark_spam is the one way
+		// in, with its own limits (issue #160). Moving out of Spam is fine.
+		return fmt.Errorf("%w: to move messages to Spam, use mark_spam, and only when the owner asks", ErrNotAllowed)
 	case !dst.ordinary():
 		return fmt.Errorf("%w: messages can't be moved to %q; move them to INBOX, Archive or a folder under Folders/", ErrNotAllowed, dst.name)
 	case src.label():
@@ -350,6 +350,56 @@ func (c *Client) Trash(ctx context.Context, s Selection) (int, error) {
 	return c.change(ctx, s, func(ic *imapclient.Client, set imap.UIDSet) error {
 		if _, err := ic.Move(set, trash).Wait(); err != nil {
 			return fmt.Errorf("move from %q to Trash: %w", s.Folder, err)
+		}
+		return nil
+	})
+}
+
+// MaxSpamUIDs caps the messages one MarkSpam call moves: fewer than the
+// other organize calls, since Proton can delete Spam on its own.
+const MaxSpamUIDs = 10
+
+// ErrTooManySpam means a MarkSpam call named more than MaxSpamUIDs messages.
+var ErrTooManySpam = fmt.Errorf("more than %d uids: messages are marked as spam at most %d at a time", MaxSpamUIDs, MaxSpamUIDs)
+
+// MarkSpam moves messages to the folder with the \Junk attribute, found by
+// attribute, with UID MOVE. Bridge labels them Spam on Proton with the same
+// call Proton Mail's web app makes for "Move to spam" (docs/bridge.md §4).
+// Nothing is deleted, but Proton can empty Spam after 30 days. Only from
+// INBOX, Archive and folders under Folders/ (issue #160).
+func (c *Client) MarkSpam(ctx context.Context, s Selection) (int, error) {
+	uids, err := s.check()
+	if err != nil {
+		return 0, err
+	}
+	if len(uids) > MaxSpamUIDs {
+		return 0, ErrTooManySpam
+	}
+	all, err := c.allMailboxes(ctx)
+	if err != nil {
+		return 0, err
+	}
+	src, ok := all[s.Folder]
+	if !ok {
+		return 0, fmt.Errorf("%w: %q; call list_folders to see the names", ErrNoSuchFolder, s.Folder)
+	}
+	var spam string
+	for name, m := range all {
+		if m.role == "spam" {
+			spam = name
+		}
+	}
+	switch {
+	case spam == "":
+		return 0, fmt.Errorf("%w: no folder is marked as Spam", ErrNoSuchFolder)
+	case src.role == "spam":
+		return 0, fmt.Errorf("%w: the messages are already in Spam", ErrNotAllowed)
+	case src.role != "inbox" && src.role != "archive" && !strings.HasPrefix(src.name, "Folders/"):
+		return 0, fmt.Errorf("%w: messages are marked as spam only from INBOX, Archive or a folder under Folders/, not from %q", ErrNotAllowed, src.name)
+	}
+	return c.change(ctx, s, func(ic *imapclient.Client, set imap.UIDSet) error {
+		if _, err := ic.Move(set, spam).Wait(); err != nil {
+			return fmt.Errorf("move from %q to Spam: %w", s.Folder, err)
 		}
 		return nil
 	})
