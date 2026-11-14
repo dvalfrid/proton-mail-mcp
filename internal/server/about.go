@@ -67,7 +67,8 @@ var catalog = []toolGroup{
 }
 
 const aboutNote = "Show the owner the version, then the tools as a short list per group: name and its one line. Don't add the tools' full descriptions. " +
-	"If the owner asks about the settings, show them with their values; only the owner changes them, outside Claude (proton-mail-mcp settings, or config.json in the settings folder), then restarts Claude."
+	"If the owner asks about the settings, show them with their values; only the owner changes them, outside Claude, then restarts Claude: " +
+	"on Windows in Proton Mail MCP Settings in the Start menu, elsewhere in config.json in the settings folder; one whose origin is .env or environment is changed there instead."
 
 func registerAboutTool(s *mcp.Server, version string, settings []config.Option) {
 	mcp.AddTool(s, &mcp.Tool{
