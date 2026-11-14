@@ -40,7 +40,7 @@ func TestReply(t *testing.T) {
 		"own mail": {strings.Replace(original, "From: Bob <bob@example.org>", "From: alice@example.com", 1), false,
 			[]string{`"Dave" <dave@example.net>`}, nil, "Re: Lunch?"},
 	} {
-		d, err := c.reply([]byte(tc.raw), Reply{Body: "Gärna!\n", All: tc.all}, false)
+		d, err := c.reply([]byte(tc.raw), Reply{Body: "Gärna!\n", All: tc.all}, nil, false)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -82,7 +82,7 @@ func TestReplyToOwnMailFromAnAlias(t *testing.T) {
 		"reply":     {false, []string{"<bob@example.net>"}, nil},
 		"reply all": {true, []string{"<bob@example.net>"}, []string{`"Carol" <carol@example.net>`, "=?utf-8?q?=C3=85sa?= <asa@example.net>"}},
 	} {
-		d, err := c.reply([]byte(sent), Reply{Body: "ok", All: tc.all}, true)
+		d, err := c.reply([]byte(sent), Reply{Body: "ok", All: tc.all}, nil, true)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -91,7 +91,7 @@ func TestReplyToOwnMailFromAnAlias(t *testing.T) {
 		}
 	}
 	// Outside Sent, the alias isn't known to be the owner's: it is replied to.
-	d, err := c.reply([]byte(sent), Reply{Body: "ok"}, false)
+	d, err := c.reply([]byte(sent), Reply{Body: "ok"}, nil, false)
 	if err != nil || !slices.Equal(d.To, []string{`"Alice" <alice@example.org>`}) {
 		t.Errorf("not in Sent: to %q, %v", d.To, err)
 	}
@@ -105,11 +105,11 @@ func TestReplyToOwnMailFromAnAlias(t *testing.T) {
 func TestReplyLimits(t *testing.T) {
 	t.Parallel()
 	c := New(Options{User: "alice@example.com", Location: time.UTC})
-	if _, err := c.reply([]byte("Subject: x\r\n\r\nhi\r\n"), Reply{Body: "b"}, false); err == nil || !strings.Contains(err.Error(), "no address to reply to") {
+	if _, err := c.reply([]byte("Subject: x\r\n\r\nhi\r\n"), Reply{Body: "b"}, nil, false); err == nil || !strings.Contains(err.Error(), "no address to reply to") {
 		t.Errorf("no sender: %v", err)
 	}
 	long := strings.Replace(original, "Ska vi äta lunch?", strings.Repeat("åäö ", MaxDraftBodyBytes/4), 1)
-	d, err := c.reply([]byte(long), Reply{Body: "ok"}, false)
+	d, err := c.reply([]byte(long), Reply{Body: "ok"}, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -255,7 +255,9 @@ In the text, "Proton" means the Proton servers and API, "gluon" means the IMAP s
   - **Inferred / unconfirmed.** So Proton doesn't link a draft created by APPEND to the message it replies to. Threading for a reply is only set up when the message is sent; see section 8.
 - **Sender address** (`getImportAddress`, [utils.go L52](https://github.com/ProtonMail/proton-bridge/blob/36d7b6a63256bbf4cf0b3fba9bb7854db32abff2/internal/services/imapservice/utils.go#L52)):
   - In combined mode the `From` address is used if it is one of the account's own and allowed to send.
-  - Otherwise the mailbox's default address is used.
+  - Otherwise the mailbox's default address is used. In split mode it is always the address of that IMAP account.
+  - **The `From` header itself is not kept.** `createDraftWithParser` sends `Sender: {Name: sender.DisplayName, Address: sender.Email}` from the chosen Proton address ([connector.go L991](https://github.com/ProtonMail/proton-bridge/blob/36d7b6a63256bbf4cf0b3fba9bb7854db32abff2/internal/services/imapservice/connector.go#L991)). So a draft can't claim an address the account doesn't have, and its display name is the one set in Proton, not the one in the header.
+  - proton-mail-mcp sets `From` to one of the owner's addresses (the account's, or one found as a sender in Sent; issue #162), and replies from the address the original was sent to.
 - **Drafts are never marked unread.**
 
 **No in-place update. Verified in source.** IMAP has no way to change a message.

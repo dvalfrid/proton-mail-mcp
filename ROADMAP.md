@@ -66,6 +66,7 @@ Install without a terminal, and updates that keep Claude's registration:
 ## 0.5 — macOS, Linux and packaging
 
 - `mark_spam`: move messages to Spam when the owner asks, at most 10 a call, asking each time (#160).
+- Drafts from the owner's other addresses: a reply comes from the address the mail came to, `from` picks another of theirs, and reply-all leaves them all out (#162).
 - `setup`, keyring and Claude registration tried on macOS and Linux, and fixed where they differ (#66).
 - The setup wizard on macOS and Linux (#91).
 - Homebrew tap, Linux `.deb`/`.rpm`, a Claude Desktop extension (MCPB) (#33).

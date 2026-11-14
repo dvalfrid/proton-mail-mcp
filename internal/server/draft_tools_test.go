@@ -176,3 +176,41 @@ func TestCreateReplyDraft(t *testing.T) {
 		t.Errorf("stale uidvalidity: IsError=%v %q", res.IsError, text(res))
 	}
 }
+
+// A draft comes from the owner's main address, or from another address of
+// theirs found in Sent; a stranger's address is refused (issue #162).
+func TestDraftFromAnotherOwnAddress(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.imap.AddMessage(t, "Sent", "From: Alice <alice@example.org>\r\nTo: bob@example.net\r\nSubject: s\r\n\r\nx\r\n")
+	args := map[string]any{"to": []string{"bob@example.net"}, "subject": "hi"}
+
+	var out CreateDraftOutput
+	e.callOK(t, "create_draft", args, &out)
+	if out.From != testutil.User || !strings.Contains(out.Note, "From, To") {
+		t.Errorf("default: from %q, note %q", out.From, out.Note)
+	}
+	args["from"] = "alice@example.org"
+	e.callOK(t, "create_draft", args, &out)
+	var msg ReadMessageOutput
+	e.callOK(t, "read_message", map[string]any{"folder": "Drafts", "uid": out.UID, "uidvalidity": out.UIDValidity}, &msg)
+	if out.From != "alice@example.org" || len(msg.UntrustedContent.From) != 1 || !strings.Contains(msg.UntrustedContent.From[0], "alice@example.org") {
+		t.Errorf("from the alias: out %q, draft %q", out.From, msg.UntrustedContent.From)
+	}
+
+	args["from"] = "mallory@example.net"
+	res := e.call(t, "create_draft", args)
+	if !res.IsError || !strings.Contains(text(res), "not one of the owner's addresses") {
+		t.Errorf("from a stranger: IsError=%v %q", res.IsError, text(res))
+	}
+
+	// A reply to mail sent to the alias comes from the alias.
+	e.imap.AddMessage(t, "INBOX", "From: bob@example.net\r\nTo: alice@example.org\r\nSubject: Q\r\n\r\nA question.\r\n")
+	var l ListMessagesOutput
+	e.callOK(t, "list_messages", map[string]any{"folder": "INBOX"}, &l)
+	var reply CreateReplyDraftOutput
+	e.callOK(t, "create_reply_draft", map[string]any{"folder": "INBOX", "uid": l.Messages[0].UID, "uidvalidity": l.UIDValidity, "body": "ok"}, &reply)
+	if reply.From != "alice@example.org" {
+		t.Errorf("reply from %q, want the alias", reply.From)
+	}
+}
