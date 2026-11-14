@@ -64,6 +64,11 @@ var (
 	procCreateSolidBrush         = gdi32.NewProc("CreateSolidBrush")
 	dwmapi                       = windows.NewLazySystemDLL("dwmapi.dll")
 	procDwmSetWindowAttribute    = dwmapi.NewProc("DwmSetWindowAttribute")
+	shell32                      = windows.NewLazySystemDLL("shell32.dll")
+	procSHBrowseForFolderW       = shell32.NewProc("SHBrowseForFolderW")
+	procSHGetPathFromIDListW     = shell32.NewProc("SHGetPathFromIDListW")
+	ole32                        = windows.NewLazySystemDLL("ole32.dll")
+	procCoTaskMemFree            = ole32.NewProc("CoTaskMemFree")
 )
 
 const (
@@ -179,6 +184,7 @@ func Run(b *Backend, title string) error {
 		return err
 	}
 	b.SetQuit(func() { w.dispatch(w.close) })
+	b.SetPickFolder(w.pickFolder)
 
 	// The page calls the program through __pmcp and says when it has drawn
 	// itself through __pmcpReady.
@@ -478,4 +484,54 @@ func TerminalSetup(exe string) error {
 		CreationFlags: windows.CREATE_NEW_CONSOLE,
 	}
 	return cmd.Start()
+}
+
+// browseInfo is BROWSEINFOW.
+type browseInfo struct {
+	owner       uintptr
+	root        uintptr
+	displayName *uint16
+	title       *uint16
+	flags       uint32
+	callback    uintptr
+	param       uintptr
+	image       int32
+}
+
+// pickFolder shows Windows' folder picker over the window, on the window's
+// thread, and returns the chosen folder, or "" if the owner cancelled
+// (issue #158). start is not used: the picker opens at This PC.
+func (w *window) pickFolder(string) (string, error) {
+	type result struct {
+		path string
+		err  error
+	}
+	done := make(chan result, 1)
+	w.dispatch(func() {
+		// The new-style picker needs COM on this thread. WebView2 has
+		// usually set it up already; if this call did, undo it after.
+		if windows.CoInitializeEx(0, windows.COINIT_APARTMENTTHREADED) == nil {
+			defer windows.CoUninitialize()
+		}
+		name := make([]uint16, windows.MAX_PATH)
+		bi := browseInfo{
+			owner: w.hwnd, displayName: &name[0],
+			title: windows.StringToUTF16Ptr("Choose the folder attachments are saved into"),
+			flags: 0x0001 | 0x0040, // BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE
+		}
+		pidl, _, _ := procSHBrowseForFolderW.Call(uintptr(unsafe.Pointer(&bi))) //nolint:gosec // G103: Win32 call with a pointer to the struct it reads
+		if pidl == 0 {
+			done <- result{} // cancelled
+			return
+		}
+		defer func() { _, _, _ = procCoTaskMemFree.Call(pidl) }() // the PIDL the shell allocated, freed as its docs say
+		path := make([]uint16, 32768)
+		if ok, _, _ := procSHGetPathFromIDListW.Call(pidl, uintptr(unsafe.Pointer(&path[0]))); ok == 0 { //nolint:gosec // G103: Win32 call that fills the local buffer
+			done <- result{err: errors.New("that isn't a folder on this computer: choose another")}
+			return
+		}
+		done <- result{path: windows.UTF16ToString(path)}
+	})
+	r := <-done
+	return r.path, r.err
 }

@@ -2,6 +2,9 @@
 // window that finds Proton Mail Bridge, pins its certificate, asks for the
 // Bridge password, saves everything and registers proton-mail-mcp in Claude.
 //
+// With -settings it opens the Settings page, where the owner changes the
+// options (issue #158).
+//
 // With -uninstall (run by the Windows uninstaller) it shows nothing: it
 // removes proton-mail-mcp from Claude where it starts the exe next to it,
 // and with -remove-settings also the settings, the stored password and the
@@ -43,6 +46,7 @@ func main() {
 func run() error {
 	uninstall := flag.Bool("uninstall", false, "remove proton-mail-mcp from Claude (for the uninstaller); shows nothing")
 	removeSettings := flag.Bool("remove-settings", false, "with -uninstall: also remove the settings and the stored password")
+	settings := flag.Bool("settings", false, "open the Settings page instead of the setup steps")
 	flag.Parse()
 
 	server, err := serverExe(!*uninstall)
@@ -65,6 +69,9 @@ func run() error {
 	}
 	o := setup.Options{Store: keystore.OS{}, Dir: dir, Exe: server, Clients: setup.DefaultClients()}
 	b := wizard.New(o, version, wizard.SystemAccent(), wizard.OpenURL, nil)
+	if *settings {
+		b.SettingsOnly()
+	}
 	err = wizard.Run(b, title)
 	if !errors.Is(err, wizard.ErrNoWebView) {
 		return err
