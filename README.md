@@ -49,9 +49,9 @@ Claude can list, search and read messages, mark them read or unread, star them, 
 | `remove_label` | Remove a label from messages (listed from the label itself); they stay in their folder and nothing is deleted | Yes (undoable) |
 | `mark_spam` | Mark messages as spam: move them to Spam, as Proton Mail's "Move to spam" does. Only when you ask; annotated destructive, so clients that honour it ask first. At most 10 a call, from INBOX, Archive or `Folders/…`. Nothing is deleted, but Proton can delete Spam after 30 days; `move_message` brings messages back | Yes (undoable until Proton empties Spam) |
 | `trash_message` | Move messages to Trash. Nothing is deleted; they can be restored until Trash is emptied. Annotated destructive, so clients that honour it ask first. Drafts too, with Proton Mail Bridge 3.23.1 or later; older Bridge would delete them permanently, so they are refused | Yes (undoable) |
-| `create_draft` | Write a new plain-text email (`to`, `cc`, `bcc`, `subject`, `body`) as a draft in Drafts, from your Proton address or, with `from`, another address of yours (one you have sent from before; anyone else's is refused). Nothing is sent: you read, edit and send it in Proton Mail. Counts toward `PROTON_MAX_CHANGES` | Adds a draft |
-| `create_reply_draft` | Write a reply to a message as a draft: to its sender (or everyone, with `reply_all`), `Re:` subject, the original quoted. It comes from your address the original was sent to (or `from`), and reply-all leaves out all your own addresses. Nothing is sent, and the original stays unread. Proton Mail may not show it as a reply, since Bridge drops reply headers from drafts. Counts toward `PROTON_MAX_CHANGES` | Adds a draft |
-| `update_draft` | Replace a draft in Drafts with new content. The old version goes to Trash, where you can restore it from; with Proton Mail Bridge older than 3.23.1 it stays in Drafts instead, and Claude tells you. Nothing is sent. Counts toward `PROTON_MAX_CHANGES` | Replaces a draft |
+| `create_draft` | Write a new plain-text email (`to`, `cc`, `bcc`, `subject`, `body`) as a draft in Drafts, from your Proton address or, with `from`, another address of yours (one you have sent from before; anyone else's is refused). With `attachments`, files from your outbox folder (`PROTON_OUTBOX_DIR`) are attached, by name. Nothing is sent: you read, edit and send it in Proton Mail. Counts toward `PROTON_MAX_CHANGES` | Adds a draft |
+| `create_reply_draft` | Write a reply to a message as a draft: to its sender (or everyone, with `reply_all`), `Re:` subject, the original quoted. It comes from your address the original was sent to (or `from`), and reply-all leaves out all your own addresses. Nothing is sent, and the original stays unread. Proton Mail may not show it as a reply, since Bridge drops reply headers from drafts. `attachments` as for `create_draft`. Counts toward `PROTON_MAX_CHANGES` | Adds a draft |
+| `update_draft` | Replace a draft in Drafts with new content. The old version goes to Trash, where you can restore it from; with Proton Mail Bridge older than 3.23.1 it stays in Drafts instead, and Claude tells you. `attachments` as for `create_draft`; the old version's attachments are not carried over, so Claude names them again. Nothing is sent. Counts toward `PROTON_MAX_CHANGES` | Replaces a draft |
 
 The tools that change messages take a folder, 1 to 50 `uids` from that folder and the `uidvalidity` that came with them (required). If the folder was renumbered or any uid is missing, the call changes nothing. No tool ever deletes permanently.
 
@@ -102,20 +102,22 @@ For the certificate, export it from Bridge (Settings → Advanced → Export TLS
 | `PROTON_ALLOW_SEND` | `0` | Sending is not implemented yet |
 | `PROTON_ALLOW_REMOTE_IMAGES` | `0` | `1` lets `fetch_image` fetch an image a message links to on the internet, when you ask for it |
 | `PROTON_ATTACHMENT_DIR` | `Proton Mail MCP` in your Downloads folder | The only folder `save_attachment` saves into, as a full path. Created on the first save |
+| `PROTON_OUTBOX_DIR` | `Proton Mail MCP outbox` in your Documents folder | The only folder the draft tools attach files from, as a full path. Put only what you mean to send there: to send a file Claude made, ask Claude to save it there first. At most 10 files and 20 MiB per draft; no subfolders, hidden files or links out of the folder. The server never writes there |
 | `PROTON_MAX_CHANGES` | `200` | How many messages the organize tools may change, and drafts the draft tools may write, together, per server run: a guard against instructions hidden in emails. Restart Claude to reset the count |
 | `PROTON_MCP_CONFIG_DIR` | your config dir | Where setup's settings are kept |
 
 ### Options in config.json
 
-The three options above that aren't about Bridge can also be kept in `config.json`, the file setup writes in the settings folder (`PROTON_MCP_CONFIG_DIR`), so you don't need a `.env` file for them. Running setup again keeps them.
+The four options above that aren't about Bridge can also be kept in `config.json`, the file setup writes in the settings folder (`PROTON_MCP_CONFIG_DIR`), so you don't need a `.env` file for them. Running setup again keeps them.
 
 ```json
 "allow_remote_images": true,
 "attachment_dir": "D:\\Mail attachments",
+"outbox_dir": "D:\\Mail to send",
 "max_changes": 300
 ```
 
-On Windows, open **Proton Mail MCP Settings** in the Start menu to change them in a window: a switch for images, a folder picker for attachments, and the number of changes per run. It saves `config.json`, and shows an option that `.env` or the environment sets as locked.
+On Windows, open **Proton Mail MCP Settings** in the Start menu to change them in a window: a switch for images, folder pickers for attachments and the outbox, and the number of changes per run. It saves `config.json`, and shows an option that `.env` or the environment sets as locked.
 
 The environment and `.env` override `config.json`. `proton-mail-mcp check` lists each option with its value and where it came from (environment, `.env`, `config.json` or default), and Claude's `about` shows the same. Only you change them: no tool can, so an email can't talk Claude into switching one on. Restart Claude after a change.
 

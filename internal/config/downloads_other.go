@@ -16,3 +16,12 @@ func downloadsDir() (string, error) {
 	}
 	return filepath.Join(home, "Downloads"), nil
 }
+
+// documentsDir is ~/Documents.
+func documentsDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, "Documents"), nil
+}

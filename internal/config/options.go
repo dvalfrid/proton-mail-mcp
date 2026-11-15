@@ -46,13 +46,16 @@ func Options(cfg Config, dotenv map[string]string, saved Settings) []Option {
 		}
 		return "off"
 	}
-	dir := cfg.AttachmentDir
-	if dir == "" {
-		dir = "(not found; set it)"
+	orUnset := func(dir string) string {
+		if dir == "" {
+			return "(not found; set it)"
+		}
+		return dir
 	}
 	return []Option{
 		{"fetch images from the internet (fetch_image)", onOff(cfg.AllowRemoteImages), Origin(EnvAllowRemoteImages, dotenv, saved)},
-		{"attachment folder", dir, Origin(EnvAttachmentDir, dotenv, saved)},
+		{"attachment folder", orUnset(cfg.AttachmentDir), Origin(EnvAttachmentDir, dotenv, saved)},
 		{"changes per run", strconv.Itoa(cfg.MaxChanges), Origin(EnvMaxChanges, dotenv, saved)},
+		{"outbox folder (files to attach)", orUnset(cfg.OutboxDir), Origin(EnvOutboxDir, dotenv, saved)},
 	}
 }

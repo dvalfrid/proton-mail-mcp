@@ -141,13 +141,13 @@ func runCheck() int {
 }
 
 func run(logger *slog.Logger) error {
-	mailClient, attachmentDir, images, settings := connect(logger)
+	mailClient, folders, images, settings := connect(logger)
 	defer func() { _ = mailClient.Close() }() // best effort on shutdown
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	err := server.New(version, mailClient, attachmentDir, images, settings...).Run(ctx, &mcp.StdioTransport{})
+	err := server.New(version, mailClient, folders, images, settings...).Run(ctx, &mcp.StdioTransport{})
 	if errors.Is(err, context.Canceled) {
 		return nil
 	}
@@ -158,9 +158,9 @@ func run(logger *slog.Logger) error {
 // settings it returns one whose every call says to run setup: the server
 // still starts, so Claude can tell the owner in the chat, rather than the
 // client only showing a disconnected server. No connection is made then.
-// It also returns the attachment folder, empty without settings, and the
+// It also returns the attachment and outbox folders, empty without settings, and the
 // image fetcher for fetch_image, nil unless PROTON_ALLOW_REMOTE_IMAGES=1.
-func connect(logger *slog.Logger) (*mail.Client, string, server.ImageFetcher, []config.Option) {
+func connect(logger *slog.Logger) (*mail.Client, server.Folders, server.ImageFetcher, []config.Option) {
 	cfg, _, err := loadConfig()
 	if err == nil {
 		var tlsCfg *tls.Config
@@ -180,11 +180,11 @@ func connect(logger *slog.Logger) (*mail.Client, string, server.ImageFetcher, []
 			return mail.New(mail.Options{
 				Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password,
 				TLSConfig: tlsCfg, MaxChanges: cfg.MaxChanges, Logger: logger,
-			}), cfg.AttachmentDir, images, cfg.Options
+			}), server.Folders{Attachments: cfg.AttachmentDir, Outbox: cfg.OutboxDir}, images, cfg.Options
 		}
 	}
 	logger.Error("not set up; every tool will say so", "version", version, "err", err, "help", help.URL(help.NotSetUp))
-	return mail.NewUnconfigured(err, logger), "", nil, nil
+	return mail.NewUnconfigured(err, logger), server.Folders{}, nil, nil
 }
 
 func envFilePath() (string, error) {

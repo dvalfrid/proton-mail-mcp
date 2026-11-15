@@ -276,6 +276,9 @@ function viewSettings() {
     <div class="field"><label for="opt-dir">Attachment folder</label>
       <div class="input" style="gap:8px"><input id="opt-dir" type="text" spellcheck="false" autocomplete="off" placeholder="${esc(s.defaultAttachmentDir)}" value="${esc(s.attachmentDir)}" ${dis('attachmentDir')}><button class="btn" id="opt-browse" style="min-width:0" ${dis('attachmentDir')}>Browse…</button></div>
       <div class="help">Where Claude saves the attachments you ask for. Empty: ${esc(s.defaultAttachmentDir || 'Proton Mail MCP in Downloads')}.</div>${lock('attachmentDir')}</div>
+    <div class="field"><label for="opt-outbox">Outbox folder</label>
+      <div class="input" style="gap:8px"><input id="opt-outbox" type="text" spellcheck="false" autocomplete="off" placeholder="${esc(s.defaultOutboxDir)}" value="${esc(s.outboxDir)}" ${dis('outboxDir')}><button class="btn" id="opt-browse-outbox" style="min-width:0" ${dis('outboxDir')}>Browse…</button></div>
+      <div class="help">The only folder Claude attaches files to a draft from. Put only what you mean to send here. Empty: ${esc(s.defaultOutboxDir || 'Proton Mail MCP outbox in Documents')}.</div>${lock('outboxDir')}</div>
     <div class="field"><label for="opt-max">Changes per run</label><div class="input" style="max-width:140px"><input id="opt-max" type="number" min="1" max="10000" value="${esc(s.maxChanges)}" ${dis('maxChanges')}></div>
       <div class="help">How many messages Claude may change, and drafts it may write, before Claude is restarted: a guard against instructions hidden in emails. Default ${esc(s.defaultMaxChanges)}.</div>${lock('maxChanges')}</div>
     ${S.savingSettings ? `<div class="busy small">${I.spin} Saving…</div>` : ''}`;
@@ -288,18 +291,21 @@ function renderSettings() {
   $('#next').disabled = !S.settings?.setUp || S.savingSettings;
   $('#back').style.visibility = 'hidden';
   $('#cancel').textContent = 'Close';
-  const im = $('#opt-images'), dir = $('#opt-dir'), max = $('#opt-max'), br = $('#opt-browse');
+  const im = $('#opt-images'), dir = $('#opt-dir'), max = $('#opt-max'), br = $('#opt-browse'), ob = $('#opt-outbox'), obr = $('#opt-browse-outbox');
   const changed = () => { S.settingsSaved = false; };
   if (im) im.onchange = e => { S.settings.allowRemoteImages = e.target.checked; changed(); };
   if (dir) dir.oninput = e => { S.settings.attachmentDir = e.target.value; changed(); };
+  if (ob) ob.oninput = e => { S.settings.outboxDir = e.target.value; changed(); };
   if (max) max.oninput = e => { S.settings.maxChanges = e.target.value; changed(); };
-  if (br) br.onclick = async () => {
+  const browse = key => async () => {
     try {
-      const picked = await call('pickFolder', { start: S.settings.attachmentDir });
-      if (picked) { S.settings.attachmentDir = picked; S.settingsSaved = false; }
+      const picked = await call('pickFolder', { start: S.settings[key] });
+      if (picked) { S.settings[key] = picked; S.settingsSaved = false; }
     } catch (e) { S.settingsError = e.message; }
     renderSettings();
   };
+  if (br) br.onclick = browse('attachmentDir');
+  if (obr) obr.onclick = browse('outboxDir');
   wire();
 }
 
@@ -307,7 +313,7 @@ async function saveSettings() {
   const s = S.settings;
   S.savingSettings = true; S.settingsError = ''; S.settingsSaved = false; renderSettings();
   try {
-    S.settings = await call('saveSettings', { allowRemoteImages: !!s.allowRemoteImages, attachmentDir: s.attachmentDir || '', maxChanges: Number(s.maxChanges) });
+    S.settings = await call('saveSettings', { allowRemoteImages: !!s.allowRemoteImages, attachmentDir: s.attachmentDir || '', outboxDir: s.outboxDir || '', maxChanges: Number(s.maxChanges) });
     S.settingsSaved = true;
   } catch (e) { S.settingsError = e.message; }
   S.savingSettings = false; renderSettings();

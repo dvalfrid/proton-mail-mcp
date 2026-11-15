@@ -148,6 +148,15 @@ A newsletter shows its images from the sender's server, so `read_message` can on
 - **Whole or not at all.** A message larger than the 32 MiB fetched, or an attachment whose encoding breaks off, is refused rather than saved cut.
 - **Only `internal/save` writes files** from the server. A test reads every source file and fails on a file write anywhere else, apart from setup's settings files.
 
+### Attaching files: the outbox folder
+
+The owner asks Claude to make a file and send it. The draft tools take `attachments`, names of files in the outbox folder (`PROTON_OUTBOX_DIR`), and `internal/outbox` reads them. Why a folder of its own rather than any path, or the attachment folder:
+
+- **What can be attached is what the owner put there to send.** Any path would let a fooled assistant attach a key or a private document; the attachment folder holds what others sent the owner, which can be private too.
+- **The same containment as saving.** `os.OpenInRoot` refuses `..` and links out of the folder, so it doesn't rest on the name check alone; plain names only, no hidden files, regular files, 10 files and 20 MiB at most.
+- **Bridge does the upload.** The draft is APPENDed as `multipart/mixed` (text, then each file in base64); Bridge creates the Proton draft and uploads each attachment (docs/bridge.md §7).
+- **Not carried over by `update_draft`.** IMAP can't change a message, so the new version is written from scratch; the old version, with its attachments, stays in Trash.
+
 A damaged message gives what could be read, not an error. A fuzz test checks that no input panics, hangs, produces invalid UTF-8 or exceeds a cap.
 
 **Known limits** (from the independent review, issue #75), which the untrusted-content marking, not the cleaning, has to cover:

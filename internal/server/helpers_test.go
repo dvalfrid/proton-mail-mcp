@@ -25,6 +25,7 @@ type env struct {
 	session *mcp.ClientSession
 	logs    *syncBuffer
 	dir     string // the attachment folder: a fresh temporary folder
+	outbox  string // the outbox folder: a fresh temporary folder, made
 }
 
 func newEnv(t *testing.T) *env {
@@ -63,8 +64,9 @@ func newEnvImages(t *testing.T, change func(*mail.Options), images ImageFetcher)
 	t.Cleanup(func() { _ = m.Close() })
 
 	dir := filepath.Join(t.TempDir(), "attachments") // created by the first save
+	outbox := t.TempDir()
 	serverT, clientT := mcp.NewInMemoryTransports()
-	ss, err := New("test", m, dir, images).Connect(ctx, serverT, nil)
+	ss, err := New("test", m, Folders{Attachments: dir, Outbox: outbox}, images).Connect(ctx, serverT, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +78,7 @@ func newEnvImages(t *testing.T, change func(*mail.Options), images ImageFetcher)
 	}
 	t.Cleanup(func() { _ = cs.Close() }) // in-memory: closing cannot fail meaningfully
 
-	return &env{imap: srv, session: cs, logs: logs, dir: dir}
+	return &env{imap: srv, session: cs, logs: logs, dir: dir, outbox: outbox}
 }
 
 // call calls a tool and returns the raw result.

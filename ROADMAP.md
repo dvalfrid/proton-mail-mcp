@@ -78,6 +78,8 @@ Before sending, so that organizing and drafts have been in daily use for a while
 
 ## 0.6 — Send on command
 
+- Attach files from the owner's outbox folder to a draft (`attachments` on the draft tools, `internal/outbox`) (#173).
+
 - `internal/send`: SMTP over STARTTLS; the only package allowed to send.
 - Tool: `send_draft` — sends an existing draft, refused unless `PROTON_ALLOW_SEND=1`, moves the draft away after sending.
 - Guardrail tests: refused without the flag, refuses non-drafts, nothing else reaches SMTP.

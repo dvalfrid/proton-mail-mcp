@@ -1,14 +1,17 @@
 package mail
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
+	gomail "github.com/emersion/go-message/mail"
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/testutil"
 )
@@ -39,6 +42,67 @@ func TestBuildDraft(t *testing.T) {
 		if s[i] >= 0x80 {
 			t.Fatalf("draft has a non-ASCII byte at %d:\n%s", i, s)
 		}
+	}
+}
+
+// With attachments the draft is multipart/mixed: the text first, then each
+// file in base64 under its name, which reads back as the same bytes.
+func TestBuildDraftWithAttachments(t *testing.T) {
+	t.Parallel()
+	c := New(Options{User: "alice@example.com"})
+	pdf := []byte("%PDF-1.7\n\x00\xff binary")
+	raw, err := c.buildDraft(Draft{
+		To: []string{"bob@example.org"}, Subject: "Guide", Body: "Här kommer filen.\n",
+		Attachments: []DraftFile{
+			{Name: "Guide för Åsa.pdf", ContentType: "application/pdf", Data: pdf},
+			{Name: "notes.txt", ContentType: "text/plain", Data: []byte("hej")},
+		},
+	}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range raw {
+		if raw[i] >= 0x80 {
+			t.Fatalf("draft has a non-ASCII byte at %d", i)
+		}
+	}
+
+	r, err := gomail.CreateReader(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ct := r.Header.Get("Content-Type"); !strings.HasPrefix(ct, "multipart/mixed") {
+		t.Errorf("Content-Type %q", ct)
+	}
+	var text string
+	var files []DraftFile
+	for {
+		p, err := r.NextPart()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(p.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		switch h := p.Header.(type) {
+		case *gomail.InlineHeader:
+			text = string(data)
+		case *gomail.AttachmentHeader:
+			name, _ := h.Filename()
+			ct, _, _ := h.ContentType()
+			files = append(files, DraftFile{Name: name, ContentType: ct, Data: data})
+		}
+	}
+	if text != "Här kommer filen.\r\n" {
+		t.Errorf("text %q", text)
+	}
+	if len(files) != 2 || files[0].Name != "Guide för Åsa.pdf" || files[0].ContentType != "application/pdf" ||
+		!bytes.Equal(files[0].Data, pdf) || files[1].Name != "notes.txt" || string(files[1].Data) != "hej" {
+		t.Errorf("attachments %+v", files)
 	}
 }
 

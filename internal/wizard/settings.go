@@ -23,6 +23,8 @@ type Settings struct {
 	AllowRemoteImages    bool              `json:"allowRemoteImages"`
 	AttachmentDir        string            `json:"attachmentDir"` // "" for the default
 	DefaultAttachmentDir string            `json:"defaultAttachmentDir"`
+	OutboxDir            string            `json:"outboxDir"` // "" for the default
+	DefaultOutboxDir     string            `json:"defaultOutboxDir"`
 	MaxChanges           int               `json:"maxChanges"`
 	DefaultMaxChanges    int               `json:"defaultMaxChanges"`
 	Locked               map[string]string `json:"locked"` // option → where it is set instead: "environment" or ".env"
@@ -32,6 +34,7 @@ type Settings struct {
 var optionVars = map[string]string{
 	"allowRemoteImages": config.EnvAllowRemoteImages,
 	"attachmentDir":     config.EnvAttachmentDir,
+	"outboxDir":         config.EnvOutboxDir,
 	"maxChanges":        config.EnvMaxChanges,
 }
 
@@ -68,10 +71,11 @@ func (b *Backend) getSettings() Settings {
 	saved, err := config.ReadSettings(config.SettingsFile(b.o.Dir))
 	s := Settings{SetUp: err == nil && saved.User != "", DefaultMaxChanges: config.DefaultMaxChanges, MaxChanges: config.DefaultMaxChanges, Locked: map[string]string{}}
 	s.DefaultAttachmentDir, _ = config.DefaultAttachmentDir()
+	s.DefaultOutboxDir, _ = config.DefaultOutboxDir()
 	if saved.AllowRemoteImages != nil {
 		s.AllowRemoteImages = *saved.AllowRemoteImages
 	}
-	s.AttachmentDir = saved.AttachmentDir
+	s.AttachmentDir, s.OutboxDir = saved.AttachmentDir, saved.OutboxDir
 	if saved.MaxChanges > 0 {
 		s.MaxChanges = saved.MaxChanges
 	}
@@ -120,17 +124,21 @@ func (b *Backend) saveSettings(args json.RawMessage) (Settings, error) {
 	var a struct {
 		AllowRemoteImages bool
 		AttachmentDir     string
+		OutboxDir         string
 		MaxChanges        int
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return Settings{}, errors.New("bad settings request")
 	}
 	a.AttachmentDir = strings.TrimSpace(a.AttachmentDir)
+	a.OutboxDir = strings.TrimSpace(a.OutboxDir)
 	switch {
 	case a.MaxChanges < 1 || a.MaxChanges > MaxMaxChanges:
 		return Settings{}, fmt.Errorf("changes per run must be a whole number from 1 to %d", MaxMaxChanges)
 	case a.AttachmentDir != "" && !filepath.IsAbs(a.AttachmentDir):
 		return Settings{}, errors.New("the attachment folder must be a full path, like D:\\Mail attachments")
+	case a.OutboxDir != "" && !filepath.IsAbs(a.OutboxDir):
+		return Settings{}, errors.New("the outbox folder must be a full path, like D:\\Mail to send")
 	}
 	file := config.SettingsFile(b.o.Dir)
 	saved, err := config.ReadSettings(file)
@@ -149,6 +157,12 @@ func (b *Backend) saveSettings(args json.RawMessage) (Settings, error) {
 		saved.AttachmentDir = ""
 		if a.AttachmentDir != "" {
 			saved.AttachmentDir = filepath.Clean(a.AttachmentDir)
+		}
+	}
+	if locked["outboxDir"] == "" {
+		saved.OutboxDir = ""
+		if a.OutboxDir != "" {
+			saved.OutboxDir = filepath.Clean(a.OutboxDir)
 		}
 	}
 	if locked["maxChanges"] == "" {

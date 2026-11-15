@@ -9,8 +9,8 @@ import (
 // The owner's options are read from config.json, and .env and the
 // environment override them, in that order (issue #158).
 func TestOptionsFromTheSettingsFile(t *testing.T) {
-	on, dir := true, filepath.Join(t.TempDir(), "saved")
-	saved := Settings{User: "alice@example.com", CertFile: "c.pem", AllowRemoteImages: &on, AttachmentDir: dir, MaxChanges: 30}
+	on, dir, outbox := true, filepath.Join(t.TempDir(), "saved"), filepath.Join(t.TempDir(), "outbox")
+	saved := Settings{User: "alice@example.com", CertFile: "c.pem", AllowRemoteImages: &on, AttachmentDir: dir, OutboxDir: outbox, MaxChanges: 30}
 	base := map[string]string{EnvPassword: "secret-for-tests"}
 	load := func(dotenv map[string]string) Config {
 		t.Helper()
@@ -23,10 +23,10 @@ func TestOptionsFromTheSettingsFile(t *testing.T) {
 	}
 
 	cfg := load(map[string]string{})
-	if !cfg.AllowRemoteImages || cfg.AttachmentDir != dir || cfg.MaxChanges != 30 {
+	if !cfg.AllowRemoteImages || cfg.AttachmentDir != dir || cfg.OutboxDir != outbox || cfg.MaxChanges != 30 {
 		t.Errorf("from config.json: %+v", cfg)
 	}
-	if got := origins(cfg); !slices.Equal(got, []string{FromSettings, FromSettings, FromSettings}) {
+	if got := origins(cfg); !slices.Equal(got, []string{FromSettings, FromSettings, FromSettings, FromSettings}) {
 		t.Errorf("origins %q", got)
 	}
 
@@ -61,9 +61,9 @@ func origins(cfg Config) []string {
 func TestKeepOptions(t *testing.T) {
 	t.Parallel()
 	off := false
-	prev := Settings{User: "old@example.com", AllowRemoteImages: &off, AttachmentDir: "/a", MaxChanges: 9}
+	prev := Settings{User: "old@example.com", AllowRemoteImages: &off, AttachmentDir: "/a", OutboxDir: "/o", MaxChanges: 9}
 	s := Settings{User: "new@example.com"}.KeepOptions(prev)
-	if s.User != "new@example.com" || s.AllowRemoteImages != &off || s.AttachmentDir != "/a" || s.MaxChanges != 9 {
+	if s.User != "new@example.com" || s.AllowRemoteImages != &off || s.AttachmentDir != "/a" || s.OutboxDir != "/o" || s.MaxChanges != 9 {
 		t.Errorf("%+v", s)
 	}
 	if v := s.Values()[EnvAllowRemoteImages]; v != "0" {
