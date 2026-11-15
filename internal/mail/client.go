@@ -265,6 +265,17 @@ func (c *Client) run(ctx context.Context, timeout time.Duration, fn func(*imapcl
 	if c.notSetUp != nil {
 		return c.notSetUp
 	}
+	if c.imap != nil {
+		select {
+		case <-c.imap.Closed():
+			// Bridge closed the connection while it was idle: connect again
+			// now, instead of failing this call on it.
+			c.opts.Logger.Info("imap connection closed while idle; reconnecting")
+			_ = c.imap.Close()
+			c.imap, c.conn = nil, nil
+		default:
+		}
+	}
 	err = c.withLimit(ctx, timeout, func() error {
 		if c.imap == nil {
 			return c.connect(ctx, timeout)

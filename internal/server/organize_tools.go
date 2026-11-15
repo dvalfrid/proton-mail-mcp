@@ -18,6 +18,14 @@ type ChangeInput struct {
 	UIDValidity uint32   `json:"uidvalidity" jsonschema:"the uidvalidity that came with the uids; required, so a folder renumbered by Bridge is detected instead of changing other messages"`
 }
 
+// SpamInput are the arguments of mark_spam: ChangeInput with its lower
+// limit, mail.MaxSpamUIDs (TestSpamInputNamesTheLimit).
+type SpamInput struct {
+	Folder      string   `json:"folder" jsonschema:"the folder the messages are in, as list_folders names it"`
+	UIDs        []uint32 `json:"uids" jsonschema:"the messages' uids, from list_messages or search_messages in this folder (1 to 10)"`
+	UIDValidity uint32   `json:"uidvalidity" jsonschema:"the uidvalidity that came with the uids; required, so a folder renumbered by Bridge is detected instead of changing other messages"`
+}
+
 // MoveInput are the arguments of move_message.
 type MoveInput struct {
 	ChangeInput
@@ -183,7 +191,8 @@ func registerOrganizeTools(s *mcp.Server, m *mail.Client) {
 			"From INBOX, Archive or a folder under Folders/, at most %d messages a call. Nothing is deleted, but Proton can delete messages in Spam after 30 days, and marking spam may teach Proton's filter. move_message brings them back out of Spam. "+
 			"Applies to all the given messages or, if any uid is stale or missing, to none.", mail.MaxSpamUIDs),
 		Annotations: organize("Mark as spam", true),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ChangeInput) (*mcp.CallToolResult, SpamOutput, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, spam SpamInput) (*mcp.CallToolResult, SpamOutput, error) {
+		in := ChangeInput(spam)
 		sel, err := selection(in)
 		if err != nil {
 			return nil, SpamOutput{}, err

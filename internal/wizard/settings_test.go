@@ -78,16 +78,21 @@ func TestSettingsLockedByDotEnv(t *testing.T) {
 	f := newFixture(t, true)
 	exeDir := t.TempDir()
 	f.b.o.Exe = filepath.Join(exeDir, "proton-mail-mcp.exe")
-	if err := os.WriteFile(filepath.Join(exeDir, ".env"), []byte(config.EnvMaxChanges+"=7\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(exeDir, ".env"), []byte(config.EnvMaxChanges+"=7\n"+config.EnvAllowRemoteImages+"=1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	file := config.SettingsFile(f.o.Dir)
-	if err := config.WriteSettings(file, config.Settings{User: "alice@example.com", MaxChanges: 40}); err != nil {
+	off := false
+	if err := config.WriteSettings(file, config.Settings{User: "alice@example.com", MaxChanges: 40, AllowRemoteImages: &off}); err != nil {
 		t.Fatal(err)
 	}
 	var s Settings
-	if err := f.call(t, "getSettings", nil, &s); err != nil || s.Locked["maxChanges"] != ".env" || s.Locked["allowRemoteImages"] != "" {
+	if err := f.call(t, "getSettings", nil, &s); err != nil || s.Locked["maxChanges"] != ".env" || s.Locked["allowRemoteImages"] != ".env" || s.Locked["attachmentDir"] != "" {
 		t.Fatalf("locked %v, %v", s.Locked, err)
+	}
+	// The page shows the value in effect, from .env, not the saved one.
+	if s.MaxChanges != 7 || !s.AllowRemoteImages {
+		t.Errorf("locked options show %d, %v; want .env's 7, on", s.MaxChanges, s.AllowRemoteImages)
 	}
 	if err := f.call(t, "saveSettings", map[string]any{"maxChanges": 99}, nil); err != nil {
 		t.Fatal(err)

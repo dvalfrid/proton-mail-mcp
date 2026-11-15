@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/emersion/go-imap/v2"
+	"github.com/emersion/go-imap/v2/imapclient"
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
 	"github.com/dvalfrid/proton-mail-mcp/internal/testutil"
@@ -294,13 +295,39 @@ func TestReconnectAfterDroppedConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Simulate a dropped connection.
+	// The connection dies while idle, as when Bridge closes it: the next
+	// call connects again instead of failing (found in v0.5.0-rc.1).
 	c.mu.Lock()
 	_ = c.conn.Close()
+	closed := c.imap.Closed()
 	c.mu.Unlock()
+	<-closed
 
-	if _, err := c.Folders(ctx); err == nil {
-		t.Fatal("want an error on the dead connection")
+	msgs, err := messages(c.ListMessages(ctx, "INBOX", ListOptions{}))
+	if err != nil || len(msgs) != 1 {
+		t.Fatalf("after the idle connection closed: %v, %v", msgs, err)
+	}
+	if !strings.Contains(logs.String(), "closed while idle") {
+		t.Error("the reconnect was not logged")
+	}
+}
+
+// A connection that breaks during a call fails that call, and is dropped:
+// the next call connects again.
+func TestReconnectAfterBrokenCall(t *testing.T) {
+	t.Parallel()
+	c, srv, logs := newClient(t)
+	srv.AddMessage(t, "INBOX", message("bob@example.org", "Hello", "Mon, 02 Nov 2026 10:00:00 +0000"))
+	ctx := context.Background()
+	if _, err := c.Folders(ctx); err != nil {
+		t.Fatal(err)
+	}
+	err := c.do(ctx, func(*imapclient.Client) error {
+		_ = c.conn.Close()
+		return net.ErrClosed
+	})
+	if !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("want the broken call to fail: %v", err)
 	}
 	msgs, err := messages(c.ListMessages(ctx, "INBOX", ListOptions{}))
 	if err != nil || len(msgs) != 1 {

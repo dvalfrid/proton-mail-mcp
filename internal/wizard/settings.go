@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
@@ -79,9 +80,37 @@ func (b *Backend) getSettings() Settings {
 		switch o := config.Origin(key, dotenv, saved); o {
 		case config.FromEnvironment, config.FromDotEnv:
 			s.Locked[name] = o
+			s.showLocked(name, lockedValue(key, dotenv))
 		}
 	}
 	return s
+}
+
+// lockedValue is what the environment or .env sets key to, the environment
+// first, as the server reads them.
+func lockedValue(key string, dotenv map[string]string) string {
+	if v, ok := os.LookupEnv(key); ok {
+		return v
+	}
+	return dotenv[key]
+}
+
+// showLocked puts a locked option's value from .env or the environment on
+// the page, the one in effect, instead of the saved one it overrides. A
+// value the server would refuse is left out: it doesn't start with it.
+func (s *Settings) showLocked(name, v string) {
+	switch name {
+	case "allowRemoteImages":
+		s.AllowRemoteImages = v == "1" || v == "true"
+	case "attachmentDir":
+		if filepath.IsAbs(v) {
+			s.AttachmentDir = filepath.Clean(v)
+		}
+	case "maxChanges":
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
+			s.MaxChanges = n
+		}
+	}
 }
 
 // saveSettings writes the options the page sent into the settings file,
