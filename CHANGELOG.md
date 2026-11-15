@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0](https://github.com/dvalfrid/proton-mail-mcp/compare/v0.4.0...v0.5.0) (2026-11-15)
+
+
+### Features
+
+* **config:** keep the owner's options in config.json and show where each comes from ([#168](https://github.com/dvalfrid/proton-mail-mcp/issues/168)) ([32a14bc](https://github.com/dvalfrid/proton-mail-mcp/commit/32a14bcdee1dfb8754b3a13eb08fc9d7911a015d))
+* **setup:** a Settings page in the setup window ([#169](https://github.com/dvalfrid/proton-mail-mcp/issues/169)) ([524d198](https://github.com/dvalfrid/proton-mail-mcp/commit/524d198d72c478efd1abfa4e329b91cd939ded2d))
+* **tools:** mark messages as spam on the owner's request ([#165](https://github.com/dvalfrid/proton-mail-mcp/issues/165)) ([c5ace36](https://github.com/dvalfrid/proton-mail-mcp/commit/c5ace36d2c9b0f9a747a94847fe55bc043b59275))
+* **tools:** write drafts from the owner's other addresses ([#167](https://github.com/dvalfrid/proton-mail-mcp/issues/167)) ([95ca319](https://github.com/dvalfrid/proton-mail-mcp/commit/95ca319587e855d431994492d0964a96c220e272))
+
+
+### Bug Fixes
+
+* correct three findings from testing v0.5.0-rc.1 ([#171](https://github.com/dvalfrid/proton-mail-mcp/issues/171)) ([4c0311e](https://github.com/dvalfrid/proton-mail-mcp/commit/4c0311ec896393d8a226918ece8aba6fdfdf2eb2))
+* **tools:** point the about note to the Settings shortcut ([#170](https://github.com/dvalfrid/proton-mail-mcp/issues/170)) ([0d5b801](https://github.com/dvalfrid/proton-mail-mcp/commit/0d5b801a6897e130bb8798e0a9b50d62952b9631))
+
 ## [0.4.0](https://github.com/dvalfrid/proton-mail-mcp/compare/v0.3.0...v0.4.0) (2026-11-14)
 
 
