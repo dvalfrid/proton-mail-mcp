@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -177,6 +179,16 @@ func TestMarkSpamTool(t *testing.T) {
 	res := e.call(t, "move_message", map[string]any{"folder": "INBOX", "uids": uidsOf(l), "uidvalidity": l.UIDValidity, "to": "Spam"})
 	if !res.IsError || !strings.Contains(text(res), "mark_spam") {
 		t.Errorf("move_message to Spam: IsError=%v text=%q", res.IsError, text(res))
+	}
+}
+
+// The uids text of mark_spam names its own limit, not the other tools' 50
+// (found in v0.5.0-rc.1).
+func TestSpamInputNamesTheLimit(t *testing.T) {
+	t.Parallel()
+	f, _ := reflect.TypeFor[SpamInput]().FieldByName("UIDs")
+	if want := fmt.Sprintf("(1 to %d)", mail.MaxSpamUIDs); !strings.Contains(f.Tag.Get("jsonschema"), want) {
+		t.Errorf("uids text %q, want %q", f.Tag.Get("jsonschema"), want)
 	}
 }
 

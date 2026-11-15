@@ -786,7 +786,7 @@
           "type": "string"
         },
         "uids": {
-          "description": "the messages' uids, from list_messages or search_messages in this folder (1 to 50)",
+          "description": "the messages' uids, from list_messages or search_messages in this folder (1 to 10)",
           "items": {
             "maximum": 4294967295,
             "minimum": 0,
