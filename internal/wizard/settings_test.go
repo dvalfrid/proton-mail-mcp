@@ -40,12 +40,12 @@ func TestSettingsPage(t *testing.T) {
 		t.Fatalf("defaults: %+v, %v", s, err)
 	}
 
-	dir := filepath.Join(t.TempDir(), "Mail attachments")
-	if err := f.call(t, "saveSettings", map[string]any{"allowRemoteImages": true, "attachmentDir": dir, "maxChanges": 30}, &s); err != nil {
+	dir, outbox := filepath.Join(t.TempDir(), "Mail attachments"), filepath.Join(t.TempDir(), "Mail to send")
+	if err := f.call(t, "saveSettings", map[string]any{"allowRemoteImages": true, "attachmentDir": dir, "outboxDir": outbox, "maxChanges": 30}, &s); err != nil {
 		t.Fatal(err)
 	}
 	got, err := config.ReadSettings(file)
-	if err != nil || got.AllowRemoteImages == nil || !*got.AllowRemoteImages || got.AttachmentDir != dir || got.MaxChanges != 30 ||
+	if err != nil || got.AllowRemoteImages == nil || !*got.AllowRemoteImages || got.AttachmentDir != dir || got.OutboxDir != outbox || got.MaxChanges != 30 ||
 		got.User != setUp.User || got.CertFile != setUp.CertFile || got.Fingerprint != setUp.Fingerprint || got.IMAPPort != setUp.IMAPPort {
 		t.Errorf("saved %+v, %v", got, err)
 	}
@@ -54,6 +54,7 @@ func TestSettingsPage(t *testing.T) {
 		"zero changes":     {"maxChanges": 0},
 		"too many changes": {"maxChanges": MaxMaxChanges + 1},
 		"relative folder":  {"maxChanges": 5, "attachmentDir": "attachments"},
+		"relative outbox":  {"maxChanges": 5, "outboxDir": "outbox"},
 	} {
 		if err := f.call(t, "saveSettings", args, nil); err == nil {
 			t.Errorf("%s: saved", name)
@@ -67,7 +68,7 @@ func TestSettingsPage(t *testing.T) {
 	if err := f.call(t, "saveSettings", map[string]any{"maxChanges": config.DefaultMaxChanges}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := config.ReadSettings(file); got.AttachmentDir != "" || got.MaxChanges != 0 || got.AllowRemoteImages == nil || *got.AllowRemoteImages {
+	if got, _ := config.ReadSettings(file); got.AttachmentDir != "" || got.OutboxDir != "" || got.MaxChanges != 0 || got.AllowRemoteImages == nil || *got.AllowRemoteImages {
 		t.Errorf("defaults saved as %+v", got)
 	}
 }

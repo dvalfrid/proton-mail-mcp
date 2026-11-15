@@ -24,6 +24,8 @@ type Reply struct {
 	// From is the owner's address to reply from; "" picks the one the
 	// original was sent to, or from (issue #162).
 	From string
+	// Attachments are files to attach, read by internal/outbox.
+	Attachments []DraftFile
 }
 
 // ReplyCreated is a reply draft saved in Drafts, with what it was given
@@ -150,7 +152,7 @@ func (c *Client) reply(raw []byte, r Reply, ownAddrs map[string]string, sent boo
 		subject = string([]rune(subject)[:MaxDraftSubjectRunes])
 	}
 
-	d := Draft{From: r.From, To: to, Cc: cc, Subject: subject, Body: r.Body}
+	d := Draft{From: r.From, To: to, Cc: cc, Subject: subject, Body: r.Body, Attachments: r.Attachments}
 	if d.From == "" {
 		// The owner's address the original came from (their own message)
 		// or was sent to, as Proton Mail's own reply does.

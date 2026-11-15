@@ -164,6 +164,31 @@ func TestAttachmentDir(t *testing.T) {
 	}
 }
 
+// The outbox folder (issue #173) is a full path, by default in Documents.
+func TestOutboxDir(t *testing.T) {
+	t.Parallel()
+	cfg, err := Load(lookupMap(validEnv()))
+	if err != nil || filepath.Base(cfg.OutboxDir) != "Proton Mail MCP outbox" || !filepath.IsAbs(cfg.OutboxDir) {
+		t.Errorf("default = %q, %v; want Proton Mail MCP outbox in Documents", cfg.OutboxDir, err)
+	}
+	if cfg.OutboxDir == cfg.AttachmentDir {
+		t.Errorf("the outbox is the attachment folder by default: %q", cfg.OutboxDir)
+	}
+
+	dir := filepath.Join(t.TempDir(), "send", "..", "out")
+	env := validEnv()
+	env[EnvOutboxDir] = dir
+	if cfg, err := Load(lookupMap(env)); err != nil || cfg.OutboxDir != filepath.Clean(dir) {
+		t.Errorf("%s=%q: %q, %v", EnvOutboxDir, dir, cfg.OutboxDir, err)
+	}
+	for _, v := range []string{"outbox", `..\Documents`, "./x"} {
+		env[EnvOutboxDir] = v
+		if _, err := Load(lookupMap(env)); err == nil || !strings.Contains(err.Error(), EnvOutboxDir) {
+			t.Errorf("%s=%q: err = %v, want a refusal", EnvOutboxDir, v, err)
+		}
+	}
+}
+
 // Guardrail: the password never appears when a Config is printed, logged or
 // marshalled.
 func TestSecretNeverPrinted(t *testing.T) {

@@ -24,13 +24,14 @@ type Settings struct {
 	// .env and the environment override them.
 	AllowRemoteImages *bool  `json:"allow_remote_images,omitempty"`
 	AttachmentDir     string `json:"attachment_dir,omitempty"`
+	OutboxDir         string `json:"outbox_dir,omitempty"`
 	MaxChanges        int    `json:"max_changes,omitempty"`
 }
 
 // KeepOptions returns s with the owner's options from prev, so running
 // setup again keeps them.
 func (s Settings) KeepOptions(prev Settings) Settings {
-	s.AllowRemoteImages, s.AttachmentDir, s.MaxChanges = prev.AllowRemoteImages, prev.AttachmentDir, prev.MaxChanges
+	s.AllowRemoteImages, s.AttachmentDir, s.OutboxDir, s.MaxChanges = prev.AllowRemoteImages, prev.AttachmentDir, prev.OutboxDir, prev.MaxChanges
 	return s
 }
 
@@ -136,6 +137,7 @@ func (s Settings) Values() map[string]string {
 		}
 	}
 	set(EnvAttachmentDir, s.AttachmentDir)
+	set(EnvOutboxDir, s.OutboxDir)
 	if s.MaxChanges != 0 {
 		m[EnvMaxChanges] = strconv.Itoa(s.MaxChanges)
 	}

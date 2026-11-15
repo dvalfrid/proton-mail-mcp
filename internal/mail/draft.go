@@ -41,6 +41,15 @@ type Draft struct {
 	// Bridge drops them on APPEND (docs/bridge.md §7); they are set anyway.
 	InReplyTo  string
 	References []string
+	// Attachments are files to attach, read by internal/outbox.
+	Attachments []DraftFile
+}
+
+// DraftFile is a file attached to a draft.
+type DraftFile struct {
+	Name        string
+	ContentType string
+	Data        []byte
 }
 
 // Created is a draft saved in Drafts.
@@ -346,22 +355,72 @@ func (c *Client) buildDraft(d Draft, now time.Time) ([]byte, error) {
 	if err := h.GenerateMessageID(); err != nil {
 		return nil, fmt.Errorf("make a Message-ID: %w", err)
 	}
-	h.SetContentType("text/plain", map[string]string{"charset": "utf-8"})
-	h.Set("Content-Transfer-Encoding", "quoted-printable")
-
+	body := strings.ReplaceAll(d.Body, "\r\n", "\n")
 	var buf bytes.Buffer
-	w, err := gomail.CreateSingleInlineWriter(&buf, h)
+	if len(d.Attachments) == 0 {
+		err = writePlain(&buf, h, body)
+	} else {
+		err = writeWithAttachments(&buf, h, body, d.Attachments)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("write the draft: %w", err)
 	}
-	body := strings.ReplaceAll(d.Body, "\r\n", "\n")
-	if _, err := io.WriteString(w, body); err != nil {
-		return nil, fmt.Errorf("write the draft: %w", err)
-	}
-	if err := w.Close(); err != nil {
-		return nil, fmt.Errorf("write the draft: %w", err)
-	}
 	return buf.Bytes(), nil
+}
+
+// writePlain writes a draft without attachments: one UTF-8 plain-text
+// part, quoted-printable.
+func writePlain(buf *bytes.Buffer, h gomail.Header, body string) error {
+	h.SetContentType("text/plain", map[string]string{"charset": "utf-8"})
+	h.Set("Content-Transfer-Encoding", "quoted-printable")
+	w, err := gomail.CreateSingleInlineWriter(buf, h)
+	if err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, body); err != nil {
+		return err
+	}
+	return w.Close()
+}
+
+// writeWithAttachments writes multipart/mixed: the plain-text body, then
+// each file as an attachment in base64. Bridge uploads each one to the
+// Proton draft (docs/bridge.md §7).
+func writeWithAttachments(buf *bytes.Buffer, h gomail.Header, body string, files []DraftFile) error {
+	mw, err := gomail.CreateWriter(buf, h)
+	if err != nil {
+		return err
+	}
+	var th gomail.InlineHeader
+	th.SetContentType("text/plain", map[string]string{"charset": "utf-8"})
+	th.Set("Content-Transfer-Encoding", "quoted-printable")
+	tw, err := mw.CreateSingleInline(th)
+	if err != nil {
+		return err
+	}
+	if _, err := io.WriteString(tw, body); err != nil {
+		return err
+	}
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	for _, f := range files {
+		var ah gomail.AttachmentHeader
+		ah.SetContentType(f.ContentType, nil)
+		ah.SetFilename(f.Name)
+		ah.Set("Content-Transfer-Encoding", "base64")
+		aw, err := mw.CreateAttachment(ah)
+		if err != nil {
+			return err
+		}
+		if _, err := aw.Write(f.Data); err != nil {
+			return err
+		}
+		if err := aw.Close(); err != nil {
+			return err
+		}
+	}
+	return mw.Close()
 }
 
 // addresses parses each entry as one address ("a@example.com" or

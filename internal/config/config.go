@@ -34,6 +34,9 @@ const (
 	// EnvAttachmentDir is the one folder save_attachment writes into
 	// (DefaultAttachmentDir if unset).
 	EnvAttachmentDir = "PROTON_ATTACHMENT_DIR"
+	// EnvOutboxDir is the one folder the draft tools attach files from
+	// (DefaultOutboxDir if unset, issue #173).
+	EnvOutboxDir = "PROTON_OUTBOX_DIR"
 	// EnvAllowRemoteImages turns on fetch_image, which fetches an image a
 	// message links to on the internet (off by default, issue #150).
 	EnvAllowRemoteImages = "PROTON_ALLOW_REMOTE_IMAGES"
@@ -65,6 +68,9 @@ type Config struct {
 	// saved into. Empty if it is unset and the default couldn't be found:
 	// saving then says how to set it.
 	AttachmentDir string
+	// OutboxDir is the absolute path of the folder files are attached
+	// from. Empty if it is unset and the default couldn't be found.
+	OutboxDir string
 	// Options are the owner's options with where each came from, filled in
 	// by the caller that knows the files (Options); nil from Load.
 	Options []Option
@@ -88,6 +94,7 @@ func (c Config) LogValue() slog.Value {
 		slog.Bool("allow_remote_images", c.AllowRemoteImages),
 		slog.Int("max_changes", c.MaxChanges),
 		slog.Bool("attachment_dir", c.AttachmentDir != ""),
+		slog.Bool("outbox_dir", c.OutboxDir != ""),
 	)
 }
 
@@ -140,14 +147,11 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			cfg.MaxChanges = n
 		}
 	}
-	if v := get(EnvAttachmentDir); v != "" {
-		if !filepath.IsAbs(v) {
-			errs = append(errs, fmt.Errorf("%s=%q: give a full path to a folder, starting with a drive letter or /", EnvAttachmentDir, v))
-		} else {
-			cfg.AttachmentDir = filepath.Clean(v)
-		}
-	} else if d, err := DefaultAttachmentDir(); err == nil {
-		cfg.AttachmentDir = d
+	if cfg.AttachmentDir, err = folder(get(EnvAttachmentDir), EnvAttachmentDir, DefaultAttachmentDir); err != nil {
+		errs = append(errs, err)
+	}
+	if cfg.OutboxDir, err = folder(get(EnvOutboxDir), EnvOutboxDir, DefaultOutboxDir); err != nil {
+		errs = append(errs, err)
 	}
 
 	switch v := get(EnvAllowSend); v {
@@ -181,6 +185,19 @@ func IsLocalHost(host string) bool {
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+// folder is the full path in v, or def's if v is empty ("" if def can't
+// find it).
+func folder(v, name string, def func() (string, error)) (string, error) {
+	if v == "" {
+		d, _ := def()
+		return d, nil
+	}
+	if !filepath.IsAbs(v) {
+		return "", fmt.Errorf("%s=%q: give a full path to a folder, starting with a drive letter or /", name, v)
+	}
+	return filepath.Clean(v), nil
 }
 
 func port(v string, def int, name string) (int, error) {

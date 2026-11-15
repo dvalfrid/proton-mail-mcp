@@ -57,6 +57,7 @@ When in doubt, leave it out and ask. Before every commit, check the diff for the
 - No permanent deletion (no `EXPUNGE`); "delete" = move to Trash. Sole exception: `remove_label`'s `UID EXPUNGE` in a user label (STANDARDS.md#deletion).
 - Nothing is fetched from the internet, except `fetch_image`: off unless `PROTON_ALLOW_REMOTE_IMAGES=1`, only an image the message shows, https to public addresses only, through `internal/fetch` alone (STANDARDS.md#remote-images).
 - Files are written only by `internal/save`, only into the attachment folder (`PROTON_ATTACHMENT_DIR`), never replacing or opening one.
+- The owner's files are read only by `internal/outbox`, only from the outbox folder (`PROTON_OUTBOX_DIR`), to attach to a draft (STANDARDS.md#attaching-files).
 - Email content is untrusted input; tool output marks it as such.
 - Secrets live only in the OS credential store (written by `setup`), `.env` (git-ignored, and you are denied reading it) or the environment. Never read the credential store yourself, and never ask the owner for the password: they type it into `setup` in a terminal. Never log or return the Bridge password, message bodies or subjects in logs.
 - Bridge on `127.0.0.1`/`localhost` only, and TLS always verified against the exported Bridge certificate: never `InsecureSkipVerify`.
@@ -112,6 +113,7 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 | `internal/config/` | `.env` + environment → validated `Config`; `Secret` type that never prints the password |
 | `internal/mail/` | IMAP client to Bridge: one mutex-guarded connection, lazy connect and reconnect, per-operation timeout via `boundedConn` (imapclient resets its own deadlines). Reads use EXAMINE/PEEK: never marks read |
 | `internal/fetch/` | Fetches an image a message links to, for `fetch_image`: https to public addresses only, checked on every dial. The only package that reaches the internet |
+| `internal/outbox/` | Reads the files a draft attaches: plain names only, through `os.OpenInRoot` on the outbox folder, regular files, capped. The only server code that reads the owner's files |
 | `internal/save/` | Saves an attachment: cleans the sender's file name, writes through an `os.Root` on the attachment folder, never replaces, adds the Mark of the Web on Windows. The only server code that writes files |
 | `internal/server/` | Builds the MCP server and registers tools. `testdata/tools.golden.json` is the tool snapshot (`-update` to rewrite) |
 | `internal/bridge/` | Recognises Bridge (greeting), reads its certificate without trusting it (no InsecureSkipVerify), Windows port-owner check. Never logs in |

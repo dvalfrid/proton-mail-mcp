@@ -45,6 +45,8 @@ proton-mail-mcp runs as a local process started by an MCP client (Claude). It ho
 | Owner's network | A link in an email steers a fetch at this computer or the local network (Bridge, the router) | `fetch_image` fetches only https on port 443 to public addresses, checked on every connection including redirects and fresh DNS answers; no proxy; only `internal/fetch` makes requests |
 | Owner's computer | A saved attachment is written outside the attachment folder, replaces a file, or runs | `save_attachment` writes only into `PROTON_ATTACHMENT_DIR`, through an `os.Root` (no `..`, absolute path or link leads out); the sender's name is cleaned; nothing is replaced or opened; on Windows the file carries the Mark of the Web, so SmartScreen and Office warn before it runs or can be edited |
 
+| Owner's files | Instructions in an email make the assistant attach a private file to a draft | Files are attached only from the outbox folder (`PROTON_OUTBOX_DIR`), which holds only what the owner means to send; by plain name through `os.OpenInRoot` (no `..`, path or link leads out), no hidden files, at most 10 files and 20 MiB; only `internal/outbox` reads files; the result lists what was attached, and nothing is sent without the owner |
+
 In scope: anything that gets around one of the protections above. Out of scope: Proton Mail Bridge itself (report to Proton), and the MCP client's own approval UI.
 
 Full rules: [STANDARDS.md — Security guardrails](STANDARDS.md#security-guardrails).
