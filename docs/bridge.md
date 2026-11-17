@@ -535,7 +535,7 @@ SMTP never sends an existing draft directly.
 | **C. Proton API via go-proton-api** (list, search, create, update, delete contacts) | The full feature set, including updates. | A **new dependency** that needs approval, and an **unofficial** API with no third-party support statement. It needs the **account password, 2FA and the key password** in our process, far more power than the Bridge password: it can read all mail, change settings and delete data. It also means storing session tokens and handling human verification and CAPTCHAs. This breaks the current "Bridge password is the only secret" and "Bridge on localhost only" model. Treat it as a separate project with its own risk assessment (ROADMAP "Later"). |
 | **D. Wait for Proton** (CardDAV, or contacts in Bridge) | Would be the clean answer. | Not available. No public plan found. |
 
-**Built: A, as `find_contacts` (0.6, issue #187).** It reads the envelopes of the newest 3000 messages in Sent and INBOX. Measured on a real Bridge on 2026-11-17: 6000 envelopes in 0.34 s.
+**Built: A, as `find_contacts` (0.6, issue #187).** It reads the envelopes of the newest 3000 messages in each of Sent, INBOX and Archive. It keeps each folder in memory, never on disk, until STATUS shows that the folder's UIDVALIDITY, UIDNEXT or message count changed. Measured on a real Bridge on 2026-11-17, read-only: 0.48 s for the first search and 0.16 s for the next.
 
 The suggestion that fits the project's rules is **A**: read-only, no new secret, no new dependency, with a confirm step whenever a name is resolved to an address for a draft. **B** could be added later as an opt-in, with owner approval for any parser dependency. **C** shouldn't be done under the current guardrails.
 

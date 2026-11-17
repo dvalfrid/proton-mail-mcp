@@ -86,6 +86,9 @@ type Client struct {
 	// labelBoxes caches what each label mailbox holds, for the labels in a
 	// listing (labelsOf). Guarded by mu.
 	labelBoxes map[string]labelBox
+	// contactBoxes caches the addresses each folder gave find_contacts
+	// (issue #187), guarded by mu like labelBoxes.
+	contactBoxes map[string]contactBox
 
 	// notSetUp, if set, is returned by every operation: see NewUnconfigured.
 	notSetUp error

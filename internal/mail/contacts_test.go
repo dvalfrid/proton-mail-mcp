@@ -2,6 +2,7 @@ package mail
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -51,5 +52,57 @@ func TestFindContacts(t *testing.T) {
 	}
 	if n := srv.Unseen(t, "INBOX"); n != 4 {
 		t.Errorf("unseen = %d: reading addresses marked mail read", n)
+	}
+}
+
+// Words match in any order, Archive is read too, and the owner's own mail
+// in Archive counts as written to.
+func TestFindContactsWordsAndArchive(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	c, srv, _ := newClient(t)
+	srv.AddMessage(t, "Archive", "From: Anna Lind <anna@example.org>\r\nTo: alice@example.com\r\nDate: Mon, 02 Nov 2026 10:00:00 +0000\r\nSubject: s\r\n\r\nx\r\n")
+	srv.AddMessage(t, "Archive", "From: alice@example.com\r\nTo: Per Holm <per@example.net>\r\nDate: Mon, 02 Nov 2026 11:00:00 +0000\r\nSubject: s\r\n\r\nx\r\n")
+
+	for _, q := range []string{"lind anna", "Anna  LIND", "anna example.org"} {
+		got, err := c.FindContacts(ctx, q)
+		if err != nil || len(got.People) != 1 || got.People[0].Address != "anna@example.org" || got.People[0].Received != 1 {
+			t.Errorf("%q = %+v, %v", q, got.People, err)
+		}
+	}
+	if got, _ := c.FindContacts(ctx, "anna holm"); len(got.People) != 0 {
+		t.Errorf("words from two people matched one: %+v", got.People)
+	}
+	got, err := c.FindContacts(ctx, "holm per")
+	if err != nil || len(got.People) != 1 || got.People[0].Sent != 1 || got.Scanned["Archive"] != 2 {
+		t.Errorf("own mail in Archive = %+v, %v", got, err)
+	}
+}
+
+// A folder is read once and kept until it changes: later searches ask
+// STATUS only, and a new message is seen.
+func TestFindContactsCached(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	c, srv, _ := newClient(t)
+	srv.AddMessage(t, "INBOX", "From: Bob <bob@example.org>\r\nTo: alice@example.com\r\nDate: Mon, 02 Nov 2026 10:00:00 +0000\r\nSubject: s\r\n\r\nx\r\n")
+	opened := func() int {
+		return strings.Count(srv.Transcript(), "EXAMINE INBOX") + strings.Count(srv.Transcript(), `EXAMINE "INBOX"`)
+	}
+
+	if got, err := c.FindContacts(ctx, "bob"); err != nil || len(got.People) != 1 {
+		t.Fatalf("first = %+v, %v", got, err)
+	}
+	first := opened()
+	if _, err := c.FindContacts(ctx, "carol"); err != nil {
+		t.Fatal(err)
+	}
+	if opened() != first || first == 0 {
+		t.Errorf("INBOX opened %d times, then %d: the unchanged folder was read again", first, opened())
+	}
+
+	srv.AddMessage(t, "INBOX", "From: Carol <carol@example.net>\r\nTo: alice@example.com\r\nDate: Tue, 03 Nov 2026 10:00:00 +0000\r\nSubject: s\r\n\r\nx\r\n")
+	if got, err := c.FindContacts(ctx, "carol"); err != nil || len(got.People) != 1 {
+		t.Errorf("after a new message = %+v, %v", got, err)
 	}
 }

@@ -37,15 +37,17 @@ type Contacts struct {
 	Scanned map[string]int `json:"scanned"`
 }
 
-// FindContacts finds the people whose name or address contains query
-// (case, accents and extra spaces ignored), in the To, Cc and Bcc of the
-// newest messages in Sent and the From of the newest in INBOX, never the
-// owner's own addresses. People the owner wrote to come first, then by how
-// many messages and how recent. Only ENVELOPE is read (a database read in
-// Bridge), from folders opened read-only.
+// FindContacts finds the people whose name and address together contain
+// every word of query, in any order (case, accents and extra spaces
+// ignored). It looks at the newest messages in Sent, INBOX and Archive: the
+// To, Cc and Bcc of the owner's own messages (whom they wrote to) and the
+// From of the others (who wrote to them), never the owner's own addresses.
+// People the owner wrote to come first, then by how many messages and how
+// recent. Only ENVELOPE is read (a database read in Bridge), from folders
+// opened read-only, and each folder is kept in memory until it changes.
 func (c *Client) FindContacts(ctx context.Context, query string) (Contacts, error) {
-	q := fold(query)
-	if q == "" {
+	words := strings.Fields(fold(query))
+	if len(words) == 0 {
 		return Contacts{}, fmt.Errorf("give a name or part of an address to look for")
 	}
 	own, err := c.ownAddresses(ctx, false)
@@ -58,64 +60,50 @@ func (c *Client) FindContacts(ctx context.Context, query string) (Contacts, erro
 	}
 	people := map[string]*Contact{}
 	out := Contacts{Scanned: map[string]int{}}
-	add := func(name, addr string, when time.Time, sent bool) {
-		key := strings.ToLower(addr)
-		if addr == "" || own[key] != "" || strings.ContainsFunc(addr, unsafeURLRune) {
+	add := func(e contactEntry) {
+		key := strings.ToLower(e.addr)
+		if own[key] != "" {
 			return
 		}
 		p := people[key]
 		if p == nil {
-			p = &Contact{Address: addr}
+			p = &Contact{Address: e.addr}
 			people[key] = p
 		}
-		if sent {
+		if e.sent {
 			p.Sent++
 		} else {
 			p.Received++
 		}
-		if when.After(p.Last) || p.Last.IsZero() {
-			p.Last = when
-			if n := clean(name, maxNameRunes); n != "" {
-				p.Name = n
+		if e.date.After(p.Last) || p.Last.IsZero() {
+			p.Last = e.date
+			if e.name != "" {
+				p.Name = e.name
 			}
 		} else if p.Name == "" {
-			p.Name = clean(name, maxNameRunes)
+			p.Name = e.name
 		}
 	}
-	scan := []struct {
-		folder string
-		sent   bool
-	}{{folders["sent"], true}, {"INBOX", false}}
-	for _, s := range scan {
-		if s.folder == "" {
+	for _, folder := range []string{folders["sent"], "INBOX", folders["archive"]} {
+		if folder == "" || out.Scanned[folder] > 0 {
 			continue
 		}
-		var envs []*imap.Envelope
+		var box contactBox
 		err := c.do(ctx, func(ic *imapclient.Client) error {
 			var err error
-			envs, err = newestEnvelopes(ic, s.folder)
+			box, err = c.contactBox(ic, folder, own)
 			return err
 		})
 		if err != nil {
 			return Contacts{}, err
 		}
-		out.Scanned[s.folder] = len(envs)
-		for _, e := range envs {
-			if s.sent {
-				for _, l := range [][]imap.Address{e.To, e.Cc, e.Bcc} {
-					for _, a := range l {
-						add(a.Name, a.Addr(), e.Date, true)
-					}
-				}
-			} else {
-				for _, a := range e.From {
-					add(a.Name, a.Addr(), e.Date, false)
-				}
-			}
+		out.Scanned[folder] = box.scanned
+		for _, e := range box.entries {
+			add(e)
 		}
 	}
 	for _, p := range people {
-		if strings.Contains(fold(p.Name), q) || strings.Contains(fold(p.Address), q) {
+		if matches(words, fold(p.Name)+" "+fold(p.Address)) {
 			out.People = append(out.People, *p)
 		}
 	}
@@ -133,6 +121,82 @@ func (c *Client) FindContacts(ctx context.Context, query string) (Contacts, erro
 		out.People = out.People[:MaxContactResults]
 	}
 	return out, nil
+}
+
+// matches reports whether every word is in s.
+func matches(words []string, s string) bool {
+	for _, w := range words {
+		if !strings.Contains(s, w) {
+			return false
+		}
+	}
+	return true
+}
+
+// contactEntry is one address in one message: whom the owner wrote to
+// (sent) or who wrote to them.
+type contactEntry struct {
+	name, addr string
+	date       time.Time
+	sent       bool
+}
+
+// contactBox is what one folder gave when it was last read, valid while
+// its UIDVALIDITY, UIDNEXT and message count stay the same.
+type contactBox struct {
+	validity, next, count uint32
+	scanned               int
+	entries               []contactEntry
+}
+
+// contactBox returns the addresses in the newest maxContactScan messages in
+// folder, from the cache when the folder hasn't changed. A message from one
+// of own is the owner's: its recipients count as written to. It runs under
+// c.mu (within do), which also guards the cache.
+func (c *Client) contactBox(ic *imapclient.Client, folder string, own map[string]string) (contactBox, error) {
+	st, err := ic.Status(folder, &imap.StatusOptions{UIDValidity: true, UIDNext: true, NumMessages: true}).Wait()
+	if err != nil {
+		return contactBox{}, fmt.Errorf("status of %q: %w", folder, err)
+	}
+	box := contactBox{validity: st.UIDValidity, next: uint32(st.UIDNext)}
+	if st.NumMessages != nil {
+		box.count = *st.NumMessages
+	}
+	if old, ok := c.contactBoxes[folder]; ok && old.validity == box.validity && old.next == box.next && old.count == box.count {
+		return old, nil
+	}
+	envs, err := newestEnvelopes(ic, folder)
+	if err != nil {
+		return contactBox{}, err
+	}
+	box.scanned = len(envs)
+	keep := func(a imap.Address, date time.Time, sent bool) {
+		if addr := a.Addr(); addr != "" && !strings.ContainsFunc(addr, unsafeURLRune) {
+			box.entries = append(box.entries, contactEntry{name: clean(a.Name, maxNameRunes), addr: addr, date: date, sent: sent})
+		}
+	}
+	for _, e := range envs {
+		mine := false
+		for _, a := range e.From {
+			mine = mine || own[strings.ToLower(a.Addr())] != ""
+		}
+		if !mine {
+			for _, a := range e.From {
+				keep(a, e.Date, false)
+			}
+			continue
+		}
+		for _, l := range [][]imap.Address{e.To, e.Cc, e.Bcc} {
+			for _, a := range l {
+				keep(a, e.Date, true)
+			}
+		}
+	}
+	if c.contactBoxes == nil {
+		c.contactBoxes = map[string]contactBox{}
+	}
+	c.contactBoxes[folder] = box
+	return box, nil
 }
 
 // newestEnvelopes reads the envelopes of the newest maxContactScan
