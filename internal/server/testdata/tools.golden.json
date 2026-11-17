@@ -6,7 +6,7 @@
       "readOnlyHint": true,
       "title": "About Proton Mail MCP"
     },
-    "description": "Which version of proton-mail-mcp is running, and every tool in one line, grouped. Use it when the owner asks which version runs or what the tools can do. Does not touch the mailbox.",
+    "description": "Proton Mail connector (proton-mail-mcp): which version is installed and running, whether Proton Mail Bridge answers, how to update, and every tool in one line, grouped. Also called the Proton Mail connector, the connection to Proton Mail, Mail MCP or the mail connection (in Swedish: kopplingen till Proton Mail, mejlkopplingen). Use it when the owner asks which version they have, whether the connection to Proton Mail works, or what the tools can do. No internet; does not touch the mailbox.",
     "inputSchema": {
       "additionalProperties": false,
       "type": "object"
@@ -15,6 +15,10 @@
     "outputSchema": {
       "additionalProperties": false,
       "properties": {
+        "bridge": {
+          "description": "whether Proton Mail Bridge answers and the login works, right now",
+          "type": "string"
+        },
         "groups": {
           "description": "every tool, grouped by what it may do",
           "items": {
@@ -57,10 +61,18 @@
             "array"
           ]
         },
+        "how_to_update": {
+          "description": "how to install a newer version; proton_mail_mcp_update says whether there is one",
+          "type": "string"
+        },
         "name": {
           "type": "string"
         },
         "note": {
+          "type": "string"
+        },
+        "releases": {
+          "description": "the page listing every release",
           "type": "string"
         },
         "settings": {
@@ -99,6 +111,9 @@
       "required": [
         "name",
         "version",
+        "bridge",
+        "how_to_update",
+        "releases",
         "groups",
         "note"
       ],
@@ -1033,6 +1048,59 @@
       "required": [
         "folder",
         "changed"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Check for a Proton Mail MCP update"
+    },
+    "description": "Proton Mail connector (proton-mail-mcp): is there a newer version of this program? Also called the Proton Mail connector, the connection to Proton Mail, Mail MCP or the mail connection (in Swedish: kopplingen till Proton Mail, mejlkopplingen). Use it only when the owner asks whether there is an update. It asks GitHub once for the latest release (https://github.com/dvalfrid/proton-mail-mcp/releases; pre-releases are never offered), sending nothing but the program's name, and says whether it is newer than the running version, with how to update. Never downloads or installs anything. Does not touch the mailbox. For the installed version alone, use about, which needs no internet.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "name": "proton_mail_mcp_update",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "how_to_update": {
+          "type": "string"
+        },
+        "latest": {
+          "description": "the latest release; pre-releases are never offered",
+          "type": "string"
+        },
+        "message": {
+          "description": "the answer in one sentence, for the owner",
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "release_url": {
+          "description": "the latest release's page, where its files are downloaded",
+          "type": "string"
+        },
+        "running": {
+          "description": "the version running now",
+          "type": "string"
+        },
+        "update_available": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "running",
+        "latest",
+        "update_available",
+        "release_url",
+        "message",
+        "note"
       ],
       "type": "object"
     }

@@ -72,7 +72,7 @@ Install without a terminal, and updates that keep Claude's registration:
 - The setup wizard on macOS and Linux (#91).
 - Homebrew tap, Linux `.deb`/`.rpm`, a Claude Desktop extension (MCPB) (#33).
 - More AI assistants than Claude (#128): setup and the wizard register the server in OpenAI Codex, GitHub Copilot in VS Code, Cursor, Gemini CLI and LM Studio; texts say "the assistant"; the website says where each one sends the mail.
-- Ask Claude which version is installed and whether an update exists, and how to update (#125): `proton_mail_mcp_version` without network, `proton_mail_mcp_update` only when asked (the one connection outside localhost, a written guardrail exception first).
+- Ask Claude which version is installed and whether an update exists, and how to update (#125): `about` gives the version, whether Bridge answers and how to update, without network; `proton_mail_mcp_update` and *Check for updates* on the Settings page (#159) ask GitHub only when the owner asks (STANDARDS.md#update-check, approved 2026-11-17).
 
 Before sending, so that organizing and drafts have been in daily use for a while when 0.6 starts.
 

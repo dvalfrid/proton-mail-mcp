@@ -115,6 +115,7 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 |---|---|---|
 | Read | list folders, list/search messages, read a message, view an image | Allowed |
 | Fetch | `fetch_image`: an image a message links to on the internet, when the owner asks | Gated: off unless `PROTON_ALLOW_REMOTE_IMAGES=1`, see [Remote images](#remote-images) |
+| Update check | `proton_mail_mcp_update`: ask GitHub whether a newer release exists, when the owner asks | Allowed: one fixed address, nothing downloaded, see [Update check](#update-check) |
 | Save | save an attachment into the owner's attachment folder | Allowed: never replaces a file, never opens one |
 | Organize | move, mark read/unread, flag, label, move to Trash, mark as spam | Allowed (undoable), at most `PROTON_MAX_CHANGES` messages (200 by default) per server run. Spam has its own rules, see [Spam](#spam) |
 | Draft | create, update draft in `Drafts`, with files from the owner's outbox folder attached | Allowed; files only from the outbox, see [Attaching files](#attaching-files) |
@@ -179,7 +180,26 @@ Nothing from a message is fetched from the internet, with one exception, approve
 - **Nothing extra goes out.** No cookies, no Referer, a neutral User-Agent. Nothing is written to disk.
 - **Bounded.** At most 20 MiB and 15 seconds; the content must be a PNG, JPEG, GIF or WebP image by its bytes, and is decoded and encoded again like `view_image`.
 - **Untrusted.** The result carries the same note as `view_image`, and says that the sender's server now knows the message was opened. The description and the server instructions tell Claude to fetch only when the owner asks, never because an email does; the tool is annotated open-world, so clients that honour it ask first.
-- **One package.** Only `internal/fetch` reaches the internet: depguard rejects `net/http` anywhere else, and `TestNothingElseFetches` fails on any other network code outside the named Bridge connections.
+- **One package.** Only `internal/fetch` reaches the internet, for this and for the [update check](#update-check). depguard rejects `net/http` anywhere else, and `TestNothingElseFetches` fails on any other network code outside the named Bridge connections.
+
+### Update check
+
+The program contacts GitHub only when the owner asks whether there is an update. This is an exception approved by the owner on 2026-11-17 (issues #125 and #159).
+
+- **Two places, both on request.** The check runs from:
+  - the `proton_mail_mcp_update` tool, when the owner asks Claude;
+  - the *Check for updates* button on the Settings page, when the owner clicks it.
+
+  Nothing checks in the background or at start-up. `about` gives the version and how to update without the internet.
+- **One fixed address.** `https://api.github.com/repos/dvalfrid/proton-mail-mcp/releases/latest`. The tool takes no input, so nothing from a message or from Claude goes into the request.
+- **Nothing extra goes out.** No cookies or tokens, and a neutral User-Agent. GitHub sees the request and the IP address, nothing else.
+- **Only the tag is read.** It must be `vX.Y.Z`. Drafts and pre-releases are never offered. The release-page link is built from the tag, never taken from the answer.
+- **Bounded.**
+  - At most 1 MiB and 15 seconds.
+  - The same dial check as `fetch_image`: https on port 443, public addresses only, no proxy.
+- **Nothing is downloaded or run.** The owner downloads the signed installer from the release page.
+- **Annotated open-world**, so clients that honour it ask first. `TestOnlyNamedToolsReachTheInternet` fails if any tool other than `fetch_image` and this one is open-world.
+- **One package.** The request is made in `internal/fetch`, like `fetch_image`, so depguard and `TestNothingElseFetches` still name every place that reaches the internet. `internal/update` only compares versions.
 
 ### Secrets
 

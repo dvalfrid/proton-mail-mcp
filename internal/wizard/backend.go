@@ -27,14 +27,17 @@ import (
 	"github.com/dvalfrid/proton-mail-mcp/internal/bridge"
 	"github.com/dvalfrid/proton-mail-mcp/internal/catalog"
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
+	"github.com/dvalfrid/proton-mail-mcp/internal/fetch"
 	"github.com/dvalfrid/proton-mail-mcp/internal/help"
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
 	"github.com/dvalfrid/proton-mail-mcp/internal/setup"
+	"github.com/dvalfrid/proton-mail-mcp/internal/update"
 )
 
 // Links the page may open in the user's browser, by name, besides
-// "help:<topic>" for a section of the troubleshooting guide. The page can't
-// open any other address.
+// "help:<topic>" for a section of the troubleshooting guide and "release"
+// for the release page the update check found. The page can't open any
+// other address.
 var Links = map[string]string{
 	"bridge": "https://proton.me/mail/bridge",
 	"help":   help.URL(help.Troubleshoot),
@@ -58,6 +61,9 @@ type Backend struct {
 
 	settingsOnly bool                               // open on the Settings page, without checking first
 	pickFolder   func(start string) (string, error) // the native folder picker; nil in tests
+
+	updates    update.Source // GitHub's latest release, asked only on the owner's click
+	releaseURL string        // the release page the last update check found
 }
 
 // Accent is the system accent colour, in the shades the page uses in light
@@ -70,7 +76,7 @@ type Accent struct {
 // New returns a backend for o. open opens a URL in the browser and quit
 // closes the window; either may be nil in tests.
 func New(o setup.Options, version string, accent Accent, open func(string) error, quit func()) *Backend {
-	b := &Backend{o: o, version: version, accent: accent, open: open, quit: quit}
+	b := &Backend{o: o, version: version, accent: accent, open: open, quit: quit, updates: fetch.New(0)}
 	b.prev, b.prepErr = b.o.Prepare()
 	return b
 }
@@ -123,6 +129,8 @@ func (b *Backend) Call(ctx context.Context, method string, args json.RawMessage)
 		return nil, b.openLink(a.Name)
 	case "runCheck":
 		return b.runCheck(ctx), nil
+	case "checkUpdate":
+		return b.checkUpdate(ctx)
 	case "getSettings":
 		return b.getSettings(), nil
 	case "saveSettings":
@@ -350,6 +358,9 @@ func (b *Backend) register(names []string) ([]RegisterResult, error) {
 
 func (b *Backend) openLink(name string) error {
 	url, ok := Links[name]
+	if name == "release" {
+		url, ok = b.releasePage(), true
+	}
 	if t, isHelp := strings.CutPrefix(name, "help:"); isHelp {
 		url, ok = help.URL(help.Topic(t)), slices.Contains(help.Topics, help.Topic(t))
 	}

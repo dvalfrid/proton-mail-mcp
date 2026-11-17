@@ -34,7 +34,8 @@ Claude can list, search and read messages, mark them read or unread, star them, 
 
 | Tool | What it does | Changes the mailbox |
 |---|---|---|
-| `about` | The running version and every tool in one line, grouped. Ask Claude "which version of Proton Mail MCP runs?" or "what can the Proton Mail tools do?" | No |
+| `about` | The running version, whether Proton Mail Bridge answers, how to update, and every tool in one line, grouped. Ask Claude "which version of Proton Mail MCP do I have?", "does the connection to Proton Mail work?" or "what can the Proton Mail tools do?". No internet | No |
+| `proton_mail_mcp_update` | Whether a newer version exists, and how to install it. Ask Claude "is there an update for Proton Mail MCP?". It asks GitHub once for the latest release (one fixed address; pre-releases are never offered) and never downloads anything. Nothing checks for updates unless you ask | No |
 | `list_folders` | Folders with message and unread counts | No |
 | `list_messages` | Newest messages in a folder: uid, date, sender, subject, read/flagged, the message's labels (`labels`, e.g. `["Customer", "Invoice"]`, which Claude shows as tags), plus the folder's `uidvalidity` | No (messages stay unread) |
 | `search_messages` | Messages in one folder matching all given criteria: `from`, `to`, `subject`, `body` (case-insensitive text), `since` / `before` (dates received), `unread_only`. At least one criterion; same result shape as `list_messages` | No (messages stay unread) |
@@ -69,7 +70,7 @@ The tools that change messages take a folder, 1 to 50 `uids` from that folder an
 **On Windows** there is also a graphical setup: `proton-mail-mcp-setup.exe`, next to `proton-mail-mcp.exe` in the Windows download (the installer's *Proton Mail MCP* in the Start menu). Start it (double-click) and it does the steps below in a window that follows the Windows 11 look, light or dark: no terminal needed. Once set up, the same window is where you look after it, with three pages in its side menu:
 
 - **Status** runs the same check as `proton-mail-mcp check` (the same code, on the settings loaded the same way) and shows each step with a green or red mark. A step that fails says what to do and links to its section of the troubleshooting guide. *Check again* runs it again, for example after starting Bridge.
-- **Settings** changes the options (see [Options in config.json](#options-in-configjson)).
+- **Settings** changes the options (see [Options in config.json](#options-in-configjson)). *Check for updates* asks GitHub whether a newer version exists, only when you click, and links to its release page. Nothing is downloaded.
 - **About** shows the version, every tool by group (as Claude's `about` lists them) and which Claude apps start the server.
 
 It opens on Status when a step fails, otherwise on Settings. *Set up again* (on Status and About) runs the setup steps again, after a Bridge reset or a new Bridge password. It needs Microsoft Edge WebView2, which Windows 11 has; without it, it opens the terminal setup instead. macOS and Linux get it later ([#91](https://github.com/dvalfrid/proton-mail-mcp/issues/91)).

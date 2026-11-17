@@ -1,7 +1,9 @@
 // Package fetch gets an image a message links to on the internet, for
-// fetch_image. It is the only package in the server that makes an HTTP
-// request (depguard): the one exception to "nothing is fetched", approved
-// by the owner on 2026-11-13 (issue #150, STANDARDS.md#remote-images).
+// fetch_image, and the latest release of this program, for the update
+// check. It is the only package in the program that makes an HTTP request
+// (depguard): the two exceptions to "nothing is fetched", approved by the
+// owner on 2026-11-13 (issue #150, STANDARDS.md#remote-images) and
+// 2026-11-17 (issue #125, STANDARDS.md#update-check).
 //
 // The address comes from a sender, so the request is fenced in: https on
 // port 443 only, to public addresses only, checked on every connection
@@ -44,6 +46,8 @@ var (
 type Fetcher struct {
 	client *http.Client
 	limit  int64
+	// latestURL is where Latest asks; tests point it at a test server.
+	latestURL string
 	// allow decides whether a connection may be made to an address; tests
 	// replace it to reach a local test server.
 	allow func(netip.AddrPort) bool
@@ -51,7 +55,7 @@ type Fetcher struct {
 
 // New returns a Fetcher that reads at most limit bytes of a response.
 func New(limit int64) *Fetcher {
-	f := &Fetcher{limit: limit, allow: Public}
+	f := &Fetcher{limit: limit, latestURL: latestURL, allow: Public}
 	dialer := &net.Dialer{
 		Timeout: Timeout,
 		// Control runs for every connection, after DNS, with the address
@@ -89,6 +93,12 @@ func New(limit int64) *Fetcher {
 // public address is fetched; the response must be 200 and at most the
 // limit. Nothing is written to disk.
 func (f *Fetcher) Get(ctx context.Context, rawURL string) ([]byte, error) {
+	return f.get(ctx, rawURL, "image/png, image/jpeg, image/gif, image/webp", f.limit)
+}
+
+// get fetches rawURL as Get does, asking for accept and reading at most
+// limit bytes.
+func (f *Fetcher) get(ctx context.Context, rawURL, accept string, limit int64) ([]byte, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("%w: it can't be parsed", ErrNotAllowed)
@@ -101,7 +111,7 @@ func (f *Fetcher) Get(ctx context.Context, rawURL string) ([]byte, error) {
 		return nil, fmt.Errorf("%w: %w", ErrNotAllowed, err)
 	}
 	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("Accept", "image/png, image/jpeg, image/gif, image/webp")
+	req.Header.Set("Accept", accept)
 
 	resp, err := f.client.Do(req)
 	if err != nil {
@@ -115,15 +125,15 @@ func (f *Fetcher) Get(ctx context.Context, rawURL string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%w: the server answered %d", ErrFailed, resp.StatusCode)
 	}
-	if resp.ContentLength > f.limit {
-		return nil, fmt.Errorf("%w: %d bytes, the limit is %d", ErrTooLarge, resp.ContentLength, f.limit)
+	if resp.ContentLength > limit {
+		return nil, fmt.Errorf("%w: %d bytes, the limit is %d", ErrTooLarge, resp.ContentLength, limit)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, f.limit+1))
+	data, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrFailed, reason(err))
 	}
-	if int64(len(data)) > f.limit {
-		return nil, fmt.Errorf("%w: over %d bytes", ErrTooLarge, f.limit)
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("%w: over %d bytes", ErrTooLarge, limit)
 	}
 	return data, nil
 }
