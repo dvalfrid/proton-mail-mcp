@@ -16,7 +16,7 @@ Claude ──MCP──► proton-mail-mcp ──IMAP/SMTP (127.0.0.1)──► P
 - **Everything runs locally.** Bridge decrypts mail on your machine; this server talks to Bridge over localhost.
 - **Claude may read, search, organize and write drafts.**
 - **Claude may only send on your command.** Sending is:
-  1. off unless `PROTON_ALLOW_SEND=1`,
+  1. off until you switch it on (the Settings page, or `PROTON_ALLOW_SEND=1`),
   2. limited to sending an *existing draft* (`send_draft`), and
   3. set to "always ask" in Claude, so the app asks you before every send.
 - **No permanent deletion.** "Delete" means move to Trash.
@@ -26,7 +26,7 @@ Full rules and threat model: [STANDARDS.md](STANDARDS.md#security-guardrails), [
 
 ## Status
 
-Claude can list, search and read messages, mark them read or unread, star them, move and label them, move them to Trash, and write new drafts and replies as drafts. Sending follows: see [ROADMAP.md](ROADMAP.md).
+Claude can list, search and read messages, mark them read or unread, star them, move and label them, move them to Trash, and write new drafts and replies as drafts. Once you switch sending on, Claude can send a draft you have seen, after asking you. See [ROADMAP.md](ROADMAP.md) for what comes next.
 
 "Newest first" in `list_messages` and `search_messages` means by date. Proton Mail Bridge doesn't number messages by date and has no IMAP `SORT`, so the server sorts itself ([docs/architecture.md](docs/architecture.md#newest-first-and-what-newest-means-on-bridge)). In a large folder this takes about a second.
 
@@ -53,6 +53,7 @@ Claude can list, search and read messages, mark them read or unread, star them, 
 | `create_draft` | Write a new plain-text email (`to`, `cc`, `bcc`, `subject`, `body`) as a draft in Drafts, from your Proton address or, with `from`, another address of yours (one you have sent from before; anyone else's is refused). With `attachments`, files from your outbox folder (`PROTON_OUTBOX_DIR`) are attached, by name. Nothing is sent: you read, edit and send it in Proton Mail. Counts toward `PROTON_MAX_CHANGES` | Adds a draft |
 | `create_reply_draft` | Write a reply to a message as a draft: to its sender (or everyone, with `reply_all`), `Re:` subject, the original quoted. It comes from your address the original was sent to (or `from`), and reply-all leaves out all your own addresses. Nothing is sent, and the original stays unread. Proton Mail may not show it as a reply, since Bridge drops reply headers from drafts. `attachments` as for `create_draft`. Counts toward `PROTON_MAX_CHANGES` | Adds a draft |
 | `update_draft` | Replace a draft in Drafts with new content. The old version goes to Trash, where you can restore it from; with Proton Mail Bridge older than 3.23.1 it stays in Drafts instead, and Claude tells you. `attachments` as for `create_draft`; the old version's attachments are not carried over, so Claude names them again. Nothing is sent. Counts toward `PROTON_MAX_CHANGES` | Replaces a draft |
+| `send_draft` | Send a draft from Drafts, when you ask. **Off until you switch sending on** (see [Sending](#sending)). Claude must name every recipient of the draft (To, Cc and Bcc), or nothing is sent. The draft must come from one of your addresses. At most 10 sends per server run. Proton Mail Bridge sends a copy of the draft, then removes the draft from Drafts; the message appears in Sent. Annotated destructive, so clients that honour it ask first. Set your client to always ask (below) | Yes (can't be undone) |
 
 The tools that change messages take a folder, 1 to 50 `uids` from that folder and the `uidvalidity` that came with them (required). If the folder was renumbered or any uid is missing, the call changes nothing. No tool ever deletes permanently.
 
@@ -106,7 +107,7 @@ For the certificate, export it from Bridge (Settings → Advanced → Export TLS
 | `PROTON_BRIDGE_IMAP_PORT` | `1143` | |
 | `PROTON_BRIDGE_SMTP_PORT` | `1025` | |
 | `PROTON_BRIDGE_CERT` | — | Path to Bridge's certificate (PEM). Required |
-| `PROTON_ALLOW_SEND` | `0` | Sending is not implemented yet |
+| `PROTON_ALLOW_SEND` | `0` | `1` lets `send_draft` send a draft, when you ask; see [Sending](#sending) |
 | `PROTON_ALLOW_REMOTE_IMAGES` | `0` | `1` lets `fetch_image` fetch an image a message links to on the internet, when you ask for it |
 | `PROTON_ATTACHMENT_DIR` | `Proton Mail MCP` in your Downloads folder | The only folder `save_attachment` saves into, as a full path. Created on the first save |
 | `PROTON_OUTBOX_DIR` | `Proton Mail MCP outbox` in your Documents folder | The only folder the draft tools attach files from, as a full path. Put only what you mean to send there: to send a file Claude made, ask Claude to save it there first. At most 10 files and 20 MiB per draft; no subfolders, hidden files or links out of the folder. The server never writes there |
@@ -115,16 +116,17 @@ For the certificate, export it from Bridge (Settings → Advanced → Export TLS
 
 ### Options in config.json
 
-The four options above that aren't about Bridge can also be kept in `config.json`, the file setup writes in the settings folder (`PROTON_MCP_CONFIG_DIR`), so you don't need a `.env` file for them. Running setup again keeps them.
+The five options above that aren't about Bridge can also be kept in `config.json`, the file setup writes in the settings folder (`PROTON_MCP_CONFIG_DIR`), so you don't need a `.env` file for them. Running setup again keeps them.
 
 ```json
 "allow_remote_images": true,
 "attachment_dir": "D:\\Mail attachments",
 "outbox_dir": "D:\\Mail to send",
-"max_changes": 300
+"max_changes": 300,
+"allow_send": true
 ```
 
-On Windows, open **Proton Mail MCP** in the Start menu and choose **Settings** to change them in a window: a switch for images, folder pickers for attachments and the outbox, and the number of changes per run. It saves `config.json`, and shows an option that `.env` or the environment sets as locked.
+On Windows, open **Proton Mail MCP** in the Start menu and choose **Settings** to change them in a window: a switch for images, folder pickers for attachments and the outbox, the number of changes per run, and a switch for sending (which asks you to confirm). It saves `config.json`, and shows an option that `.env` or the environment sets as locked.
 
 The environment and `.env` override `config.json`. `proton-mail-mcp check` lists each option with its value and where it came from (environment, `.env`, `config.json` or default), and Claude's `about` shows the same. Only you change them: no tool can, so an email can't talk Claude into switching one on. Restart Claude after a change.
 
@@ -168,6 +170,28 @@ claude mcp add --scope user proton-mail -- C:\Tools\proton-mail-mcp\proton-mail-
 ```
 
 Restart the client; the tools appear under `proton-mail`. Keep the password in `.env`, not in the client's config: client configs are often synced or shared.
+
+### Sending
+
+`send_draft` is off until you switch it on, and then Claude must still ask you before every send:
+
+1. **Switch it on.**
+   - On Windows: open **Proton Mail MCP** in the Start menu → **Settings**, tick *Let Claude send drafts*, confirm, and save.
+   - Elsewhere: set `"allow_send": true` in `config.json`, or `PROTON_ALLOW_SEND=1`.
+
+   Then restart Claude.
+2. **Make your client ask before every send.**
+   - **Claude Desktop:** Settings → Connectors → `proton-mail`, set `send_draft` to *Always ask* (not *Always allow*).
+   - **Claude Code:** add `"mcp__proton-mail__send_draft"` to `permissions.ask` in your settings (`~/.claude/settings.json`), and never to `allow`:
+
+     ```json
+     { "permissions": { "ask": ["mcp__proton-mail__send_draft"] } }
+     ```
+
+   A client that can't ask before every call isn't supported for sending.
+3. **Ask Claude to send a draft.** It shows you the draft first, with From, To, Cc and Bcc, and sends only that one.
+
+After a send, Proton Mail Bridge removes the draft from Drafts and the message appears in Sent. A sent message can't be taken back.
 
 ## License
 

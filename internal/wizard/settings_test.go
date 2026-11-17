@@ -1,6 +1,7 @@
 package wizard
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,5 +110,36 @@ func TestPickFolderWithoutAWindow(t *testing.T) {
 	f := newFixture(t, true)
 	if err := f.call(t, "pickFolder", map[string]any{"start": ""}, nil); err == nil || !strings.Contains(err.Error(), "type the full path") {
 		t.Errorf("pickFolder: %v", err)
+	}
+}
+
+// Sending is switched on only with the page's confirmation, and off
+// without one (issue #181).
+func TestSettingsSendNeedsConfirmation(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t, true)
+	file := config.SettingsFile(f.o.Dir)
+	if err := config.WriteSettings(file, config.Settings{User: "alice@example.com", CertFile: "c.pem"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.call(t, "saveSettings", map[string]any{"maxChanges": 200, "allowSend": true}, nil); !errors.Is(err, errConfirmSend) {
+		t.Errorf("on without confirmation: %v", err)
+	}
+	if got, _ := config.ReadSettings(file); got.AllowSend != nil {
+		t.Errorf("saved %+v", got)
+	}
+	var s Settings
+	if err := f.call(t, "saveSettings", map[string]any{"maxChanges": 200, "allowSend": true, "confirmSend": true}, &s); err != nil || !s.AllowSend {
+		t.Fatalf("on with confirmation: %+v, %v", s, err)
+	}
+	// Already on: saving other options needs no new confirmation.
+	if err := f.call(t, "saveSettings", map[string]any{"maxChanges": 50, "allowSend": true}, nil); err != nil {
+		t.Errorf("save while on: %v", err)
+	}
+	if err := f.call(t, "saveSettings", map[string]any{"maxChanges": 50}, &s); err != nil || s.AllowSend {
+		t.Errorf("off: %+v, %v", s, err)
+	}
+	if got, _ := config.ReadSettings(file); got.AllowSend == nil || *got.AllowSend {
+		t.Errorf("off saved as %+v", got)
 	}
 }

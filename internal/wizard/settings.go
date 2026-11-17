@@ -27,6 +27,7 @@ type Settings struct {
 	OutboxDir            string            `json:"outboxDir"` // "" for the default
 	DefaultOutboxDir     string            `json:"defaultOutboxDir"`
 	MaxChanges           int               `json:"maxChanges"`
+	AllowSend            bool              `json:"allowSend"`
 	DefaultMaxChanges    int               `json:"defaultMaxChanges"`
 	Locked               map[string]string `json:"locked"` // option → where it is set instead: "environment" or ".env"
 }
@@ -37,7 +38,12 @@ var optionVars = map[string]string{
 	"attachmentDir":     config.EnvAttachmentDir,
 	"outboxDir":         config.EnvOutboxDir,
 	"maxChanges":        config.EnvMaxChanges,
+	"allowSend":         config.EnvAllowSend,
 }
+
+// errConfirmSend is saveSettings' answer when sending is switched on
+// without the page's confirmation (issue #181).
+var errConfirmSend = errors.New("tick the confirmation to switch sending on")
 
 // SettingsOnly makes the window open on the Settings page, without running
 // the check first (proton-mail-mcp-setup -settings, which the Start-menu
@@ -77,6 +83,9 @@ func (b *Backend) getSettings() Settings {
 	if saved.MaxChanges > 0 {
 		s.MaxChanges = saved.MaxChanges
 	}
+	if saved.AllowSend != nil {
+		s.AllowSend = *saved.AllowSend
+	}
 	dotenv := b.dotEnv()
 	for name, key := range optionVars {
 		switch o := config.Origin(key, dotenv, saved); o {
@@ -104,6 +113,8 @@ func (s *Settings) showLocked(name, v string) {
 	switch name {
 	case "allowRemoteImages":
 		s.AllowRemoteImages = v == "1" || v == "true"
+	case "allowSend":
+		s.AllowSend = v == "1"
 	case "attachmentDir":
 		if filepath.IsAbs(v) {
 			s.AttachmentDir = filepath.Clean(v)
@@ -128,6 +139,10 @@ func (b *Backend) saveSettings(args json.RawMessage) (Settings, error) {
 		AttachmentDir     string
 		OutboxDir         string
 		MaxChanges        int
+		AllowSend         bool
+		// ConfirmSend is the page's confirmation, needed to switch
+		// sending on when it was off.
+		ConfirmSend bool
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return Settings{}, errors.New("bad settings request")
@@ -166,6 +181,14 @@ func (b *Backend) saveSettings(args json.RawMessage) (Settings, error) {
 		if a.OutboxDir != "" {
 			saved.OutboxDir = filepath.Clean(a.OutboxDir)
 		}
+	}
+	if locked["allowSend"] == "" {
+		wasOn := saved.AllowSend != nil && *saved.AllowSend
+		if a.AllowSend && !wasOn && !a.ConfirmSend {
+			return Settings{}, errConfirmSend
+		}
+		on := a.AllowSend
+		saved.AllowSend = &on
 	}
 	if locked["maxChanges"] == "" {
 		saved.MaxChanges = 0

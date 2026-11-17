@@ -43,6 +43,9 @@ var Groups = []Group{
 		{"create_reply_draft", "Write a reply to a message as a draft, with the original quoted."},
 		{"update_draft", "Replace a draft with a new version; the old one goes to Trash."},
 	}},
+	{"Send (off unless you switch it on)", []Tool{
+		{"send_draft", "Send a draft you have seen, when you ask; Claude asks you first. At most 10 per run."},
+	}},
 	{"Files", []Tool{
 		{"save_attachment", "Save an attachment into the attachment folder, without opening it."},
 	}},

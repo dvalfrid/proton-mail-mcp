@@ -171,7 +171,7 @@ const S = {
   pick: {}, registering: false, registered: null, fatal: '',
   settings: null, savingSettings: false, settingsSaved: false, settingsError: '',
   view: null, status: null, checking: false, fromApp: false,
-  update: null, checkingUpdate: false,
+  update: null, checkingUpdate: false, sendSaved: false, confirmSend: false,
 };
 
 // ---- Steps ----
@@ -353,7 +353,7 @@ function setUpAgain() {
 async function backToApp() {
   try { S.state = await call('state'); } catch (e) { S.fatal = e.message; render(); return; }
   S.state.mode = 'app'; S.view = 'status';
-  try { S.settings = await call('getSettings'); } catch (e) { S.settingsError = e.message; }
+  try { S.settings = await call('getSettings'); S.sendSaved = !!S.settings.allowSend; } catch (e) { S.settingsError = e.message; }
   runStatus();
 }
 
@@ -377,6 +377,9 @@ function viewSettings() {
       <div class="help">The only folder Claude attaches files to a draft from. Put only what you mean to send here. Empty: ${esc(s.defaultOutboxDir || 'Proton Mail MCP outbox in Documents')}.</div>${lock('outboxDir')}</div>
     <div class="field"><label for="opt-max">Changes per run</label><div class="input" style="max-width:140px"><input id="opt-max" type="number" min="1" max="10000" value="${esc(s.maxChanges)}" ${dis('maxChanges')}></div>
       <div class="help">How many messages Claude may change, and drafts it may write, before Claude is restarted: a guard against instructions hidden in emails. Default ${esc(s.defaultMaxChanges)}.</div>${lock('maxChanges')}</div>
+    <div class="field"><label class="check"><input type="checkbox" id="opt-send" ${s.allowSend ? 'checked' : ''} ${dis('allowSend')}> Let Claude send drafts</label>
+      <div class="help">Lets Claude send a draft you have seen, when you ask it to. Claude asks you before every send, at most 10 per session. Sent mail can't be taken back.</div>${lock('allowSend')}
+      ${s.allowSend && !S.sendSaved && !s.locked.allowSend ? `<label class="check" style="margin-top:8px"><input type="checkbox" id="opt-send-confirm" ${S.confirmSend ? 'checked' : ''}> I understand that Claude can then send email in my name, after asking me.</label>` : ''}</div>
     ${S.savingSettings ? `<div class="busy small">${I.spin} Saving…</div>` : ''}` + updateSection();
 }
 
@@ -410,6 +413,9 @@ function wireSettings() {
   if (dir) dir.oninput = e => { S.settings.attachmentDir = e.target.value; changed(); };
   if (ob) ob.oninput = e => { S.settings.outboxDir = e.target.value; changed(); };
   if (max) max.oninput = e => { S.settings.maxChanges = e.target.value; changed(); };
+  const snd = $('#opt-send'), sc = $('#opt-send-confirm');
+  if (snd) snd.onchange = e => { S.settings.allowSend = e.target.checked; S.confirmSend = false; changed(); renderSettings(); };
+  if (sc) sc.onchange = e => { S.confirmSend = e.target.checked; changed(); };
   const browse = key => async () => {
     try {
       const picked = await call('pickFolder', { start: S.settings[key] });
@@ -427,7 +433,8 @@ async function saveSettings() {
   const s = S.settings;
   S.savingSettings = true; S.settingsError = ''; S.settingsSaved = false; renderSettings();
   try {
-    S.settings = await call('saveSettings', { allowRemoteImages: !!s.allowRemoteImages, attachmentDir: s.attachmentDir || '', outboxDir: s.outboxDir || '', maxChanges: Number(s.maxChanges) });
+    S.settings = await call('saveSettings', { allowRemoteImages: !!s.allowRemoteImages, attachmentDir: s.attachmentDir || '', outboxDir: s.outboxDir || '', maxChanges: Number(s.maxChanges), allowSend: !!s.allowSend, confirmSend: !!S.confirmSend });
+    S.sendSaved = !!S.settings.allowSend; S.confirmSend = false;
     S.settingsSaved = true;
   } catch (e) { S.settingsError = e.message; }
   S.savingSettings = false; renderSettings();
@@ -564,7 +571,7 @@ mq.addEventListener('change', theme);
   if (S.state?.mode === 'app') {
     // Opens on Status when a step fails, else on Settings (issue #176).
     S.view = S.state.start === 'settings' ? 'settings' : null;
-    try { S.settings = await call('getSettings'); } catch (e) { S.fatal = e.message; }
+    try { S.settings = await call('getSettings'); S.sendSaved = !!S.settings.allowSend; } catch (e) { S.fatal = e.message; }
     render();
     runStatus();
   }

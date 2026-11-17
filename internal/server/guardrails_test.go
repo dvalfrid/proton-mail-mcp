@@ -127,6 +127,9 @@ func TestEveryToolIsClassified(t *testing.T) {
 		if readTools[tool.Name] {
 			continue // TestReadToolsAreAnnotatedReadOnly
 		}
+		if tool.Name == "send_draft" {
+			continue // TestOnlySendDraftSends
+		}
 		if fileTools[tool.Name] || draftTools[tool.Name] {
 			if a == nil || a.ReadOnlyHint || a.DestructiveHint == nil || *a.DestructiveHint {
 				t.Errorf("%s: annotations %+v, want not read-only and not destructive", tool.Name, a)
@@ -254,9 +257,10 @@ func TestExpungeOnlyInLabels(t *testing.T) {
 	}
 }
 
-// No tool sends mail. When send_draft arrives (milestone 0.6) it will be the
-// only exception, and this list must be updated deliberately.
-func TestNoSendTools(t *testing.T) {
+// The only tool that sends mail is send_draft (STANDARDS.md#sending): any
+// other name that looks like sending fails, and send_draft must be annotated
+// destructive and open-world, so clients that honour the hints ask first.
+func TestOnlySendDraftSends(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	res, err := e.session.ListTools(context.Background(), nil)
@@ -267,8 +271,15 @@ func TestNoSendTools(t *testing.T) {
 		n := strings.ToLower(tool.Name)
 		sends := strings.Contains(n, "send") || strings.Contains(n, "forward") ||
 			(strings.Contains(n, "reply") && !strings.Contains(n, "draft"))
+		if tool.Name == "send_draft" {
+			a := tool.Annotations
+			if a == nil || a.ReadOnlyHint || a.DestructiveHint == nil || !*a.DestructiveHint || a.OpenWorldHint == nil || !*a.OpenWorldHint {
+				t.Errorf("send_draft: annotations %+v, want destructive and open-world", a)
+			}
+			continue
+		}
 		if sends {
-			t.Errorf("tool %q looks like it sends mail", tool.Name)
+			t.Errorf("tool %q looks like it sends mail; only send_draft may", tool.Name)
 		}
 	}
 }
@@ -435,7 +446,7 @@ func TestNoToolWritesSettings(t *testing.T) {
 	}
 }
 
-// Only these tools reach the internet, and each says so (open-world), so
+// Only these tools reach beyond this computer, and each says so (open-world), so
 // clients that honour the hint ask first (STANDARDS.md#remote-images,
 // STANDARDS.md#update-check). Every other tool talks to Bridge alone.
 func TestOnlyNamedToolsReachTheInternet(t *testing.T) {
@@ -445,7 +456,9 @@ func TestOnlyNamedToolsReachTheInternet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	internet := map[string]bool{"fetch_image": true, "proton_mail_mcp_update": true}
+	// send_draft talks only to Bridge on this computer, but what it does
+	// reaches the world: open-world, so clients ask first.
+	internet := map[string]bool{"fetch_image": true, "proton_mail_mcp_update": true, "send_draft": true}
 	for _, tool := range res.Tools {
 		open := tool.Annotations != nil && tool.Annotations.OpenWorldHint != nil && *tool.Annotations.OpenWorldHint
 		if open != internet[tool.Name] {

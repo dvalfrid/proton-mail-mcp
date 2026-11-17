@@ -261,7 +261,7 @@ Where each protection is enforced matters as much as the protection itself.
 |---|---|---|
 | Reading never marks as read | `internal/mail` (EXAMINE, PEEK) | Yes |
 | No permanent deletion | No EXPUNGE except `remove_label`'s `UID EXPUNGE` in a user label, where Bridge only removes the label: lint (`forbidigo`) and tests. "Delete" means move to Trash | Yes |
-| Sending only an existing draft, only with `PROTON_ALLOW_SEND=1` (0.6) | The server: `send_draft` is the only send path; SMTP code in one package, enforced by lint | Yes |
+| Sending only an existing draft, only when the owner switched sending on (0.6) | The server: `send_draft` is the only send path. The call must name the draft's recipients, at most 10 sends per run. SMTP code is in `internal/send` alone, enforced by lint | Yes |
 | Fetching only images a message shows, only from the public internet, only with `PROTON_ALLOW_REMOTE_IMAGES=1` | `internal/fetch`: https, port 443, public addresses checked on every dial; the tool takes an image number. depguard and a test keep network code to that package | Yes |
 | Fetching only when the owner asks | The tool description and server instructions; **obeying them is up to the model** | No: the gate above limits what a fooled model can fetch to images the message already shows |
 | The owner approves each send | **The MCP client** ("always ask") | Yes, if the client is configured so. Not every client can be |

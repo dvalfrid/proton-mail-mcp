@@ -26,7 +26,7 @@ func TestOptionsFromTheSettingsFile(t *testing.T) {
 	if !cfg.AllowRemoteImages || cfg.AttachmentDir != dir || cfg.OutboxDir != outbox || cfg.MaxChanges != 30 {
 		t.Errorf("from config.json: %+v", cfg)
 	}
-	if got := origins(cfg); !slices.Equal(got, []string{FromSettings, FromSettings, FromSettings, FromSettings}) {
+	if got := origins(cfg); !slices.Equal(got, []string{FromSettings, FromSettings, FromSettings, FromSettings, FromDefault}) {
 		t.Errorf("origins %q", got)
 	}
 
@@ -68,5 +68,33 @@ func TestKeepOptions(t *testing.T) {
 	}
 	if v := s.Values()[EnvAllowRemoteImages]; v != "0" {
 		t.Errorf("off is %q", v)
+	}
+}
+
+// Sending is off unless the owner switched it on, in config.json (the
+// Settings page) or with PROTON_ALLOW_SEND, which overrides it (issue #181).
+func TestAllowSendFromTheSettingsFile(t *testing.T) {
+	on, off := true, false
+	base := map[string]string{EnvPassword: "secret-for-tests"}
+	for _, c := range []struct {
+		saved  *bool
+		dotenv map[string]string
+		want   bool
+		origin string
+	}{
+		{nil, nil, false, FromDefault},
+		{&on, nil, true, FromSettings},
+		{&off, nil, false, FromSettings},
+		{&on, map[string]string{EnvAllowSend: "0"}, false, FromDotEnv},
+	} {
+		saved := Settings{User: "alice@example.com", CertFile: "c.pem", AllowSend: c.saved}
+		cfg, err := Load(Chain(Lookup(c.dotenv), FromMap(saved.Values()), FromMap(base)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		opts := Options(cfg, c.dotenv, saved)
+		if got := opts[len(opts)-1]; cfg.AllowSend != c.want || got.Origin != c.origin {
+			t.Errorf("saved %v, .env %v: AllowSend %v from %q", c.saved, c.dotenv, cfg.AllowSend, got.Origin)
+		}
 	}
 }

@@ -441,3 +441,30 @@ func addresses(field string, in []string) ([]*gomail.Address, error) {
 	}
 	return out, nil
 }
+
+// ErrDraftTooLarge means a draft is larger than the server reads, so it
+// isn't sent cut.
+var ErrDraftTooLarge = errors.New("the draft is too large to send from here; send it from Proton Mail")
+
+// DraftMessage reads the draft uid from the folder with the \Drafts
+// attribute, whole, for send_draft. Only a message in Drafts can be read
+// this way, with uidValidity checked as ReadMessage does. It is read with
+// BODY.PEEK and changes nothing.
+func (c *Client) DraftMessage(ctx context.Context, uid, uidValidity uint32) ([]byte, error) {
+	folders, err := c.roleFolders(ctx)
+	if err != nil {
+		return nil, err
+	}
+	drafts := folders["drafts"]
+	if drafts == "" {
+		return nil, fmt.Errorf("%w: no folder is marked as Drafts", ErrNoSuchFolder)
+	}
+	raw, size, err := c.fetchMessage(ctx, drafts, uid, uidValidity)
+	if err != nil {
+		return nil, err
+	}
+	if size > int64(len(raw)) {
+		return nil, ErrDraftTooLarge
+	}
+	return raw, nil
+}
