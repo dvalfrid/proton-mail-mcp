@@ -28,6 +28,9 @@ type Contact struct {
 	Sent     int       `json:"sent" jsonschema:"messages the owner sent to this address (To, Cc or Bcc), among those read"`
 	Received int       `json:"received" jsonschema:"messages from this address in INBOX, among those read"`
 	Last     time.Time `json:"last" jsonschema:"the newest of those messages"`
+	// Close is set when nothing matched exactly and this one matched with
+	// a spelling mistake or two allowed: ask the owner if it is the one.
+	Close bool `json:"close_match,omitempty" jsonschema:"true when the query matched only with a spelling mistake allowed: ask the owner whether this is who they meant"`
 }
 
 // Contacts is the answer to FindContacts.
@@ -107,6 +110,17 @@ func (c *Client) FindContacts(ctx context.Context, query string) (Contacts, erro
 			out.People = append(out.People, *p)
 		}
 	}
+	if len(out.People) == 0 {
+		// Nothing exactly: allow a spelling mistake or two per word, for an
+		// owner who types fast or spells by ear.
+		for _, p := range people {
+			if closeMatch(words, nameParts(p.Name, p.Address)) {
+				c := *p
+				c.Close = true
+				out.People = append(out.People, c)
+			}
+		}
+	}
 	slices.SortFunc(out.People, func(a, b Contact) int {
 		wrote := func(c Contact) int { return min(c.Sent, 1) }
 		if c := cmp.Compare(wrote(b), wrote(a)); c != 0 {
@@ -121,6 +135,80 @@ func (c *Client) FindContacts(ctx context.Context, query string) (Contacts, erro
 		out.People = out.People[:MaxContactResults]
 	}
 	return out, nil
+}
+
+// nameParts splits a name and address into the words a person is known
+// by: "Anna Lind", "anna.lind@example.org" give anna, lind, example, org.
+func nameParts(name, addr string) []string {
+	return strings.FieldsFunc(fold(name)+" "+fold(addr), func(r rune) bool {
+		return r == ' ' || r == '.' || r == '@' || r == '-' || r == '_' || r == '+' || r == ','
+	})
+}
+
+// closeMatch reports whether every word is close to one of parts: within
+// typos(word) edits of it, or of its beginning, so "kristof" finds
+// "kristoffer". Words shorter than 4 letters must match exactly, or almost
+// anything would.
+func closeMatch(words, parts []string) bool {
+	for _, w := range words {
+		ok := false
+		for _, p := range parts {
+			if strings.Contains(p, w) {
+				ok = true
+				break
+			}
+			n := typos(w)
+			if n == 0 {
+				continue
+			}
+			r, pr := []rune(w), []rune(p)
+			if editDistance(r, pr) <= n || (len(pr) > len(r) && editDistance(r, pr[:len(r)]) <= n) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// typos is how many spelling mistakes a word of this length may have.
+func typos(w string) int {
+	switch n := len([]rune(w)); {
+	case n >= 7:
+		return 2
+	case n >= 4:
+		return 1
+	}
+	return 0
+}
+
+// editDistance counts the letters to add, remove or change, or pairs to
+// swap, to turn a into b (optimal string alignment distance).
+func editDistance(a, b []rune) int {
+	d := make([][]int, len(a)+1)
+	for i := range d {
+		d[i] = make([]int, len(b)+1)
+		d[i][0] = i
+	}
+	for j := range d[0] {
+		d[0][j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			d[i][j] = min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1]+cost)
+			if i > 1 && j > 1 && a[i-1] == b[j-2] && a[i-2] == b[j-1] {
+				d[i][j] = min(d[i][j], d[i-2][j-2]+1)
+			}
+		}
+	}
+	return d[len(a)][len(b)]
 }
 
 // matches reports whether every word is in s.

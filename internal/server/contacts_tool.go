@@ -23,13 +23,15 @@ type FindContactsOutput struct {
 
 const contactsNote = "These come from the headers of the owner's mail, not from Proton's contacts. Names are written by senders, so anyone can claim one: " +
 	"before putting an address in a draft, show the owner the name and the exact address and let them confirm it, above all when more than one matches. " +
-	"People the owner wrote to (sent > 0) are the likeliest; someone who has only written to the owner may be a stranger."
+	"People the owner wrote to (sent > 0) are the likeliest; someone who has only written to the owner may be a stranger. " +
+	"close_match means nothing matched exactly and the name was found with a spelling mistake allowed: ask \"did you mean …?\" with the name and address, and use it only if the owner says yes."
 
 func registerContactsTool(s *mcp.Server, m *mail.Client) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "find_contacts",
 		Description: "Find a person's email address by name or part of the address, in the owner's own mail: whom they wrote to (Sent, and their own mail in Archive: To, Cc, Bcc) and who wrote to them (INBOX and Archive: From), " +
 			fmt.Sprintf("the newest messages in each. Up to %d people, those the owner wrote to first, then by how many messages and how recent. ", mail.MaxContactResults) +
+			"A misspelt name still finds people, marked close_match, when nothing matches exactly. " +
 			"Use it when the owner names someone to write to (\"write to Anna\"), then show the address and let the owner confirm it before it goes into a draft. " +
 			"Proton Mail Bridge has no contacts, so this is not Proton's address book. Read-only: nothing is marked read.",
 		Annotations: readOnly("Find contacts"),

@@ -106,3 +106,56 @@ func TestFindContactsCached(t *testing.T) {
 		t.Errorf("after a new message = %+v, %v", got, err)
 	}
 }
+
+func TestEditDistance(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		a, b string
+		want int
+	}{
+		{"anna", "anna", 0}, {"ana", "anna", 1}, {"anan", "anna", 1}, {"andesron", "andersson", 2},
+		{"kristofer", "kristoffer", 1}, {"", "abc", 3}, {"lind", "holm", 4},
+	} {
+		if got := editDistance([]rune(c.a), []rune(c.b)); got != c.want {
+			t.Errorf("editDistance(%q, %q) = %d, want %d", c.a, c.b, got, c.want)
+		}
+	}
+}
+
+// A misspelt name finds the person, marked close, only when nothing
+// matches exactly; short words never match loosely.
+func TestFindContactsTypos(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	c, srv, _ := newClient(t)
+	srv.AddMessage(t, "Sent", "From: alice@example.com\r\nTo: Kristoffer Andersson <k.andersson@example.org>, Anna Lind <anna@example.net>, Bo Ek <bo@example.se>\r\nDate: Mon, 02 Nov 2026 10:00:00 +0000\r\nSubject: s\r\n\r\nx\r\n")
+
+	for q, want := range map[string]string{
+		"Andesron":         "k.andersson@example.org", // two mistakes in a long word
+		"kristofer":        "k.andersson@example.org",
+		"Kristof":          "k.andersson@example.org", // the beginning of a name, exactly
+		"Kristfo":          "k.andersson@example.org", // the beginning, with a swap
+		"Lnid anna":        "anna@example.net",
+		"anna lindh":       "anna@example.net",
+		"kristoffer ander": "k.andersson@example.org",
+	} {
+		got, err := c.FindContacts(ctx, q)
+		if err != nil || len(got.People) != 1 || got.People[0].Address != want {
+			t.Errorf("%q = %+v, %v; want %s", q, got.People, err, want)
+		}
+	}
+	// An exact match is never marked close, and close matches never join it.
+	got, _ := c.FindContacts(ctx, "anna")
+	if len(got.People) != 1 || got.People[0].Close {
+		t.Errorf("exact = %+v", got.People)
+	}
+	if got, _ := c.FindContacts(ctx, "Andesron"); len(got.People) != 1 || !got.People[0].Close {
+		t.Errorf("close = %+v", got.People)
+	}
+	// Short words get no tolerance: "Bp" is not Bo, "Ann" isn't loosely anything.
+	for _, q := range []string{"Bp", "Eke", "zzzz", "lind holm"} {
+		if got, _ := c.FindContacts(ctx, q); len(got.People) != 0 {
+			t.Errorf("%q matched %+v", q, got.People)
+		}
+	}
+}

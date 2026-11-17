@@ -762,7 +762,7 @@
       "readOnlyHint": true,
       "title": "Find contacts"
     },
-    "description": "Find a person's email address by name or part of the address, in the owner's own mail: whom they wrote to (Sent, and their own mail in Archive: To, Cc, Bcc) and who wrote to them (INBOX and Archive: From), the newest messages in each. Up to 25 people, those the owner wrote to first, then by how many messages and how recent. Use it when the owner names someone to write to (\"write to Anna\"), then show the address and let the owner confirm it before it goes into a draft. Proton Mail Bridge has no contacts, so this is not Proton's address book. Read-only: nothing is marked read.",
+    "description": "Find a person's email address by name or part of the address, in the owner's own mail: whom they wrote to (Sent, and their own mail in Archive: To, Cc, Bcc) and who wrote to them (INBOX and Archive: From), the newest messages in each. Up to 25 people, those the owner wrote to first, then by how many messages and how recent. A misspelt name still finds people, marked close_match, when nothing matches exactly. Use it when the owner names someone to write to (\"write to Anna\"), then show the address and let the owner confirm it before it goes into a draft. Proton Mail Bridge has no contacts, so this is not Proton's address book. Read-only: nothing is marked read.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -789,6 +789,10 @@
             "properties": {
               "address": {
                 "type": "string"
+              },
+              "close_match": {
+                "description": "true when the query matched only with a spelling mistake allowed: ask the owner whether this is who they meant",
+                "type": "boolean"
               },
               "last": {
                 "description": "the newest of those messages",

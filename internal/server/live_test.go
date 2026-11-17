@@ -406,4 +406,8 @@ func TestLiveFindContacts(t *testing.T) {
 	start = time.Now()
 	e.callOK(t, "find_contacts", map[string]any{"query": "e"}, &out)
 	t.Logf("again: %d people in %v", len(out.People), time.Since(start).Round(time.Millisecond))
+	// No exact match: every person is compared with spelling mistakes allowed.
+	start = time.Now()
+	e.callOK(t, "find_contacts", map[string]any{"query": "qxzvwk"}, &out)
+	t.Logf("no exact match, typos allowed: %d people in %v", len(out.People), time.Since(start).Round(time.Millisecond))
 }
