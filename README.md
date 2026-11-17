@@ -57,6 +57,13 @@ Claude can list, search and read messages, mark them read or unread, star them, 
 | `update_draft` | Replace a draft in Drafts with new content. The old version goes to Trash, where you can restore it from; with Proton Mail Bridge older than 3.23.1 it stays in Drafts instead, and Claude tells you. `attachments` as for `create_draft`; the old version's attachments are not carried over, so Claude names them again. Nothing is sent. Counts toward `PROTON_MAX_CHANGES` | Replaces a draft |
 | `send_draft` | Send a draft from Drafts, when you ask. **Off until you switch sending on** (see [Sending](#sending)). Claude must name every recipient of the draft (To, Cc and Bcc), or nothing is sent. The draft must come from one of your addresses. At most 10 sends per server run. Proton Mail Bridge sends a copy of the draft, then removes the draft from Drafts; the message appears in Sent. Annotated destructive, so clients that honour it ask first. Set your client to always ask (below) | Yes (can't be undone) |
 
+The draft tools (`create_draft`, `update_draft`, `create_reply_draft`, `create_forward_draft`) write plain text by default. With `format: "markdown"` they write formatted mail:
+- `**bold**`, `*italic*` and `` `code` ``;
+- `[links](https://…)` (https and mailto only);
+- `- lists`, `1. lists`, `> quotes` and `# headings`.
+
+The server turns it into HTML, with the text beside it. The HTML is always the server's own: no HTML from Claude or from a message comes through. The original below a reply or forward stays as it was written.
+
 The tools that change messages take a folder, 1 to 50 `uids` from that folder and the `uidvalidity` that came with them (required). If the folder was renumbered or any uid is missing, the call changes nothing. No tool ever deletes permanently.
 
 ## Requirements

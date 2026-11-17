@@ -214,3 +214,24 @@ func TestDraftFromAnotherOwnAddress(t *testing.T) {
 		t.Errorf("reply from %q, want the alias", reply.From)
 	}
 }
+
+// format markdown writes formatted mail; anything but text or markdown is
+// refused before a draft is made (issue #188).
+func TestDraftFormat(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	var out CreateDraftOutput
+	e.callOK(t, "create_draft", map[string]any{"to": []string{"bob@example.org"}, "subject": "Plan", "body": "**Hi** Bob\n\n- one\n- two", "format": "markdown"}, &out)
+	var msg ReadMessageOutput
+	e.callOK(t, "read_message", map[string]any{"folder": "Drafts", "uid": out.UID, "uidvalidity": out.UIDValidity}, &msg)
+	if !strings.HasPrefix(msg.UntrustedContent.Body, "**Hi** Bob") || msg.UntrustedContent.BodyFormat != "text" {
+		t.Errorf("draft read back as %q (%s)", msg.UntrustedContent.Body, msg.UntrustedContent.BodyFormat)
+	}
+	if !e.imap.Sent("text/html") && !strings.Contains(e.imap.Transcript(), "<strong>Hi</strong>") {
+		t.Error("no HTML part was appended")
+	}
+	res := e.call(t, "create_draft", map[string]any{"to": []string{"bob@example.org"}, "subject": "x", "body": "x", "format": "html"})
+	if !res.IsError || !strings.Contains(text(res), "use text or markdown") {
+		t.Errorf("format html: %s", text(res))
+	}
+}

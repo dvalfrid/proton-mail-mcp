@@ -22,6 +22,7 @@ type CreateForwardDraftInput struct {
 	From               string   `json:"from,omitempty" jsonschema:"the owner's address to send from, one they have sent from before; empty for the address the original was sent to, else their main address"`
 	WithoutAttachments bool     `json:"without_attachments,omitempty" jsonschema:"leave the original's attachments out"`
 	Attachments        []string `json:"attachments,omitempty" jsonschema:"names of files in the owner's outbox folder to attach as well; only files the owner asked to send"`
+	Format             string   `json:"format,omitempty" jsonschema:"text (the default) or markdown: **bold**, *italic*, [link](https://…), - lists, 1. lists, > quotes and # headings, sent as formatted mail; no HTML"`
 }
 
 // CreateForwardDraftOutput is the result of create_forward_draft.
@@ -61,7 +62,11 @@ func registerForwardTool(s *mcp.Server, m *mail.Client, outboxDir string) {
 		if err != nil {
 			return nil, CreateForwardDraftOutput{}, err
 		}
-		f, err := m.CreateForwardDraft(ctx, mail.Forward{
+		md, err := markdown(in.Format)
+		if err != nil {
+			return nil, CreateForwardDraftOutput{}, err
+		}
+		f, err := m.CreateForwardDraft(ctx, mail.Forward{Markdown: md,
 			Folder: in.Folder, UID: in.UID, UIDValidity: in.UIDValidity, From: in.From,
 			To: in.To, Cc: in.Cc, Bcc: in.Bcc, Body: in.Body, WithoutAttachments: in.WithoutAttachments, Attachments: files,
 		})

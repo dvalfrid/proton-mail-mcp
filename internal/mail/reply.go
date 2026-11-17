@@ -26,6 +26,8 @@ type Reply struct {
 	From string
 	// Attachments are files to attach, read by internal/outbox.
 	Attachments []DraftFile
+	// Markdown writes Body as formatted mail (issue #188).
+	Markdown bool
 }
 
 // ReplyCreated is a reply draft saved in Drafts, with what it was given
@@ -152,7 +154,7 @@ func (c *Client) reply(raw []byte, r Reply, ownAddrs map[string]string, sent boo
 		subject = string([]rune(subject)[:MaxDraftSubjectRunes])
 	}
 
-	d := Draft{From: r.From, To: to, Cc: cc, Subject: subject, Body: r.Body, Attachments: r.Attachments}
+	d := Draft{From: r.From, To: to, Cc: cc, Subject: subject, Body: r.Body, Markdown: r.Markdown, Attachments: r.Attachments}
 	if d.From == "" {
 		// The owner's address the original came from (their own message)
 		// or was sent to, as Proton Mail's own reply does.
@@ -175,8 +177,8 @@ func (c *Client) reply(raw []byte, r Reply, ownAddrs map[string]string, sent boo
 	}
 
 	if m, err := ParseMessage(bytes.NewReader(raw)); err == nil && m.Body != "" {
-		text := strings.TrimRight(r.Body, "\r\n")
-		d.Body = text + quote(m, c.opts.Location, MaxDraftBodyBytes-len(text))
+		d.Body = strings.TrimRight(r.Body, "\r\n")
+		d.Quoted = quote(m, c.opts.Location, MaxDraftBodyBytes-len(d.Body))
 	}
 	return d, nil
 }

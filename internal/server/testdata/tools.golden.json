@@ -232,6 +232,10 @@
             "array"
           ]
         },
+        "format": {
+          "description": "text (the default) or markdown: **bold**, *italic*, [link](https://…), - lists, 1. lists, \u003e quotes and # headings, sent as formatted mail; no HTML",
+          "type": "string"
+        },
         "from": {
           "description": "the owner's address to send from, only one they have sent from before; empty for their main address",
           "type": "string"
@@ -363,6 +367,10 @@
         },
         "folder": {
           "description": "the folder of the message to forward",
+          "type": "string"
+        },
+        "format": {
+          "description": "text (the default) or markdown: **bold**, *italic*, [link](https://…), - lists, 1. lists, \u003e quotes and # headings, sent as formatted mail; no HTML",
           "type": "string"
         },
         "from": {
@@ -515,6 +523,10 @@
         },
         "folder": {
           "description": "the folder of the message to reply to",
+          "type": "string"
+        },
+        "format": {
+          "description": "text (the default) or markdown: **bold**, *italic*, [link](https://…), - lists, 1. lists, \u003e quotes and # headings, sent as formatted mail; no HTML",
           "type": "string"
         },
         "from": {
@@ -2097,6 +2109,10 @@
             "null",
             "array"
           ]
+        },
+        "format": {
+          "description": "text (the default) or markdown: **bold**, *italic*, [link](https://…), - lists, 1. lists, \u003e quotes and # headings, sent as formatted mail; no HTML",
+          "type": "string"
         },
         "from": {
           "description": "the owner's address to send from, one they have sent from before; empty for their main address",

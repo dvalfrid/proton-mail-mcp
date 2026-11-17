@@ -37,6 +37,12 @@ type Draft struct {
 	To, Cc, Bcc []string
 	Subject     string
 	Body        string
+	// Quoted is the original below a reply or forward, written by its
+	// sender: it follows Body as it is, and is never read as Markdown.
+	Quoted string
+	// Markdown writes Body as formatted mail (issue #188): HTML made from
+	// it by markdownHTML, with the text as it is beside it.
+	Markdown bool
 	// InReplyTo and References thread a reply (message IDs without <>).
 	// Bridge drops them on APPEND (docs/bridge.md §7); they are set anyway.
 	InReplyTo  string
@@ -320,13 +326,13 @@ func (c *Client) buildDraft(d Draft, now time.Time) ([]byte, error) {
 		return nil, fmt.Errorf("%w: %d recipients, at most %d", ErrBadDraft, n, MaxDraftRecipients)
 	}
 	switch {
-	case !utf8.ValidString(d.Subject) || !utf8.ValidString(d.Body):
+	case !utf8.ValidString(d.Subject) || !utf8.ValidString(d.Body) || !utf8.ValidString(d.Quoted):
 		return nil, fmt.Errorf("%w: the subject and body must be valid UTF-8", ErrBadDraft)
 	case strings.ContainsAny(d.Subject, "\r\n"):
 		return nil, fmt.Errorf("%w: the subject must be one line", ErrBadDraft)
 	case utf8.RuneCountInString(d.Subject) > MaxDraftSubjectRunes:
 		return nil, fmt.Errorf("%w: the subject is longer than %d characters", ErrBadDraft, MaxDraftSubjectRunes)
-	case len(d.Body) > MaxDraftBodyBytes:
+	case len(d.Body)+len(d.Quoted) > MaxDraftBodyBytes:
 		return nil, fmt.Errorf("%w: the body is larger than %d KiB", ErrBadDraft, MaxDraftBodyBytes>>10)
 	}
 
@@ -355,11 +361,14 @@ func (c *Client) buildDraft(d Draft, now time.Time) ([]byte, error) {
 	if err := h.GenerateMessageID(); err != nil {
 		return nil, fmt.Errorf("make a Message-ID: %w", err)
 	}
-	body := strings.ReplaceAll(d.Body, "\r\n", "\n")
+	body := strings.ReplaceAll(d.Body+d.Quoted, "\r\n", "\n")
 	var buf bytes.Buffer
-	if len(d.Attachments) == 0 {
+	switch {
+	case d.Markdown:
+		err = writeFormatted(&buf, h, body, draftHTML(d.Body, d.Quoted), d.Attachments)
+	case len(d.Attachments) == 0:
 		err = writePlain(&buf, h, body)
-	} else {
+	default:
 		err = writeWithAttachments(&buf, h, body, d.Attachments)
 	}
 	if err != nil {
@@ -404,6 +413,14 @@ func writeWithAttachments(buf *bytes.Buffer, h gomail.Header, body string, files
 	if err := tw.Close(); err != nil {
 		return err
 	}
+	if err := writeFiles(mw, files); err != nil {
+		return err
+	}
+	return mw.Close()
+}
+
+// writeFiles writes each file as an attachment, in base64.
+func writeFiles(mw *gomail.Writer, files []DraftFile) error {
 	for _, f := range files {
 		var ah gomail.AttachmentHeader
 		ah.SetContentType(f.ContentType, nil)
@@ -419,6 +436,43 @@ func writeWithAttachments(buf *bytes.Buffer, h gomail.Header, body string, files
 		if err := aw.Close(); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// writeFormatted writes a formatted draft: multipart/mixed with a
+// multipart/alternative of the text and the HTML, then each file as an
+// attachment. Bridge keeps the HTML as the Proton draft's body
+// (docs/bridge.md §7).
+func writeFormatted(buf *bytes.Buffer, h gomail.Header, text, htmlBody string, files []DraftFile) error {
+	mw, err := gomail.CreateWriter(buf, h)
+	if err != nil {
+		return err
+	}
+	iw, err := mw.CreateInline()
+	if err != nil {
+		return err
+	}
+	for _, p := range []struct{ typ, content string }{{"text/plain", text}, {"text/html", htmlBody}} {
+		var ph gomail.InlineHeader
+		ph.SetContentType(p.typ, map[string]string{"charset": "utf-8"})
+		ph.Set("Content-Transfer-Encoding", "quoted-printable")
+		pw, err := iw.CreatePart(ph)
+		if err != nil {
+			return err
+		}
+		if _, err := io.WriteString(pw, p.content); err != nil {
+			return err
+		}
+		if err := pw.Close(); err != nil {
+			return err
+		}
+	}
+	if err := iw.Close(); err != nil {
+		return err
+	}
+	if err := writeFiles(mw, files); err != nil {
+		return err
 	}
 	return mw.Close()
 }
