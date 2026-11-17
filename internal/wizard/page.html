@@ -171,6 +171,7 @@ const S = {
   pick: {}, registering: false, registered: null, fatal: '',
   settings: null, savingSettings: false, settingsSaved: false, settingsError: '',
   view: null, status: null, checking: false, fromApp: false,
+  update: null, checkingUpdate: false,
 };
 
 // ---- Steps ----
@@ -360,7 +361,7 @@ function viewSettings() {
   const s = S.settings;
   const head = `<h2>Settings</h2><p class="lead">Options for Proton Mail MCP. Only you change them, here: Claude can't.</p>`;
   if (!s) return head + `<div class="card rows">${row(I.spin, '', 'Reading the settings…')}</div>`;
-  if (!s.setUp) return head + banner('warn', 'Not set up yet', 'Set up Proton Mail MCP first: the options are saved with its settings.') + `<button class="btn" id="setup-again">Set up</button>`;
+  if (!s.setUp) return head + banner('warn', 'Not set up yet', 'Set up Proton Mail MCP first: the options are saved with its settings.') + `<button class="btn" id="setup-again">Set up</button>` + updateSection();
   const dis = n => (s.locked[n] || S.savingSettings) ? 'disabled' : '';
   const lock = n => s.locked[n] ? `<div class="help warnc">Set in ${s.locked[n] === '.env' ? 'the .env file' : 'an environment variable'}, which overrides this.</div>` : '';
   return head +
@@ -376,7 +377,28 @@ function viewSettings() {
       <div class="help">The only folder Claude attaches files to a draft from. Put only what you mean to send here. Empty: ${esc(s.defaultOutboxDir || 'Proton Mail MCP outbox in Documents')}.</div>${lock('outboxDir')}</div>
     <div class="field"><label for="opt-max">Changes per run</label><div class="input" style="max-width:140px"><input id="opt-max" type="number" min="1" max="10000" value="${esc(s.maxChanges)}" ${dis('maxChanges')}></div>
       <div class="help">How many messages Claude may change, and drafts it may write, before Claude is restarted: a guard against instructions hidden in emails. Default ${esc(s.defaultMaxChanges)}.</div>${lock('maxChanges')}</div>
-    ${S.savingSettings ? `<div class="busy small">${I.spin} Saving…</div>` : ''}`;
+    ${S.savingSettings ? `<div class="busy small">${I.spin} Saving…</div>` : ''}` + updateSection();
+}
+
+// Updates: GitHub is asked only when the owner clicks (issue #159).
+function updateSection() {
+  const u = S.update;
+  const page = `<a data-link="release" tabindex="0">Open the release page</a>`;
+  const result = S.checkingUpdate ? row(I.spin, '', 'Checking for updates…')
+    : !u ? ''
+    : u.error ? row(I.warn, 'warnc', "Couldn't check for updates", esc(u.error))
+    : u.update_available ? row(I.warn, 'warnc', esc(u.latest) + ' is available', `You have ${esc(u.running)}. ${esc(u.how_to_update)} ${page}`)
+    : row(I.ok(), 'ok', esc(u.message), '');
+  return `<h3 style="margin-top:22px">Updates</h3>
+    ${result ? `<div class="card rows" style="margin-bottom:10px">${result}</div>` : ''}
+    <button class="btn" id="check-update" ${S.checkingUpdate ? 'disabled' : ''}>Check for updates</button>
+    <div class="help">Asks GitHub once whether a newer version exists. Nothing is downloaded or installed, and nothing is checked unless you click.</div>`;
+}
+
+async function checkUpdate() {
+  S.checkingUpdate = true; S.update = null; renderApp();
+  try { S.update = await call('checkUpdate'); } catch (e) { S.update = { error: e.message }; }
+  S.checkingUpdate = false; renderApp();
 }
 
 function renderSettings() { renderApp(); }
@@ -395,6 +417,7 @@ function wireSettings() {
     } catch (e) { S.settingsError = e.message; }
     renderSettings();
   };
+  const cu = $('#check-update'); if (cu) cu.onclick = checkUpdate;
   if (br) br.onclick = browse('attachmentDir');
   if (obr) obr.onclick = browse('outboxDir');
   wire();

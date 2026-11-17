@@ -131,7 +131,9 @@ func run(logger *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	err := server.New(version, mailClient, folders, images, settings...).Run(ctx, &mcp.StdioTransport{})
+	err := server.New(version, mailClient, folders, images,
+		fetch.New(0), // only proton_mail_mcp_update uses it, and only when the owner asks (STANDARDS.md#update-check)
+		settings...).Run(ctx, &mcp.StdioTransport{})
 	if errors.Is(err, context.Canceled) {
 		return nil
 	}

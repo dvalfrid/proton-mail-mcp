@@ -66,7 +66,7 @@ func newEnvImages(t *testing.T, change func(*mail.Options), images ImageFetcher)
 	dir := filepath.Join(t.TempDir(), "attachments") // created by the first save
 	outbox := t.TempDir()
 	serverT, clientT := mcp.NewInMemoryTransports()
-	ss, err := New("test", m, Folders{Attachments: dir, Outbox: outbox}, images).Connect(ctx, serverT, nil)
+	ss, err := New("test", m, Folders{Attachments: dir, Outbox: outbox}, images, nil).Connect(ctx, serverT, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

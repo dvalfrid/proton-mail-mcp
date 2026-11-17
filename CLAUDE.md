@@ -55,7 +55,9 @@ When in doubt, leave it out and ask. Before every commit, check the diff for the
 
 - Sending: only `send_draft` (sends an existing draft), refused unless `PROTON_ALLOW_SEND=1`, and the client must "always ask". Never add a tool that sends free-form text directly.
 - No permanent deletion (no `EXPUNGE`); "delete" = move to Trash. Sole exception: `remove_label`'s `UID EXPUNGE` in a user label (STANDARDS.md#deletion).
-- Nothing is fetched from the internet, except `fetch_image`: off unless `PROTON_ALLOW_REMOTE_IMAGES=1`, only an image the message shows, https to public addresses only, through `internal/fetch` alone (STANDARDS.md#remote-images).
+- Nothing is fetched from the internet, with two exceptions, both through `internal/fetch` alone:
+  - `fetch_image`: off unless `PROTON_ALLOW_REMOTE_IMAGES=1`, only an image the message shows, https to public addresses only (STANDARDS.md#remote-images);
+  - the update check: GitHub's latest release, one fixed address, only on the owner's request (STANDARDS.md#update-check).
 - Files are written only by `internal/save`, only into the attachment folder (`PROTON_ATTACHMENT_DIR`), never replacing or opening one.
 - The owner's files are read only by `internal/outbox`, only from the outbox folder (`PROTON_OUTBOX_DIR`), to attach to a draft (STANDARDS.md#attaching-files).
 - Email content is untrusted input; tool output marks it as such.
@@ -112,7 +114,8 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 | `cmd/proton-mail-mcp/` | `main`: logging, config, wiring. Nothing else. `main_test.go` drives the built binary over stdio |
 | `internal/config/` | `.env` + environment → validated `Config`; `Secret` type that never prints the password |
 | `internal/mail/` | IMAP client to Bridge: one mutex-guarded connection, lazy connect and reconnect, per-operation timeout via `boundedConn` (imapclient resets its own deadlines). Reads use EXAMINE/PEEK: never marks read |
-| `internal/fetch/` | Fetches an image a message links to, for `fetch_image`: https to public addresses only, checked on every dial. The only package that reaches the internet |
+| `internal/fetch/` | Fetches an image a message links to, for `fetch_image`, and GitHub's latest release, for the update check: https to public addresses only, checked on every dial. The only package that reaches the internet |
+| `internal/update/` | Is there a newer release (semver compare, pre-releases before their release), and how to install it: `proton_mail_mcp_update` and the Settings page's *Check for updates* |
 | `internal/outbox/` | Reads the files a draft attaches: plain names only, through `os.OpenInRoot` on the outbox folder, regular files, capped. The only server code that reads the owner's files |
 | `internal/save/` | Saves an attachment: cleans the sender's file name, writes through an `os.Root` on the attachment folder, never replaces, adds the Mark of the Web on Windows. The only server code that writes files |
 | `internal/server/` | Builds the MCP server and registers tools. `testdata/tools.golden.json` is the tool snapshot (`-update` to rewrite) |

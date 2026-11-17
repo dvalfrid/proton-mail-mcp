@@ -18,7 +18,8 @@ type Tool struct {
 // server.TestAboutListsEveryTool keeps it in step with the registered tools.
 var Groups = []Group{
 	{"Read (changes nothing)", []Tool{
-		{"about", "Show this server's version and this list."},
+		{"about", "Show the installed version, whether Bridge answers, how to update, and this list."},
+		{"proton_mail_mcp_update", "Ask GitHub whether a newer version exists, when you ask."},
 		{"list_folders", "List the folders and labels, with the number of unread messages."},
 		{"list_messages", "List the newest messages in a folder, with their labels."},
 		{"search_messages", "Search a folder by sender, recipient, subject, text or date."},

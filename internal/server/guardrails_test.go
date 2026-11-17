@@ -20,7 +20,7 @@ import (
 	"github.com/dvalfrid/proton-mail-mcp/internal/testutil"
 )
 
-var update = flag.Bool("update", false, "rewrite testdata/tools.golden.json")
+var rewriteGolden = flag.Bool("update", false, "rewrite testdata/tools.golden.json")
 
 // The exact set of tools and their schemas. Adding or changing a tool is a
 // visible diff in review. Update with: go test ./internal/server -update
@@ -37,7 +37,7 @@ func TestToolSnapshot(t *testing.T) {
 	got = append(got, '\n')
 
 	golden := filepath.Join("testdata", "tools.golden.json")
-	if *update {
+	if *rewriteGolden {
 		if err := os.MkdirAll("testdata", 0o750); err != nil {
 			t.Fatal(err)
 		}
@@ -63,7 +63,7 @@ func TestReadToolsAreAnnotatedReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readTools := map[string]bool{"about": true, "list_folders": true, "list_messages": true, "read_message": true, "search_messages": true, "view_image": true, "fetch_image": true}
+	readTools := map[string]bool{"about": true, "list_folders": true, "list_messages": true, "read_message": true, "search_messages": true, "view_image": true, "fetch_image": true, "proton_mail_mcp_update": true}
 	for _, tool := range res.Tools {
 		if readTools[tool.Name] && (tool.Annotations == nil || !tool.Annotations.ReadOnlyHint) {
 			t.Errorf("%s is not annotated read-only", tool.Name)
@@ -121,7 +121,7 @@ func TestEveryToolIsClassified(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readTools := map[string]bool{"about": true, "list_folders": true, "list_messages": true, "read_message": true, "search_messages": true, "view_image": true, "fetch_image": true}
+	readTools := map[string]bool{"about": true, "list_folders": true, "list_messages": true, "read_message": true, "search_messages": true, "view_image": true, "fetch_image": true, "proton_mail_mcp_update": true}
 	for _, tool := range res.Tools {
 		a := tool.Annotations
 		if readTools[tool.Name] {
@@ -431,6 +431,25 @@ func TestNoToolWritesSettings(t *testing.T) {
 			if m := writer.Find(src); m != nil {
 				t.Errorf("%s uses %q: tools must not touch the settings", f, m)
 			}
+		}
+	}
+}
+
+// Only these tools reach the internet, and each says so (open-world), so
+// clients that honour the hint ask first (STANDARDS.md#remote-images,
+// STANDARDS.md#update-check). Every other tool talks to Bridge alone.
+func TestOnlyNamedToolsReachTheInternet(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	res, err := e.session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	internet := map[string]bool{"fetch_image": true, "proton_mail_mcp_update": true}
+	for _, tool := range res.Tools {
+		open := tool.Annotations != nil && tool.Annotations.OpenWorldHint != nil && *tool.Annotations.OpenWorldHint
+		if open != internet[tool.Name] {
+			t.Errorf("%s: open-world = %v; only %v reach the internet", tool.Name, open, internet)
 		}
 	}
 }

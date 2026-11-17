@@ -12,6 +12,7 @@ import (
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
 	"github.com/dvalfrid/proton-mail-mcp/internal/help"
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
+	"github.com/dvalfrid/proton-mail-mcp/internal/update"
 )
 
 // Name is the server name reported to MCP clients.
@@ -63,7 +64,7 @@ type Folders struct {
 // images fetches for fetch_image; nil (the default, without
 // PROTON_ALLOW_REMOTE_IMAGES=1) switches it off. settings are the owner's
 // options in effect, shown by about.
-func New(version string, mailClient *mail.Client, folders Folders, images ImageFetcher, settings ...config.Option) *mcp.Server {
+func New(version string, mailClient *mail.Client, folders Folders, images ImageFetcher, updates update.Source, settings ...config.Option) *mcp.Server {
 	s := mcp.NewServer(
 		&mcp.Implementation{Name: Name, Version: version},
 		&mcp.ServerOptions{Instructions: instructions},
@@ -75,7 +76,8 @@ func New(version string, mailClient *mail.Client, folders Folders, images ImageF
 		registerFileTools(s, mailClient, folders.Attachments)
 		registerDraftTools(s, mailClient, folders.Outbox)
 		registerFetchImageTool(s, mailClient, images)
-		registerAboutTool(s, version, settings)
+		registerAboutTool(s, version, mailClient, settings)
+		registerUpdateTool(s, version, updates)
 	}
 	return s
 }
