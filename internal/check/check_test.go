@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
+	"github.com/dvalfrid/proton-mail-mcp/internal/help"
 	"github.com/dvalfrid/proton-mail-mcp/internal/testutil"
 )
 
@@ -116,6 +117,10 @@ func TestFailures(t *testing.T) {
 			s := find(t, steps, tt.step)
 			if s.Status != Fail || !strings.Contains(s.Detail+" "+s.Hint, tt.want) {
 				t.Errorf("%s = %+v, want a failure mentioning %q", tt.step, s, tt.want)
+			}
+			// The Status page shows the title, the hint and the help link.
+			if s.Title == "" || s.Hint == "" || s.Help == help.Troubleshoot {
+				t.Errorf("%s has no title, hint or help section: %+v", tt.step, s)
 			}
 			if !Failed(steps) {
 				t.Error("Failed() = false")

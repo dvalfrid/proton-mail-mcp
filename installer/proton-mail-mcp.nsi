@@ -31,6 +31,7 @@ SetCompressor /SOLID lzma
 !define REPO "https://github.com/dvalfrid/proton-mail-mcp"
 !define SERVER "proton-mail-mcp.exe"
 !define WIZARD "proton-mail-mcp-setup.exe"
+!define RUNONCE "Software\Microsoft\Windows\CurrentVersion\RunOnce"
 
 Name "${PRODUCT}"
 OutFile "${OUTFILE}"
@@ -129,7 +130,8 @@ FunctionEnd
 ; running exe can't be overwritten, but it can be renamed. Claude can still
 ; run copies from earlier updates too (issue #139), so the exe is renamed to
 ; a free name (NAME.old0, .old1, ...). Old copies are removed now if they
-; aren't running, or on the next update.
+; aren't running; what is left goes at the next sign-in (CleanUpLater) or the
+; next time the window opens (issue #176).
 !macro Replace NAME
   Delete "$INSTDIR\${NAME}.old*"
   ${If} ${FileExists} "$INSTDIR\${NAME}"
@@ -151,10 +153,13 @@ Section "Install"
   File "${SRCDIR}\README.md"
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
-  CreateShortcut "$SMPROGRAMS\${PRODUCT} Setup.lnk" "$INSTDIR\${WIZARD}" "" "$INSTDIR\${WIZARD}" 0 "" "" "Set up ${PRODUCT}: Bridge, password, Claude"
-  ; check prints to the console, which stays open to read it.
-  CreateShortcut "$SMPROGRAMS\${PRODUCT} Settings.lnk" "$INSTDIR\${WIZARD}" "-settings" "$INSTDIR\${WIZARD}" 0 "" "" "Change ${PRODUCT}'s options: images, attachment folder, changes per run"
-  CreateShortcut "$SMPROGRAMS\${PRODUCT} Check.lnk" "$WINDIR\System32\cmd.exe" '/k ""$INSTDIR\${SERVER}" check"' "$INSTDIR\${WIZARD}" 0 "" "" "Test the connection to Proton Mail Bridge"
+  ; One shortcut: the window has setup, Status, Settings and About (issue
+  ; #176). The three of 0.5 and earlier go, on update too.
+  Delete "$SMPROGRAMS\${PRODUCT} Setup.lnk"
+  Delete "$SMPROGRAMS\${PRODUCT} Settings.lnk"
+  Delete "$SMPROGRAMS\${PRODUCT} Check.lnk"
+  CreateShortcut "$SMPROGRAMS\${PRODUCT}.lnk" "$INSTDIR\${WIZARD}" "" "$INSTDIR\${WIZARD}" 0 "" "" "See whether ${PRODUCT} works, change its options, or set it up"
+  Call CleanUpLater
 
   WriteRegStr HKCU "${UNINSTKEY}" "DisplayName" "${PRODUCT}"
   WriteRegStr HKCU "${UNINSTKEY}" "DisplayVersion" "${VERSION}"
@@ -170,6 +175,18 @@ Section "Install"
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   WriteRegDWORD HKCU "${UNINSTKEY}" "EstimatedSize" $0
 SectionEnd
+
+; Copies Claude was running couldn't be removed: the window removes them at
+; the next sign-in, when Claude no longer runs them. Per user, no admin
+; rights needed (HKCU RunOnce).
+Function CleanUpLater
+  ${If} ${FileExists} "$INSTDIR\${SERVER}.old*"
+  ${OrIf} ${FileExists} "$INSTDIR\${WIZARD}.old*"
+    WriteRegStr HKCU "${RUNONCE}" "ProtonMailMCPCleanUp" '"$INSTDIR\${WIZARD}" -cleanup'
+  ${Else}
+    DeleteRegValue HKCU "${RUNONCE}" "ProtonMailMCPCleanUp"
+  ${EndIf}
+FunctionEnd
 
 ; A silent first install (winget) starts setup too; the finish page does it
 ; otherwise.
@@ -209,9 +226,11 @@ Section "-un.Program" SecUnProgram
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
 
+  Delete "$SMPROGRAMS\${PRODUCT}.lnk"
   Delete "$SMPROGRAMS\${PRODUCT} Setup.lnk"
   Delete "$SMPROGRAMS\${PRODUCT} Check.lnk"
   Delete "$SMPROGRAMS\${PRODUCT} Settings.lnk"
+  DeleteRegValue HKCU "${RUNONCE}" "ProtonMailMCPCleanUp"
   DeleteRegKey HKCU "${UNINSTKEY}"
 SectionEnd
 

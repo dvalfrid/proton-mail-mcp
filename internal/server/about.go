@@ -5,6 +5,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/dvalfrid/proton-mail-mcp/internal/catalog"
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
 )
 
@@ -14,61 +15,18 @@ type AboutInput struct{}
 // AboutOutput is the server's version and what its tools do, in words for
 // the owner.
 type AboutOutput struct {
-	Name    string      `json:"name"`
-	Version string      `json:"version" jsonschema:"the running server's version"`
-	Groups  []toolGroup `json:"groups" jsonschema:"every tool, grouped by what it may do"`
+	Name    string          `json:"name"`
+	Version string          `json:"version" jsonschema:"the running server's version"`
+	Groups  []catalog.Group `json:"groups" jsonschema:"every tool, grouped by what it may do"`
 	// Settings are the owner's options in effect. Only the owner changes
 	// them, outside Claude (issue #158).
 	Settings []config.Option `json:"settings,omitempty" jsonschema:"the owner's options in effect and where each came from"`
 	Note     string          `json:"note"`
 }
 
-type toolGroup struct {
-	Group string     `json:"group"`
-	Tools []toolLine `json:"tools"`
-}
-
-type toolLine struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
-
-// catalog is every tool in one line each, for the owner rather than for
-// Claude. TestAboutListsEveryTool keeps it in step with the registered tools.
-var catalog = []toolGroup{
-	{"Read (changes nothing)", []toolLine{
-		{"about", "Show this server's version and this list."},
-		{"list_folders", "List the folders and labels, with the number of unread messages."},
-		{"list_messages", "List the newest messages in a folder."},
-		{"search_messages", "Search a folder by sender, recipient, subject, text or date."},
-		{"read_message", "Read one message, with its list of attachments. It stays unread."},
-		{"view_image", "Show an image attached to or embedded in a message."},
-		{"fetch_image", "Fetch and show an image a message links to on the internet, when you ask (off unless switched on)."},
-	}},
-	{"Organize (syncs to Proton, deletes nothing)", []toolLine{
-		{"mark_read", "Mark messages as read."},
-		{"mark_unread", "Mark messages as unread."},
-		{"flag", "Star messages."},
-		{"unflag", "Remove the star from messages."},
-		{"move_message", "Move messages to another folder."},
-		{"add_label", "Add a label to messages."},
-		{"remove_label", "Remove a label from messages; they stay in their folder."},
-		{"trash_message", "Move messages, or drafts, to Trash, where they can be restored."},
-		{"mark_spam", "Mark messages as spam when you ask; Proton can delete Spam after 30 days."},
-	}},
-	{"Drafts (nothing is sent)", []toolLine{
-		{"create_draft", "Write a new email as a draft in Drafts."},
-		{"create_reply_draft", "Write a reply to a message as a draft, with the original quoted."},
-		{"update_draft", "Replace a draft with a new version; the old one goes to Trash."},
-	}},
-	{"Files", []toolLine{
-		{"save_attachment", "Save an attachment into the attachment folder, without opening it."},
-	}},
-}
-
 const aboutNote = "Show the owner the version, then the tools as a short list per group: name and its one line. Don't add the tools' full descriptions. " +
 	"If the owner asks about the settings, show them with their values; only the owner changes them, outside Claude, then restarts Claude: " +
-	"on Windows in Proton Mail MCP Settings in the Start menu, elsewhere in config.json in the settings folder; one whose origin is .env or environment is changed there instead."
+	"on Windows on the Settings page of Proton Mail MCP in the Start menu, elsewhere in config.json in the settings folder; one whose origin is .env or environment is changed there instead."
 
 func registerAboutTool(s *mcp.Server, version string, settings []config.Option) {
 	mcp.AddTool(s, &mcp.Tool{
@@ -81,5 +39,5 @@ func registerAboutTool(s *mcp.Server, version string, settings []config.Option) 
 }
 
 func aboutOutput(version string, settings []config.Option) AboutOutput {
-	return AboutOutput{Name: "proton-mail-mcp", Version: version, Groups: catalog, Settings: settings, Note: aboutNote}
+	return AboutOutput{Name: "proton-mail-mcp", Version: version, Groups: catalog.Groups, Settings: settings, Note: aboutNote}
 }

@@ -64,9 +64,15 @@ The tools that change messages take a folder, 1 to 50 `uids` from that folder an
 
 ## Setup
 
-**On Windows, the easy way:** download `proton-mail-mcp_<version>_windows_amd64_setup.exe` (or `_arm64_` for Windows on ARM) from the release and run it. It installs for you only, without administrator rights, into `%LOCALAPPDATA%\Programs\proton-mail-mcp`, adds *Proton Mail MCP Setup* and *Proton Mail MCP Check* to the Start menu, and starts the setup wizard below. Running a newer installer later only updates the program: no questions, your settings stay. Uninstall from *Settings → Apps*; it removes the program from Claude too, and your settings and saved password only if you tick that box.
+**On Windows, the easy way:** download `proton-mail-mcp_<version>_windows_amd64_setup.exe` (or `_arm64_` for Windows on ARM) from the release and run it. It installs for you only, without administrator rights, into `%LOCALAPPDATA%\Programs\proton-mail-mcp`, adds **Proton Mail MCP** to the Start menu, and starts the setup wizard below. Running a newer installer later only updates the program: no questions, your settings stay. An update replaces the Start-menu entries of 0.5 and earlier (*Setup*, *Settings* and *Check*) with this one, and removes the copies of the old version Claude was still running once Claude has let go of them: at your next sign-in, or the next time you open Proton Mail MCP. Uninstall from *Settings → Apps*; it removes the program from Claude too, and your settings and saved password only if you tick that box.
 
-**On Windows** there is also a graphical setup: `proton-mail-mcp-setup.exe`, next to `proton-mail-mcp.exe` in the Windows download. Start it (double-click) and it does the steps below in a window that follows the Windows 11 look, light or dark: no terminal needed. It needs Microsoft Edge WebView2, which Windows 11 has; without it, it opens the terminal setup instead. macOS and Linux get it later ([#91](https://github.com/dvalfrid/proton-mail-mcp/issues/91)).
+**On Windows** there is also a graphical setup: `proton-mail-mcp-setup.exe`, next to `proton-mail-mcp.exe` in the Windows download (the installer's *Proton Mail MCP* in the Start menu). Start it (double-click) and it does the steps below in a window that follows the Windows 11 look, light or dark: no terminal needed. Once set up, the same window is where you look after it, with three pages in its side menu:
+
+- **Status** runs the same check as `proton-mail-mcp check` (the same code, on the settings loaded the same way) and shows each step with a green or red mark. A step that fails says what to do and links to its section of the troubleshooting guide. *Check again* runs it again, for example after starting Bridge.
+- **Settings** changes the options (see [Options in config.json](#options-in-configjson)).
+- **About** shows the version, every tool by group (as Claude's `about` lists them) and which Claude apps start the server.
+
+It opens on Status when a step fails, otherwise on Settings. *Set up again* (on Status and About) runs the setup steps again, after a Bridge reset or a new Bridge password. It needs Microsoft Edge WebView2, which Windows 11 has; without it, it opens the terminal setup instead. macOS and Linux get it later ([#91](https://github.com/dvalfrid/proton-mail-mcp/issues/91)).
 
 Put the program somewhere permanent, for example `C:\Tools\proton-mail-mcp\` (Windows) or `~/bin` (macOS/Linux). Build it with `./tools/task.ps1 build`, or download a release. Then, with Proton Mail Bridge running and signed in, run in a terminal:
 
@@ -117,7 +123,7 @@ The four options above that aren't about Bridge can also be kept in `config.json
 "max_changes": 300
 ```
 
-On Windows, open **Proton Mail MCP Settings** in the Start menu to change them in a window: a switch for images, folder pickers for attachments and the outbox, and the number of changes per run. It saves `config.json`, and shows an option that `.env` or the environment sets as locked.
+On Windows, open **Proton Mail MCP** in the Start menu and choose **Settings** to change them in a window: a switch for images, folder pickers for attachments and the outbox, and the number of changes per run. It saves `config.json`, and shows an option that `.env` or the environment sets as locked.
 
 The environment and `.env` override `config.json`. `proton-mail-mcp check` lists each option with its value and where it came from (environment, `.env`, `config.json` or default), and Claude's `about` shows the same. Only you change them: no tool can, so an email can't talk Claude into switching one on. Restart Claude after a change.
 
@@ -127,7 +133,7 @@ Check the whole connection: `proton-mail-mcp check`. It goes through the setting
 
 ## Troubleshooting
 
-Run `proton-mail-mcp check` first: it tests every step and says what to do. Errors Claude shows end with a Help link to [docs/troubleshooting.md](docs/troubleshooting.md), which explains each one, where the logs are and how to report a problem.
+On Windows, open **Proton Mail MCP** in the Start menu: its **Status** page tests every step and says what to do. Elsewhere, or for a report, run `proton-mail-mcp check`, which runs the same check in a terminal. Errors Claude shows end with a Help link to [docs/troubleshooting.md](docs/troubleshooting.md), which explains each one, where the logs are and how to report a problem.
 
 ## Development
 

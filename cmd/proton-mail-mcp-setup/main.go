@@ -1,9 +1,16 @@
-// Command proton-mail-mcp-setup is the graphical setup wizard: it opens a
-// window that finds Proton Mail Bridge, pins its certificate, asks for the
-// Bridge password, saves everything and registers proton-mail-mcp in Claude.
+// Command proton-mail-mcp-setup is the Proton Mail MCP window, the one
+// program the owner opens (issue #176). Before the first setup it shows the
+// setup steps: find Proton Mail Bridge, pin its certificate, ask for the
+// Bridge password, save everything and register proton-mail-mcp in Claude.
+// Once set up, it shows the Status page (the same check as
+// `proton-mail-mcp check`), Settings (issue #158) and About, and opens on
+// Status when a step fails, else on Settings.
 //
-// With -settings it opens the Settings page, where the owner changes the
-// options (issue #158).
+// With -settings it opens the Settings page without checking first.
+//
+// With -cleanup (run once at sign-in after an update) it shows nothing: it
+// removes the copies an update renamed because Claude was running them. A
+// normal start does this too.
 //
 // With -uninstall (run by the Windows uninstaller) it shows nothing: it
 // removes proton-mail-mcp from Claude where it starts the exe next to it,
@@ -33,7 +40,7 @@ import (
 // version is set at build time (-ldflags "-X main.version=...").
 var version = "dev"
 
-const title = "Proton Mail MCP Setup"
+const title = "Proton Mail MCP"
 
 func main() {
 	if err := run(); err != nil {
@@ -46,7 +53,8 @@ func main() {
 func run() error {
 	uninstall := flag.Bool("uninstall", false, "remove proton-mail-mcp from Claude (for the uninstaller); shows nothing")
 	removeSettings := flag.Bool("remove-settings", false, "with -uninstall: also remove the settings and the stored password")
-	settings := flag.Bool("settings", false, "open the Settings page instead of the setup steps")
+	settings := flag.Bool("settings", false, "open the Settings page, without checking first")
+	cleanup := flag.Bool("cleanup", false, "remove the copies an update left behind (for the installer); shows nothing")
 	flag.Parse()
 
 	server, err := serverExe(!*uninstall)
@@ -56,6 +64,12 @@ func run() error {
 	dir, err := config.Dir()
 	if err != nil {
 		return err
+	}
+	// What an update renamed and couldn't remove while Claude ran it. A copy
+	// still running stays for the next time; nothing to tell the owner.
+	_, _ = setup.RemoveOldCopies(filepath.Dir(server))
+	if *cleanup {
+		return nil
 	}
 	if *uninstall {
 		webview, _ := wizard.DataPath() // "" leaves it

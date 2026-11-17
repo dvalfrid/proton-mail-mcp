@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dvalfrid/proton-mail-mcp/internal/check"
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
 )
 
@@ -38,8 +39,9 @@ var optionVars = map[string]string{
 	"maxChanges":        config.EnvMaxChanges,
 }
 
-// SettingsOnly makes the window open on the Settings page instead of the
-// setup steps (proton-mail-mcp-setup -settings).
+// SettingsOnly makes the window open on the Settings page, without running
+// the check first (proton-mail-mcp-setup -settings, which the Start-menu
+// shortcut of 0.5 and earlier opens).
 func (b *Backend) SettingsOnly() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -56,11 +58,7 @@ func (b *Backend) SetPickFolder(pick func(start string) (string, error)) {
 // dotEnv reads the .env file the server reads: PROTON_MCP_ENV_FILE, or the
 // one next to it.
 func (b *Backend) dotEnv() map[string]string {
-	path := os.Getenv("PROTON_MCP_ENV_FILE")
-	if path == "" {
-		path = filepath.Join(filepath.Dir(b.o.Exe), ".env")
-	}
-	m, err := config.ReadDotEnv(path)
+	m, err := config.ReadDotEnv(check.EnvFile(b.o.Exe))
 	if err != nil {
 		return map[string]string{}
 	}
@@ -109,6 +107,10 @@ func (s *Settings) showLocked(name, v string) {
 	case "attachmentDir":
 		if filepath.IsAbs(v) {
 			s.AttachmentDir = filepath.Clean(v)
+		}
+	case "outboxDir":
+		if filepath.IsAbs(v) {
+			s.OutboxDir = filepath.Clean(v)
 		}
 	case "maxChanges":
 		if n, err := strconv.Atoi(v); err == nil && n >= 1 {

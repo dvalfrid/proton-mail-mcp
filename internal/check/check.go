@@ -37,10 +37,28 @@ const (
 
 // Step is one line of the report.
 type Step struct {
-	Name   string
+	Name   string // short, for the terminal report
+	Title  string // what is checked, in words for the Status page
 	Status Status
-	Detail string // what was found
-	Hint   string // how to fix it, for Fail and Advice
+	Detail string     // what was found
+	Hint   string     // how to fix it, for Fail and Advice
+	Help   help.Topic // the troubleshooting section, for Fail and Advice; Troubleshoot for none
+}
+
+// setUpAgain is how to run setup, from the window or a terminal.
+const setUpAgain = "run setup again (in the Proton Mail MCP window choose Set up again, or run `proton-mail-mcp setup` in a terminal)"
+
+// The steps' titles, by name.
+var titles = map[string]string{
+	"settings":              "Settings",
+	"options":               "Options",
+	"Bridge reachable":      "Proton Mail Bridge is running",
+	"is Proton Mail Bridge": "It is Proton Mail Bridge",
+	"certificate":           "Bridge's certificate",
+	"login":                 "Signing in to Bridge",
+	"SMTP":                  "Bridge's SMTP (sending)",
+	"port owner":            "The program on Bridge's port",
+	"registered in Claude":  "Added to Claude",
 }
 
 // Input is what the check needs. LoadErr is the error from loading the
@@ -59,11 +77,14 @@ type Input struct {
 // mean anything (no settings, Bridge not reachable).
 func Run(ctx context.Context, in Input) []Step {
 	var steps []Step
-	add := func(s Step) { steps = append(steps, s) }
+	add := func(s Step) {
+		s.Title = titles[s.Name]
+		steps = append(steps, s)
+	}
 
 	if in.LoadErr != nil {
-		add(Step{Name: "settings", Status: Fail, Detail: in.LoadErr.Error(),
-			Hint: "run `proton-mail-mcp setup`, or fill in " + in.SettingsFile})
+		add(Step{Name: "settings", Status: Fail, Detail: in.LoadErr.Error(), Help: help.NotSetUp,
+			Hint: setUpAgain + ", or fill in " + in.SettingsFile})
 		return steps
 	}
 	cfg := in.Config
@@ -79,8 +100,8 @@ func Run(ctx context.Context, in Input) []Step {
 	imapAddr := cfg.IMAPAddr()
 	greeting, err := bridge.IMAPGreeting(ctx, imapAddr)
 	if err != nil {
-		add(Step{Name: "Bridge reachable", Status: Fail, Detail: "nothing answers on " + imapAddr,
-			Hint: "start Proton Mail Bridge and sign in; if Bridge shows another IMAP port, set " + config.EnvIMAPPort})
+		add(Step{Name: "Bridge reachable", Status: Fail, Detail: "nothing answers on " + imapAddr, Help: help.BridgeDown,
+			Hint: "start Proton Mail Bridge and sign in, then check again; if Bridge shows another IMAP port, set " + config.EnvIMAPPort})
 		return steps
 	}
 	add(Step{Name: "Bridge reachable", Status: OK, Detail: imapAddr})
@@ -89,24 +110,26 @@ func Run(ctx context.Context, in Input) []Step {
 		add(Step{Name: "is Proton Mail Bridge", Status: OK, Detail: "the IMAP greeting names Proton Mail Bridge"})
 	} else {
 		add(Step{Name: "is Proton Mail Bridge", Status: Fail, Detail: "the server on " + imapAddr + " does not identify itself as Proton Mail Bridge",
-			Hint: "another program uses this port; check the IMAP port Bridge shows"})
+			Hint: "another program uses this port; check the IMAP port Bridge shows", Help: help.NotBridge})
 		return steps
 	}
 
 	pin, err := readPin(cfg.CertFile)
 	if err != nil {
-		add(Step{Name: "certificate", Status: Fail, Detail: err.Error(), Hint: "export the certificate from Bridge again"})
+		add(Step{Name: "certificate", Status: Fail, Detail: err.Error(), Help: help.Certificate,
+			Hint: "pin Bridge's certificate again: " + setUpAgain})
 		return steps
 	}
 	served, err := bridge.IMAPCertificate(ctx, imapAddr, cfg.Host)
 	switch {
 	case err != nil:
-		add(Step{Name: "certificate", Status: Fail, Detail: "could not read Bridge's certificate: " + err.Error()})
+		add(Step{Name: "certificate", Status: Fail, Detail: "could not read Bridge's certificate: " + err.Error(), Help: help.Certificate,
+			Hint: "restart Proton Mail Bridge, then check again"})
 		return steps
 	case bridge.Fingerprint(served) != bridge.Fingerprint(pin):
-		add(Step{Name: "certificate", Status: Fail,
+		add(Step{Name: "certificate", Status: Fail, Help: help.Certificate,
 			Detail: "Bridge presents " + bridge.Fingerprint(served) + ", but " + bridge.Fingerprint(pin) + " is pinned",
-			Hint:   "if Bridge was reset or reinstalled, export its certificate again; otherwise something else may be posing as Bridge"})
+			Hint:   "if Bridge was reset or reinstalled, " + setUpAgain + " to pin its new certificate; otherwise something else may be posing as Bridge"})
 		return steps
 	default:
 		add(Step{Name: "certificate", Status: OK, Detail: "matches the pinned certificate " + bridge.Fingerprint(pin)})
@@ -140,7 +163,7 @@ func readPin(path string) (*x509.Certificate, error) {
 func loginStep(ctx context.Context, cfg config.Config, logger *slog.Logger) Step {
 	tlsCfg, err := mail.TLSConfig(cfg.Host, cfg.CertFile)
 	if err != nil {
-		return Step{Name: "login", Status: Fail, Detail: err.Error()}
+		return Step{Name: "login", Status: Fail, Detail: err.Error(), Help: help.Certificate, Hint: setUpAgain}
 	}
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
@@ -148,8 +171,8 @@ func loginStep(ctx context.Context, cfg config.Config, logger *slog.Logger) Step
 	c := mail.New(mail.Options{Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password, TLSConfig: tlsCfg, Timeout: bridge.Timeout, Logger: logger})
 	defer func() { _ = c.Close() }() // best effort
 	if err := c.Ping(ctx); err != nil {
-		return Step{Name: "login", Status: Fail, Detail: err.Error(),
-			Hint: "use the Bridge password from Bridge → your account → Mailbox details (not your Proton password); it changes if the account is removed and added again in Bridge"}
+		return Step{Name: "login", Status: Fail, Detail: err.Error(), Help: help.LoginFailed,
+			Hint: setUpAgain + " with the Bridge password from Bridge → your account → Mailbox details (not your Proton password); it changes if the account is removed and added again in Bridge"}
 	}
 	return Step{Name: "login", Status: OK, Detail: "logged in as " + cfg.User}
 }
@@ -159,10 +182,10 @@ func smtpStep(ctx context.Context, cfg config.Config, pin *x509.Certificate) Ste
 	served, err := bridge.SMTPCertificate(ctx, addr, cfg.Host)
 	switch {
 	case err != nil:
-		return Step{Name: "SMTP", Status: Fail, Detail: "SMTP on " + addr + ": " + err.Error(),
+		return Step{Name: "SMTP", Status: Fail, Detail: "SMTP on " + addr + ": " + err.Error(), Help: help.SMTP,
 			Hint: "if Bridge shows another SMTP port, set " + config.EnvSMTPPort + " (sending isn't used yet, so reading still works)"}
 	case bridge.Fingerprint(served) != bridge.Fingerprint(pin):
-		return Step{Name: "SMTP", Status: Fail, Detail: "SMTP on " + addr + " presents a different certificate than IMAP",
+		return Step{Name: "SMTP", Status: Fail, Detail: "SMTP on " + addr + " presents a different certificate than IMAP", Help: help.SMTP,
 			Hint: "something other than Bridge may be on the SMTP port"}
 	}
 	return Step{Name: "SMTP", Status: OK, Detail: addr + ", STARTTLS with the same certificate"}
@@ -181,7 +204,7 @@ func ownerStep(cfg config.Config) (Step, bool) {
 	if o.TrustedBridge() {
 		return Step{Name: "port owner", Status: OK, Detail: o.Path + " (validly signed, in Program Files)"}, true
 	}
-	return Step{Name: "port owner", Status: Advice, Detail: fmt.Sprintf("%s (signed: %v, in Program Files: %v)", o.Path, o.Signed, o.ProtectedDir),
+	return Step{Name: "port owner", Status: Advice, Detail: fmt.Sprintf("%s (signed: %v, in Program Files: %v)", o.Path, o.Signed, o.ProtectedDir), Help: help.NotBridge,
 		Hint: "expected Proton Mail Bridge's bridge.exe, signed and installed under Program Files; check what this program is"}, true
 }
 
@@ -219,11 +242,11 @@ func registrationStep(home, configDir, localAppData string) Step {
 	}
 	switch {
 	case len(found) == 0:
-		return Step{Name: "registered in Claude", Status: Advice, Detail: "no Claude Desktop or Claude Code config names a server for proton-mail-mcp",
-			Hint: "run `proton-mail-mcp setup`, or see README → Connecting to Claude"}
+		return Step{Name: "registered in Claude", Status: Advice, Detail: "no Claude Desktop or Claude Code config names a server for proton-mail-mcp", Help: help.NoTools,
+			Hint: setUpAgain + ", or see README → Connecting to Claude"}
 	case len(missing) > 0:
-		return Step{Name: "registered in Claude", Status: Advice, Detail: "in " + strings.Join(found, ", ") + "; not in " + strings.Join(missing, ", "),
-			Hint: "Claude Desktop may read the config that lacks it: run `proton-mail-mcp setup` to register there"}
+		return Step{Name: "registered in Claude", Status: Advice, Detail: "in " + strings.Join(found, ", ") + "; not in " + strings.Join(missing, ", "), Help: help.NoTools,
+			Hint: "Claude Desktop may read the config that lacks it: " + setUpAgain + " to add it there"}
 	}
 	return Step{Name: "registered in Claude", Status: OK, Detail: strings.Join(found, ", ")}
 }
@@ -274,6 +297,9 @@ func Print(w io.Writer, steps []Step) {
 		_, _ = fmt.Fprintf(w, "%s  %-22s %s\n", marks[s.Status], s.Name, s.Detail) // a broken terminal can't be reported anywhere
 		if s.Hint != "" && s.Status != OK {
 			_, _ = fmt.Fprintf(w, "      %-22s → %s\n", "", s.Hint)
+		}
+		if s.Help != help.Troubleshoot && s.Status != OK {
+			_, _ = fmt.Fprintf(w, "      %-22s   help: %s\n", "", help.URL(s.Help))
 		}
 	}
 	if Failed(steps) {

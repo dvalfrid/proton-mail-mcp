@@ -117,10 +117,11 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 | `internal/save/` | Saves an attachment: cleans the sender's file name, writes through an `os.Root` on the attachment folder, never replaces, adds the Mark of the Web on Windows. The only server code that writes files |
 | `internal/server/` | Builds the MCP server and registers tools. `testdata/tools.golden.json` is the tool snapshot (`-update` to rewrite) |
 | `internal/bridge/` | Recognises Bridge (greeting), reads its certificate without trusting it (no InsecureSkipVerify), Windows port-owner check. Never logs in |
-| `internal/check/` | `proton-mail-mcp check` diagnostics and the start-up warning |
+| `internal/check/` | Loads the settings as the server does (`Load`) and diagnoses the connection (`Diagnose`): for `proton-mail-mcp check`, the window's Status page and the start-up warning |
+| `internal/catalog/` | Every tool in one line, by group: the `about` tool and the window's About page |
 | `installer/` | Windows installer (NSIS): per user, fixed folder, setup on first install, silent updates; `./tools/task.ps1 installer` |
-| `cmd/proton-mail-mcp-setup/` | The graphical setup wizard (Windows, a windowed program next to the server exe). Falls back to the terminal setup without WebView2 |
-| `internal/wizard/` | The wizard: `page.html` (embedded, CSP denies everything external) in a WebView2 window; `Backend.Call` is the only thing the page can call and enforces the setup order |
+| `cmd/proton-mail-mcp-setup/` | The Proton Mail MCP window (Windows, a windowed program next to the server exe, the one Start-menu entry): setup steps, then Status, Settings and About. Falls back to the terminal setup without WebView2 |
+| `internal/wizard/` | The window: `page.html` (embedded, CSP denies everything external) in a WebView2 window; `Backend.Call` is the only thing the page can call and enforces the setup order |
 | `internal/setup/` | `proton-mail-mcp setup`: find Bridge, pin its certificate, ask for the password (hidden), test login, save, register in Claude |
 | `internal/keystore/` | The password in the OS credential store (go-keyring); `Memory` for tests |
 | `internal/testutil/` | In-memory IMAP server with STARTTLS and a per-test certificate; `NewBridge` imitates Bridge's greeting and SMTP |
