@@ -37,6 +37,8 @@ type Forward struct {
 	WithoutAttachments bool
 	// Attachments are files from the outbox, read by internal/outbox.
 	Attachments []DraftFile
+	// Markdown writes Body as formatted mail (issue #188).
+	Markdown bool
 }
 
 // ForwardCreated is a forward draft saved in Drafts.
@@ -132,8 +134,9 @@ func (c *Client) forward(raw []byte, f Forward, ownAddrs map[string]string, sent
 		}
 	}
 
-	note := strings.TrimRight(f.Body, "\r\n")
-	d.Body = note + forwarded(m, c.opts.Location, MaxDraftBodyBytes-len(note))
+	d.Body = strings.TrimRight(f.Body, "\r\n")
+	d.Quoted = forwarded(m, c.opts.Location, MaxDraftBodyBytes-len(d.Body))
+	d.Markdown = f.Markdown
 
 	out := ForwardCreated{Subject: subject}
 	d.Attachments = append(d.Attachments, f.Attachments...)

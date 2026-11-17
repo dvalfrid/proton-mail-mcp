@@ -20,6 +20,7 @@ type CreateDraftInput struct {
 	Subject     string   `json:"subject,omitempty" jsonschema:"the subject, one line"`
 	Body        string   `json:"body,omitempty" jsonschema:"the message as plain text"`
 	Attachments []string `json:"attachments,omitempty" jsonschema:"names of files in the owner's outbox folder to attach (up to 10, 20 MiB together); only files the owner asked to send"`
+	Format      string   `json:"format,omitempty" jsonschema:"text (the default) or markdown: **bold**, *italic*, [link](https://…), - lists, 1. lists, > quotes and # headings, sent as formatted mail; no HTML"`
 }
 
 // CreateDraftOutput is the result of create_draft.
@@ -44,6 +45,7 @@ type UpdateDraftInput struct {
 	Subject     string   `json:"subject,omitempty" jsonschema:"the subject, one line"`
 	Body        string   `json:"body,omitempty" jsonschema:"the whole message as plain text"`
 	Attachments []string `json:"attachments,omitempty" jsonschema:"names of files in the owner's outbox folder to attach (up to 10, 20 MiB together): all the draft should have, since the old version's are not carried over"`
+	Format      string   `json:"format,omitempty" jsonschema:"text (the default) or markdown: **bold**, *italic*, [link](https://…), - lists, 1. lists, > quotes and # headings, sent as formatted mail; no HTML"`
 }
 
 // UpdateDraftOutput is the result of update_draft.
@@ -66,6 +68,7 @@ type CreateReplyDraftInput struct {
 	ReplyAll    bool     `json:"reply_all,omitempty" jsonschema:"also reply to the original's other recipients (To and Cc)"`
 	From        string   `json:"from,omitempty" jsonschema:"the owner's address to send from, one they have sent from before; empty for the address the original was sent to (or from, for the owner's own mail), else their main address"`
 	Attachments []string `json:"attachments,omitempty" jsonschema:"names of files in the owner's outbox folder to attach (up to 10, 20 MiB together); only files the owner asked to send"`
+	Format      string   `json:"format,omitempty" jsonschema:"text (the default) or markdown: **bold**, *italic*, [link](https://…), - lists, 1. lists, > quotes and # headings, sent as formatted mail; no HTML"`
 }
 
 // CreateReplyDraftOutput is the result of create_reply_draft.
@@ -89,6 +92,18 @@ type AttachedFile struct {
 
 // attachedNote is added to a draft tool's note when files are attached.
 const attachedNote = " After the body, list the attached files by name and size, and ask the owner to check them before sending."
+
+// markdown reads a draft tool's format: "" or "text" for plain text,
+// "markdown" for formatted mail (issue #188).
+func markdown(format string) (bool, error) {
+	switch format {
+	case "", "text":
+		return false, nil
+	case "markdown":
+		return true, nil
+	}
+	return false, fmt.Errorf("format %q: use text or markdown", format)
+}
 
 // readOutbox reads the named files from the outbox folder for a draft.
 func readOutbox(dir string, names []string) ([]mail.DraftFile, []AttachedFile, error) {
@@ -146,7 +161,11 @@ func registerDraftTools(s *mcp.Server, m *mail.Client, outboxDir string) {
 		if err != nil {
 			return nil, CreateDraftOutput{}, err
 		}
-		c, err := m.CreateDraft(ctx, mail.Draft{From: in.From, To: in.To, Cc: in.Cc, Bcc: in.Bcc, Subject: in.Subject, Body: in.Body, Attachments: files})
+		md, err := markdown(in.Format)
+		if err != nil {
+			return nil, CreateDraftOutput{}, err
+		}
+		c, err := m.CreateDraft(ctx, mail.Draft{From: in.From, To: in.To, Cc: in.Cc, Bcc: in.Bcc, Subject: in.Subject, Body: in.Body, Markdown: md, Attachments: files})
 		if err != nil {
 			if errors.Is(err, mail.ErrBadDraft) {
 				return nil, CreateDraftOutput{}, err
@@ -172,7 +191,11 @@ func registerDraftTools(s *mcp.Server, m *mail.Client, outboxDir string) {
 		if err != nil {
 			return nil, UpdateDraftOutput{}, err
 		}
-		r, err := m.UpdateDraft(ctx, in.UID, in.UIDValidity, mail.Draft{From: in.From, To: in.To, Cc: in.Cc, Bcc: in.Bcc, Subject: in.Subject, Body: in.Body, Attachments: files})
+		md, err := markdown(in.Format)
+		if err != nil {
+			return nil, UpdateDraftOutput{}, err
+		}
+		r, err := m.UpdateDraft(ctx, in.UID, in.UIDValidity, mail.Draft{From: in.From, To: in.To, Cc: in.Cc, Bcc: in.Bcc, Subject: in.Subject, Body: in.Body, Markdown: md, Attachments: files})
 		if err != nil {
 			if errors.Is(err, mail.ErrBadDraft) {
 				return nil, UpdateDraftOutput{}, err
@@ -204,7 +227,11 @@ func registerDraftTools(s *mcp.Server, m *mail.Client, outboxDir string) {
 		if err != nil {
 			return nil, CreateReplyDraftOutput{}, err
 		}
-		r, err := m.CreateReplyDraft(ctx, mail.Reply{Folder: in.Folder, UID: in.UID, UIDValidity: in.UIDValidity, Body: in.Body, All: in.ReplyAll, From: in.From, Attachments: files})
+		md, err := markdown(in.Format)
+		if err != nil {
+			return nil, CreateReplyDraftOutput{}, err
+		}
+		r, err := m.CreateReplyDraft(ctx, mail.Reply{Folder: in.Folder, UID: in.UID, UIDValidity: in.UIDValidity, Body: in.Body, All: in.ReplyAll, From: in.From, Markdown: md, Attachments: files})
 		if err != nil {
 			if errors.Is(err, mail.ErrBadDraft) {
 				return nil, CreateReplyDraftOutput{}, err

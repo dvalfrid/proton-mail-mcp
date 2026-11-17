@@ -165,6 +165,11 @@ Anyone can send the owner an email, so mail content can contain instructions aim
   - on Windows it gets the Mark of the Web (`Zone.Identifier`, zone 3); if that can't be written, the file is removed and the save fails;
   - a message larger than what is fetched, or an attachment that can't be decoded to its end, is refused rather than saved cut.
 - Output size is capped per message and per call.
+- **Formatted drafts** (`format: markdown`, issue #188): the HTML in a draft is always the server's own, made from a small Markdown subset in `internal/mail/markdown.go`.
+  - Claude's text is escaped first, and only bold, italics, code, headings, lists, quotes and links become tags.
+  - Links are made for https and mailto only. Raw HTML, images, scripts and styles never come through.
+  - The original below a reply or forward is sender-written, so it is only escaped, never read as Markdown.
+  - `TestMarkdownHTMLIsSafe` and `TestQuotedHTML` check this.
 - The send guard above is the hard stop: even a fooled assistant can only create a draft.
 
 ### Attaching files

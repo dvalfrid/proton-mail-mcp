@@ -50,8 +50,8 @@ func TestReply(t *testing.T) {
 		if d.InReplyTo != "m1@example.org" || !slices.Equal(d.References, []string{"m0@example.org", "m1@example.org"}) {
 			t.Errorf("%s: in-reply-to %q references %q", name, d.InReplyTo, d.References)
 		}
-		if !strings.HasPrefix(d.Body, "Gärna!\n\nOn Mon, 2 Nov 2026 10:00, ") || !strings.Contains(d.Body, "> Ska vi äta lunch?\n> Kl 12?\n") {
-			t.Errorf("%s: body %q", name, d.Body)
+		if full := d.Body + d.Quoted; !strings.HasPrefix(full, "Gärna!\n\nOn Mon, 2 Nov 2026 10:00, ") || !strings.Contains(full, "> Ska vi äta lunch?\n> Kl 12?\n") {
+			t.Errorf("%s: body %q", name, full)
 		}
 		raw, err := c.buildDraft(d, time.Now())
 		if err != nil {
@@ -113,7 +113,7 @@ func TestReplyLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(d.Body) > MaxDraftBodyBytes || !strings.HasPrefix(d.Body, "ok") {
+	if len(d.Body)+len(d.Quoted) > MaxDraftBodyBytes || !strings.HasPrefix(d.Body, "ok") {
 		t.Errorf("body is %d bytes, want at most %d", len(d.Body), MaxDraftBodyBytes)
 	}
 	if _, err := c.buildDraft(d, time.Now()); err != nil {
