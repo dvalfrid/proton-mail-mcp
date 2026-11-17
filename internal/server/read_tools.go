@@ -33,9 +33,11 @@ type ListFoldersOutput struct {
 
 // ListMessagesInput are the arguments of list_messages.
 type ListMessagesInput struct {
-	Folder     string `json:"folder" jsonschema:"folder name exactly as list_folders returns it, e.g. INBOX or Folders/Work"`
-	Limit      int    `json:"limit,omitempty" jsonschema:"how many of the newest messages to return, 1-100 (default 20)"`
-	UnreadOnly bool   `json:"unread_only,omitempty" jsonschema:"only messages not yet read"`
+	Folder      string `json:"folder" jsonschema:"folder name exactly as list_folders returns it, e.g. INBOX or Folders/Work"`
+	Limit       int    `json:"limit,omitempty" jsonschema:"how many of the newest messages to return, 1-100 (default 20)"`
+	UnreadOnly  bool   `json:"unread_only,omitempty" jsonschema:"only messages not yet read"`
+	Since       string `json:"since,omitempty" jsonschema:"YYYY-MM-DD: only messages dated on or after this day, in the owner's time zone"`
+	WithinHours int    `json:"within_hours,omitempty" jsonschema:"only messages from the last so many hours, e.g. 24 for the last day (1-720); instead of since"`
 }
 
 // ListMessagesOutput is the result of list_messages.
@@ -137,8 +139,9 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_messages",
-		Description: "List the newest messages in a folder, newest first: uid, date, sender, subject, read and flagged state, and the owner's labels on each. Does not change anything; messages are not marked as read.",
+		Name: "list_messages",
+		Description: "List the newest messages in a folder, newest first: uid, date, sender, subject, read and flagged state, and the owner's labels on each. " +
+			"For recent mail only, give within_hours (e.g. 24 for the last day) or since: it returns just those, which is faster to read than a long list. Does not change anything; messages are not marked as read.",
 		Annotations: readOnly("List messages"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ListMessagesInput) (*mcp.CallToolResult, ListMessagesOutput, error) {
 		if in.Folder == "" {
@@ -147,7 +150,20 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 		if in.Limit < 0 || in.Limit > mail.MaxListLimit {
 			return nil, ListMessagesOutput{}, fmt.Errorf("limit must be between 1 and %d", mail.MaxListLimit)
 		}
-		l, err := m.ListMessages(ctx, in.Folder, mail.ListOptions{Limit: in.Limit, UnreadOnly: in.UnreadOnly})
+		opts := mail.ListOptions{Limit: in.Limit, UnreadOnly: in.UnreadOnly, WithinHours: in.WithinHours}
+		switch {
+		case in.WithinHours < 0 || in.WithinHours > mail.MaxWithinHours:
+			return nil, ListMessagesOutput{}, fmt.Errorf("within_hours must be between 1 and %d", mail.MaxWithinHours)
+		case in.WithinHours > 0 && in.Since != "":
+			return nil, ListMessagesOutput{}, errors.New("give since or within_hours, not both")
+		case in.Since != "":
+			t, err := time.Parse(time.DateOnly, in.Since)
+			if err != nil {
+				return nil, ListMessagesOutput{}, fmt.Errorf("since must be a date as YYYY-MM-DD, got %q", in.Since)
+			}
+			opts.Since = t
+		}
+		l, err := m.ListMessages(ctx, in.Folder, opts)
 		if err != nil {
 			return nil, ListMessagesOutput{}, explain(fmt.Errorf("list messages in %q: %w", in.Folder, err))
 		}
