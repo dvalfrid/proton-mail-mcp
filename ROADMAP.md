@@ -63,14 +63,11 @@ Install without a terminal, and updates that keep Claude's registration:
 - ✅ Tool: `view_image`: Claude sees the images in a message, attachments and inline images, never remote ones (#106).
 - ✅ Tool: `save_attachment`: saves an attachment, only into the owner's attachment folder, never opened by the server (#107).
 
-## 0.5 — macOS, Linux and packaging
+## 0.5 — Organizing and settings
 
 - `mark_spam`: move messages to Spam when the owner asks, at most 10 a call, asking each time (#160).
 - Settings without `.env` (#158): the options in `config.json`, a Settings page in the setup window (Start menu), and `check` and `about` show what is in effect.
 - Drafts from the owner's other addresses: a reply comes from the address the mail came to, `from` picks another of theirs, and reply-all leaves them all out (#162).
-- `setup`, keyring and Claude registration tried on macOS and Linux, and fixed where they differ (#66).
-- The setup wizard on macOS and Linux (#91).
-- Homebrew tap, Linux `.deb`/`.rpm`, a Claude Desktop extension (MCPB) (#33).
 - More AI assistants than Claude (#128): setup and the wizard register the server in OpenAI Codex, GitHub Copilot in VS Code, Cursor, Gemini CLI and LM Studio; texts say "the assistant"; the website says where each one sends the mail.
 - Ask Claude which version is installed and whether an update exists, and how to update (#125): `about` gives the version, whether Bridge answers and how to update, without network; `proton_mail_mcp_update` and *Check for updates* on the Settings page (#159) ask GitHub only when the owner asks (STANDARDS.md#update-check, approved 2026-11-17).
 
@@ -90,6 +87,14 @@ Before sending, so that organizing and drafts have been in daily use for a while
   - Bridge removes the sent draft.
   - The README says how to make Claude Desktop and Claude Code always ask; other clients come with #128.
 
+## macOS and Linux (milestone *macOS and Linux*)
+
+First the functions, then the platforms. The owner decided this on 2026-11-17. Installation on macOS and Linux waits until the tools are complete and have been stable on Windows for a while. The program already builds and runs there; what is missing is setup that has been tried there, and the packages.
+
+- `setup`, keyring and Claude registration tried on macOS and Linux, and fixed where they differ (#66).
+- The setup wizard on macOS and Linux (#91).
+- Homebrew tap, Linux `.deb`/`.rpm`, a Claude Desktop extension (MCPB) (#33).
+
 ## Installation
 
 Part of a working product: a user sets it up without editing files by hand, on Windows, macOS and Linux. Design and research: [docs/installation-research.md](docs/installation-research.md).
@@ -102,7 +107,7 @@ Part of a working product: a user sets it up without editing files by hand, on W
 - ✅ `proton-mail-mcp check` and clear startup errors (#31).
 - ✅ Registration in the config Claude Desktop (Microsoft Store) really reads (#42).
 - ✅ Graphical setup and installer on Windows (0.3).
-- Tried on Windows; macOS and Linux in 0.5 (#66).
+- Tried on Windows; macOS and Linux later, see [macOS and Linux](#macos-and-linux-milestone-macos-and-linux) (#66).
 
 ## Later (ideas, not commitments)
 
