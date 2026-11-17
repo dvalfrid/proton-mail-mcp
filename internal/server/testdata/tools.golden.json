@@ -681,7 +681,7 @@
       "readOnlyHint": true,
       "title": "List messages"
     },
-    "description": "List the newest messages in a folder, newest first: uid, date, sender, subject, read and flagged state. Does not change anything; messages are not marked as read.",
+    "description": "List the newest messages in a folder, newest first: uid, date, sender, subject, read and flagged state, and the owner's labels on each. Does not change anything; messages are not marked as read.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -722,6 +722,16 @@
               },
               "from": {
                 "type": "string"
+              },
+              "labels": {
+                "description": "the owner's Proton labels on the message, by name",
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
               },
               "size_bytes": {
                 "type": "integer"
@@ -1463,6 +1473,16 @@
               },
               "from": {
                 "type": "string"
+              },
+              "labels": {
+                "description": "the owner's Proton labels on the message, by name",
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
               },
               "size_bytes": {
                 "type": "integer"

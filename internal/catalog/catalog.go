@@ -20,7 +20,7 @@ var Groups = []Group{
 	{"Read (changes nothing)", []Tool{
 		{"about", "Show this server's version and this list."},
 		{"list_folders", "List the folders and labels, with the number of unread messages."},
-		{"list_messages", "List the newest messages in a folder."},
+		{"list_messages", "List the newest messages in a folder, with their labels."},
 		{"search_messages", "Search a folder by sender, recipient, subject, text or date."},
 		{"read_message", "Read one message, with its list of attachments. It stays unread."},
 		{"view_image", "Show an image attached to or embedded in a message."},

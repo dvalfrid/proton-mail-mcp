@@ -51,7 +51,8 @@ type IMAPServer struct {
 	user       *imapmemserver.User
 	cert       *Cert
 	transcript *syncBuffer
-	refuse     *atomic.Pointer[string] // set by RefuseChanges
+	refuse     *atomic.Pointer[string]   // set by RefuseChanges
+	created    *atomic.Pointer[[]string] // by CreateMailbox, listed after Folders
 }
 
 // RefuseChanges makes the server answer every STORE, COPY and MOVE with NO
@@ -82,9 +83,10 @@ func NewIMAPServer(t testing.TB) *IMAPServer {
 
 	transcript := &syncBuffer{}
 	refuse := &atomic.Pointer[string]{}
+	created := &atomic.Pointer[[]string]{}
 	srv := imapserver.New(&imapserver.Options{
 		NewSession: func(*imapserver.Conn) (imapserver.Session, *imapserver.GreetingData, error) {
-			return bridgeList{Session: mem.NewSession(), refuse: refuse}, nil, nil
+			return bridgeList{Session: mem.NewSession(), refuse: refuse, created: created}, nil, nil
 		},
 		TLSConfig:   &tls.Config{Certificates: []tls.Certificate{cert.TLS}, MinVersion: tls.VersionTLS12},
 		Caps:        imap.CapSet{imap.CapIMAP4rev1: {}, imap.CapMove: {}, imap.CapUIDPlus: {}},
@@ -106,6 +108,7 @@ func NewIMAPServer(t testing.TB) *IMAPServer {
 		cert:       cert,
 		transcript: transcript,
 		refuse:     refuse,
+		created:    created,
 	}
 }
 
@@ -147,6 +150,20 @@ func (s *IMAPServer) AddMessageAt(t testing.TB, mailbox, raw string, internal ti
 	if _, err := s.user.Append(mailbox, literal{bytes.NewReader([]byte(raw))}, opts); err != nil {
 		t.Fatalf("append to %s: %v", mailbox, err)
 	}
+}
+
+// CreateMailbox adds a mailbox, such as another Labels/ one.
+func (s *IMAPServer) CreateMailbox(t testing.TB, name string) {
+	t.Helper()
+	if err := s.user.Create(name, nil); err != nil {
+		t.Fatalf("create %s: %v", name, err)
+	}
+	var names []string
+	if old := s.created.Load(); old != nil {
+		names = slices.Clone(*old)
+	}
+	names = append(names, name)
+	s.created.Store(&names)
 }
 
 // Resync empties mailbox and gives it a new UIDVALIDITY, as Bridge does when
@@ -254,7 +271,8 @@ func (l *testLogger) Printf(format string, args ...any) {
 // folders are listed here from Folders, which tests don't add to.
 type bridgeList struct {
 	imapserver.Session
-	refuse *atomic.Pointer[string]
+	refuse  *atomic.Pointer[string]
+	created *atomic.Pointer[[]string]
 }
 
 // refused is the NO a refusing server answers a change with, or nil.
@@ -286,6 +304,9 @@ func (s bridgeList) List(w *imapserver.ListWriter, ref string, patterns []string
 		return s.Session.List(w, ref, patterns, options)
 	}
 	names := slices.Clone(Folders)
+	if created := s.created.Load(); created != nil {
+		names = append(names, *created...)
+	}
 	slices.Sort(names)
 	for _, name := range names {
 		if !slices.ContainsFunc(patterns, func(p string) bool { return imapserver.MatchList(name, '/', ref, p) }) {

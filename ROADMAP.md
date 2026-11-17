@@ -79,6 +79,7 @@ Before sending, so that organizing and drafts have been in daily use for a while
 ## 0.6 — Send on command
 
 - Attach files from the owner's outbox folder to a draft (`attachments` on the draft tools, `internal/outbox`) (#173).
+- Labels in `list_messages` and `search_messages`: each message's Proton labels, as tags (#172). Bridge doesn't send label colours.
 - One program on Windows: one Start-menu entry, and Status (the same check as `proton-mail-mcp check`), Settings and About pages in the window; an update cleans up the copies Claude was running (#176).
 
 - `internal/send`: SMTP over STARTTLS; the only package allowed to send.

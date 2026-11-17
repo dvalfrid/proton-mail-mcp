@@ -160,6 +160,8 @@ In the text, "Proton" means the Proton servers and API, "gluon" means the IMAP s
 - **Contact groups** are a label type, but they're filtered out and never become mailboxes.
 - **All Mail can be hidden.** Bridge has a "Show All Mail" setting; see `ShowAllMail` and `GetMailboxVisibility`.
 - **Documented.** "Labels in Bridge" ([proton.me/support/labels-in-bridge](https://proton.me/support/labels-in-bridge)) says labels show as subfolders of a Labels folder.
+- **No label colours over IMAP. Verified in source.** `newMailboxCreatedUpdate` in [imap_updates.go](https://github.com/ProtonMail/proton-bridge/blob/36d7b6a63256bbf4cf0b3fba9bb7854db32abff2/internal/services/imapservice/imap_updates.go) builds a label's mailbox from its ID and name only, with the default flags and no attributes. gluon's `imap.Mailbox` ([imap/mailbox.go](https://github.com/ProtonMail/gluon/blob/7e800978ab4a9942829eb6116e33ea0278c03e91/imap/mailbox.go)) has no field that could carry a colour (ID, Name, Flags, PermanentFlags, Attributes). So a label's colour stays in Proton; a client that wants colours picks its own.
+- **Which labels a message has.** A label is not a flag or keyword on the message (section 5): the message is in each `Labels/` mailbox too. Finding a message's labels means looking in those mailboxes. Bridge sets `Message-Id` from the message's own header, else `<ExternalID>` or `<ID@protonmail.internalid>` (`setMessageIDIfNeeded` in [pkg/message/build.go](https://github.com/ProtonMail/proton-bridge/blob/36d7b6a63256bbf4cf0b3fba9bb7854db32abff2/pkg/message/build.go)), and gluon stores one literal per message whichever mailboxes it is in, so its ENVELOPE, INTERNALDATE and RFC822.SIZE are the same in each, all database reads (section 9).
 
 **COPY. Verified in source.** COPY to any mailbox calls `LabelMessages(target)` (`AddMessagesToMailbox`, [connector.go L387](https://github.com/ProtonMail/proton-bridge/blob/36d7b6a63256bbf4cf0b3fba9bb7854db32abff2/internal/services/imapservice/connector.go#L387)).
 
@@ -442,6 +444,8 @@ SMTP never sends an existing draft directly.
 ---
 
 ## What this means for proton-mail-mcp
+
+**Labels in listings (0.6, issue #172).** `list_messages` and `search_messages` show each message's labels. After the listing, the server lists `Labels/*`, reads each label mailbox's ENVELOPE, INTERNALDATE and RFC822.SIZE (database reads, no literal is loaded; section 9) and matches the listed messages by Message-Id, received date and size together, so two messages that share a Message-Id but differ are not confused. Each label mailbox is kept in memory until its UIDVALIDITY, UIDNEXT or message count changes (STATUS), so later listings only ask STATUS. It looks in at most 100 label mailboxes, and starts no new one after half the operation's time; then the result says that labels may be missing. **Not tried on a real Bridge yet:** how long the first read of a large label mailbox takes.
 
 **Date ordering (0.1).**
 
