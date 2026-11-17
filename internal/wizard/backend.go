@@ -5,8 +5,10 @@
 // The page asks; this package decides. The page can only call the methods
 // in Backend.Call, and the backend enforces the order: the certificate is
 // pinned only when verified or confirmed, nothing is written before the
-// login has worked, and registering needs a saved setup. The Settings page
-// (saveSettings) writes only the owner's options into a saved setup. The password goes
+// login has worked, and registering needs a saved setup. Once set up, the
+// window shows the Status page (runCheck: the same check as
+// `proton-mail-mcp check`), the Settings page (saveSettings writes only the
+// owner's options into a saved setup) and the About page. The password goes
 // from the page's hidden field to the login test and the OS credential
 // store, and nowhere else: it is never logged or sent back to the page.
 package wizard
@@ -18,20 +20,24 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/bridge"
+	"github.com/dvalfrid/proton-mail-mcp/internal/catalog"
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
+	"github.com/dvalfrid/proton-mail-mcp/internal/help"
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
 	"github.com/dvalfrid/proton-mail-mcp/internal/setup"
 )
 
-// Links the page may open in the user's browser, by name. The page can't
+// Links the page may open in the user's browser, by name, besides
+// "help:<topic>" for a section of the troubleshooting guide. The page can't
 // open any other address.
 var Links = map[string]string{
 	"bridge": "https://proton.me/mail/bridge",
-	"help":   "https://github.com/dvalfrid/proton-mail-mcp/blob/main/docs/troubleshooting.md",
+	"help":   help.URL(help.Troubleshoot),
 }
 
 // Backend holds the state of one wizard run. Its methods are called from the
@@ -50,7 +56,7 @@ type Backend struct {
 	confirmed bool
 	saved     bool
 
-	settingsOnly bool                               // open on the Settings page
+	settingsOnly bool                               // open on the Settings page, without checking first
 	pickFolder   func(start string) (string, error) // the native folder picker; nil in tests
 }
 
@@ -115,6 +121,8 @@ func (b *Backend) Call(ctx context.Context, method string, args json.RawMessage)
 			return nil, errors.New("bad link request")
 		}
 		return nil, b.openLink(a.Name)
+	case "runCheck":
+		return b.runCheck(ctx), nil
 	case "getSettings":
 		return b.getSettings(), nil
 	case "saveSettings":
@@ -146,7 +154,11 @@ type State struct {
 	Clients        []ClientState `json:"clients"` // the installed ones
 	Exe            string        `json:"exe"`     // the server, for registering by hand
 	Error          string        `json:"error,omitempty"`
-	Mode           string        `json:"mode"` // "setup", or "settings" for the Settings page
+	// Mode is "setup" for the setup steps, before the first setup, or "app"
+	// for the Status, Settings and About pages.
+	Mode  string          `json:"mode"`
+	Start string          `json:"start,omitempty"` // "settings": open there (-settings), not on the check's outcome
+	Tools []catalog.Group `json:"tools"`           // for the About page
 }
 
 // ClientState is one installed MCP client.
@@ -158,9 +170,12 @@ type ClientState struct {
 
 func (b *Backend) state() State {
 	s := State{Platform: runtime.GOOS, Version: b.version, User: b.prev.User, Store: storeName(), CanVerifyOwner: setup.CanVerifyOwner(),
-		Accent: b.accent, Exe: b.o.Exe, Clients: []ClientState{}, Mode: "setup"}
+		Accent: b.accent, Exe: b.o.Exe, Clients: []ClientState{}, Mode: "setup", Tools: catalog.Groups}
 	if b.settingsOnly {
-		s.Mode = "settings"
+		s.Start = "settings"
+	}
+	if b.settingsOnly || (b.prev.User != "" && b.prepErr == nil) {
+		s.Mode = "app"
 	}
 	if b.prev.User != "" {
 		_, err := b.o.Store.Get(b.prev.User)
@@ -335,6 +350,9 @@ func (b *Backend) register(names []string) ([]RegisterResult, error) {
 
 func (b *Backend) openLink(name string) error {
 	url, ok := Links[name]
+	if t, isHelp := strings.CutPrefix(name, "help:"); isHelp {
+		url, ok = help.URL(help.Topic(t)), slices.Contains(help.Topics, help.Topic(t))
+	}
 	if !ok || b.open == nil {
 		return fmt.Errorf("no link %q", name)
 	}

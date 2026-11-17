@@ -2,15 +2,20 @@
 
 When proton-mail-mcp can't do something, the error Claude shows ends with a **Help** link to one of the sections below. Each says what the message means and how to fix it.
 
-**First step, always:** open a terminal and run
+**First step, always:** check the connection.
 
-```
-proton-mail-mcp check
-```
+- **On Windows:** open **Proton Mail MCP** from the Start menu. It opens on its **Status** page when something is wrong. Each step has a green or red mark; a red one says what to do and has a *Help with this* link to its section below. After fixing it, choose **Check again**.
+- **In a terminal** (any system, or for a report): run
 
-It tests every link in the chain (settings, Bridge, certificate, login, SMTP, registration in Claude) and says which one is broken and what to do. It never prints the password.
+  ```
+  proton-mail-mcp check
+  ```
 
-If you installed by hand rather than on the PATH, use the full path, e.g. `C:\Tools\proton-mail-mcp\proton-mail-mcp.exe check`.
+  If you installed by hand rather than on the PATH, use the full path, e.g. `C:\Tools\proton-mail-mcp\proton-mail-mcp.exe check`.
+
+Both run the same check, so they always agree. It tests every link in the chain (settings, Bridge, certificate, login, SMTP, registration in Claude), says which one is broken and what to do, and never shows the password.
+
+*Run setup again*, below, means: on Windows open Proton Mail MCP and choose **Set up again** (on its Status or About page); in a terminal, run `proton-mail-mcp setup`.
 
 ## Not set up
 
@@ -18,7 +23,7 @@ If you installed by hand rather than on the PATH, use the full path, e.g. `C:\To
 
 The server found no settings: no username, Bridge password or pinned certificate. The tools stay available so Claude can tell you this, but they can't reach your mailbox.
 
-**Fix:** open a terminal and run `proton-mail-mcp setup`. It finds Bridge, pins its certificate, asks for the Bridge username and password (typed hidden, in the terminal only, never in a chat) and saves them. Then restart Claude Desktop, or start a new Claude Code session.
+**Fix:** on Windows, open **Proton Mail MCP** from the Start menu, which starts setup; elsewhere, run `proton-mail-mcp setup` in a terminal. It finds Bridge, pins its certificate, asks for the Bridge username and password (typed hidden, in the terminal only, never in a chat) and saves them. Then restart Claude Desktop, or start a new Claude Code session.
 
 ## Bridge not running
 
@@ -28,8 +33,8 @@ Nothing answers on Bridge's port. Bridge isn't started, isn't signed in, or uses
 
 **Fix:**
 1. Start Proton Mail Bridge and make sure your account is signed in and synced.
-2. If Bridge shows another IMAP port (Bridge → your account → Mailbox details), run `proton-mail-mcp setup` again; it asks for the port.
-3. Run `proton-mail-mcp check`.
+2. If Bridge shows another IMAP port (Bridge → your account → Mailbox details), run `proton-mail-mcp setup -imap-port <port>` in a terminal.
+3. Check again: **Check again** on the Status page, or `proton-mail-mcp check`.
 
 ## Login failed
 
@@ -37,7 +42,7 @@ Nothing answers on Bridge's port. Bridge isn't started, isn't signed in, or uses
 
 Bridge is running but didn't accept the username or the Bridge password. The Bridge password is not your Proton account password, and it changes when Bridge is reset or the account is removed and added again.
 
-**Fix:** run `proton-mail-mcp setup` again and paste the Bridge password from Bridge → your account → Mailbox details.
+**Fix:** run setup again and paste the Bridge password from Bridge → your account → Mailbox details.
 
 ## Certificate does not match
 
@@ -45,7 +50,25 @@ Bridge is running but didn't accept the username or the Bridge password. The Bri
 
 The program on Bridge's port presents a different TLS certificate than the one pinned at setup. Usually Bridge was reinstalled or reset and made a new certificate. It could also be another program on that port, which is why the server refuses to send it the password.
 
-**Fix:** run `proton-mail-mcp check`. On Windows it shows which program owns the port and whether it is Proton's signed Bridge. If it is Bridge, run `proton-mail-mcp setup` again to pin the new certificate.
+**Fix:** check the connection (above). On Windows it shows which program owns the port and whether it is Proton's signed Bridge. If it is Bridge, run setup again to pin the new certificate.
+
+## Not Proton Mail Bridge
+
+**Check says:** "does not identify itself as Proton Mail Bridge", or a note on *the program on Bridge's port*.
+
+Something answers on Bridge's port, but it doesn't greet like Proton Mail Bridge, or (on Windows) the program that owns the port isn't a validly signed `bridge.exe` under Program Files. The server won't send the Bridge password to a program it can't tell is Bridge.
+
+**Fix:**
+1. Look at the path the check shows. Proton Mail Bridge updates itself and can then run from its own updates folder in your profile (`%APPDATA%\protonmail\bridge-v3\updates\…\bridge.exe`); a path like that, signed, is Bridge. It is only a note, not a failure.
+2. Any other program: find out what it is before going on. If Bridge uses another port, run `proton-mail-mcp setup -imap-port <port>` in a terminal, with the IMAP port Bridge shows.
+
+## SMTP not reachable
+
+**Check says:** "SMTP on 127.0.0.1:1025: …"
+
+Bridge's IMAP port works but its SMTP port doesn't answer, or answers with another certificate. Reading, organising and drafts don't use SMTP, so they keep working.
+
+**Fix:** if Bridge shows another SMTP port (Bridge → your account → Mailbox details), run `proton-mail-mcp setup -smtp-port <port>` in a terminal. If the certificate differs, find out what program is on that port.
 
 ## Timeout
 
@@ -98,7 +121,7 @@ A bug: the call hit an unexpected state. The server caught it, so other calls st
 The `proton-mail` tools are missing in Claude, or the server shows as disconnected.
 
 **Fix:**
-1. Run `proton-mail-mcp check`; the last line, "registered in Claude", shows which Claude configs have the server. If one is missing, run `proton-mail-mcp setup` again and let it register.
+1. Check the connection (above); the last step, *Added to Claude*, shows which Claude configs have the server, and the About page lists the Claude apps. If one is missing, run setup again and let it register.
 2. Quit Claude Desktop completely (also from the system tray) and start it again; it starts the server only at launch. In Claude Code, start a new session.
 3. Look in the [log](#where-the-logs-are).
 
@@ -117,7 +140,7 @@ The server writes its log to stderr, and the Claude client saves it. The log has
 Open an issue at <https://github.com/dvalfrid/proton-mail-mcp/issues> with:
 
 - what you asked Claude to do, and the error it showed;
-- the output of `proton-mail-mcp check` and `proton-mail-mcp -version`;
+- the output of `proton-mail-mcp check` and `proton-mail-mcp -version` (the terminal output is easier to paste than the Status page);
 - the log lines around the error.
 
 The repository is public. Remove email addresses and anything from your mailbox before posting; describe a message rather than pasting it.

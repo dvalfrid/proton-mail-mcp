@@ -36,7 +36,7 @@ const (
 )
 
 // ErrNoFolder means no outbox folder is set.
-var ErrNoFolder = errors.New("no outbox folder is set: set PROTON_OUTBOX_DIR to a full path, or choose it in Proton Mail MCP Settings")
+var ErrNoFolder = errors.New("no outbox folder is set: set PROTON_OUTBOX_DIR to a full path, or choose it on the Settings page of Proton Mail MCP")
 
 // ErrRefused means a file wasn't attached; nothing was read.
 var ErrRefused = errors.New("the files were not attached")

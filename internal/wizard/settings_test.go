@@ -17,8 +17,8 @@ func TestSettingsPage(t *testing.T) {
 	f := newFixture(t, true)
 	f.b.SettingsOnly()
 	var st State
-	if err := f.call(t, "state", nil, &st); err != nil || st.Mode != "settings" {
-		t.Fatalf("mode %q, %v", st.Mode, err)
+	if err := f.call(t, "state", nil, &st); err != nil || st.Mode != "app" || st.Start != "settings" {
+		t.Fatalf("mode %q, start %q, %v", st.Mode, st.Start, err)
 	}
 
 	// Before setup there is nothing to save into.

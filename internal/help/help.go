@@ -11,6 +11,8 @@ const (
 	BridgeDown   Topic = "bridge-not-running"
 	LoginFailed  Topic = "login-failed"
 	Certificate  Topic = "certificate-does-not-match"
+	NotBridge    Topic = "not-proton-mail-bridge"
+	SMTP         Topic = "smtp-not-reachable"
 	Timeout      Topic = "timeout"
 	Renumbered   Topic = "folder-renumbered"
 	ChangeFailed Topic = "change-failed"
@@ -22,7 +24,7 @@ const (
 )
 
 // Topics are all the topics, for the test.
-var Topics = []Topic{NotSetUp, BridgeDown, LoginFailed, Certificate, Timeout, Renumbered, ChangeFailed, ChangeLimit, Internal, NoTools, Logs}
+var Topics = []Topic{NotSetUp, BridgeDown, LoginFailed, Certificate, NotBridge, SMTP, Timeout, Renumbered, ChangeFailed, ChangeLimit, Internal, NoTools, Logs}
 
 const page = "https://github.com/dvalfrid/proton-mail-mcp/blob/main/docs/troubleshooting.md"
 

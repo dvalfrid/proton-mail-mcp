@@ -222,12 +222,19 @@ Bridge uses a self-signed certificate. Most Bridge setups skip verification on l
 `installer/proton-mail-mcp.nsi` (NSIS 3, built by `./tools/task.ps1 installer`, and in a release from the signed exes, then signed itself) installs per user into `%LOCALAPPDATA%\Programs\proton-mail-mcp`. The folder never changes between versions, so the path setup registers in Claude stays valid after an update. A zip in a versioned folder would break it on every upgrade.
 
 - **First install:** starts the setup wizard, also when silent (winget), unless `/NOSETUP`.
-- **Update** (the program is already there): no pages and no wizard. Claude may be running the server, and a running exe can't be overwritten but can be renamed, so the old one becomes `.old` and is removed on the next update.
+- **Update** (the program is already there): no pages and no wizard. Claude may be running the server, and a running exe can't be overwritten but can be renamed, so the old one becomes `.old0` (`.old1`, …). The installer removes what it can; a copy Claude still runs can't be removed until Claude lets go of it, so the installer adds a per-user `RunOnce` entry, `proton-mail-mcp-setup.exe -cleanup`, for the next sign-in, and the window removes them too whenever it opens. It removes only names of the form `proton-mail-mcp[-setup].exe.oldN` in its own folder (`setup.RemoveOldCopies`).
+- **One Start-menu entry**, *Proton Mail MCP*, which opens the window. An update removes the three of 0.5 and earlier (*Setup*, *Settings*, *Check*).
 - **Uninstall:** `proton-mail-mcp-setup.exe -uninstall` removes the server from Claude only where it starts this copy; a registration of another copy stays. With the box ticked (`-remove-settings`) it also removes the settings, the pinned certificate, the passwords under the `proton-mail-mcp` service in the credential store, and the wizard's WebView2 data: only files setup writes, never a whole folder. A silent uninstall keeps the settings.
 
 ### The setup wizard is a second program
 
 `proton-mail-mcp-setup.exe` is built as a windowed program, so starting it from the Start menu or Explorer shows no console window. The server must stay a console program: Claude talks to it over stdin and stdout, and `check` and `setup` print to the terminal. One file can't be both, so there are two. The wizard registers its sibling `proton-mail-mcp.exe`, not itself.
+
+To the owner it is one program (issue #176). Before the first setup the window shows the setup steps; after, its side menu has **Status**, **Settings** and **About**, and it opens on Status when a step fails, else on Settings:
+
+- **Status is `check`, not a copy of it.** Settings are loaded by `check.Load` (the environment over `.env` over `config.json`, the password from the credential store), which the server, `proton-mail-mcp check` and the window all call, and the steps come from `check.Diagnose`. The terminal prints them; the page shows them with a mark, the hint and a link to the step's section of the troubleshooting guide (`help.Topic`). So the two can't disagree, and a new step shows up in both.
+- **About reads `catalog.Groups`**, the list the `about` tool returns, so the window and Claude describe the same tools.
+- **The page opens only known links:** the names in `wizard.Links` and `help:<topic>` for a topic in `help.Topics`; never an address the page makes up.
 
 The page is HTML and CSS, so the same page can serve macOS and Linux later (issue #91) with each platform's look. All the logic is the `setup` package's, split into steps (`LookForBridge`, `ReadCertificate`, `TestLogin`, `Save`) that the terminal setup also uses. Calls from the page run off the window's thread, so a slow login doesn't freeze it. The window is a plain Win32 window that WebView2 fills (go-webview2's `pkg/edge`, not its ready-made window, which shows itself before WebView2 has started). It is created hidden with the page's background colour, shown when the page says it has drawn itself, and hidden before it is torn down, so it never flashes white (issue #94).
 

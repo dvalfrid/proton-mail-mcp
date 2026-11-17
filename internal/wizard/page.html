@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
-<title>Proton Mail MCP Setup</title>
+<title>Proton Mail MCP</title>
 <style>
 /* Tokens per platform (win, mac, gnome) and mode (light, dark). Windows
    follows the Windows 11 (Fluent) guidelines; mac and gnome are kept for
@@ -102,6 +102,14 @@ input::-ms-reveal { display: none; }
 details summary { cursor: pointer; color: var(--fg2); font-size: var(--fs-small); margin-top: 10px; }
 .donebig { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); margin-bottom: 14px; }
 .busy { display: flex; gap: 10px; align-items: center; }
+.steps li.nav { cursor: pointer; }
+.steps li.nav:hover:not(.current) { background: var(--sel); }
+.steps .mark { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; }
+.mark.ok { background: var(--ok); } .mark.fail { background: var(--err); }
+.row .what { font-size: var(--fs-small); margin-top: 4px; user-select: text; }
+.tools .row { padding: 8px 16px; }
+.tools .name { width: 150px; flex: none; }
+h3 { font-size: var(--fs); font-weight: 600; margin: 18px 0 8px; }
 </style>
 </head>
 <body class="win light">
@@ -162,6 +170,7 @@ const S = {
   user: '', reveal: false, signing: false, signInError: '', typed: false,
   pick: {}, registering: false, registered: null, fatal: '',
   settings: null, savingSettings: false, settingsSaved: false, settingsError: '',
+  view: null, status: null, checking: false, fromApp: false,
 };
 
 // ---- Steps ----
@@ -257,15 +266,101 @@ function stepDone() {
     ${row(I.ok(), 'ok', 'Signed in as ' + esc(S.user), 'Password saved in ' + esc(S.state?.store))}
     ${added.length ? row(I.ok(), 'ok', 'Added to ' + esc(added.join(' and '))) : ''}
     ${failed.map(f => row(I.err, 'err', "Couldn't add to " + esc(f.name), esc(f.error))).join('')}</div>
-    <p class="small" style="margin-top:14px">Updates install without asking anything again. To change options later, such as fetching images, open <i>Proton Mail MCP Settings</i> in the Start menu. If something stops working, <a data-link="help" tabindex="0">see the troubleshooting guide</a>.</p>`;
+    <p class="small" style="margin-top:14px">Updates install without asking anything again. To change options later, such as fetching images, or to see whether everything works, open <i>Proton Mail MCP</i> again${S.state?.platform === 'windows' ? ' from the Start menu' : ''}. If something stops working, <a data-link="help" tabindex="0">see the troubleshooting guide</a>.</p>`;
 }
 
-// ---- Settings page (proton-mail-mcp-setup -settings) ----
+// ---- The app pages, once set up: Status, Settings, About ----
+const VIEWS = [['status', 'Status'], ['settings', 'Settings'], ['about', 'About']];
+// Hints write commands in `backticks`.
+// The check writes sentences for the terminal, lower-case first.
+const cap = s => String(s ?? '').charAt(0).toUpperCase() + String(s ?? '').slice(1);
+const hintHTML = s => esc(cap(s)).replace(/`([^`]+)`/g, '<code>$1</code>');
+
+function viewStatus() {
+  const head = `<h2>Status</h2><p class="lead">Checks every link from Claude to your mailbox: the same check as <code>proton-mail-mcp check</code>.</p>`;
+  const r = S.status;
+  if (!r || S.checking) return head + `<div class="card rows">${row(I.spin, '', 'Checking…', 'Looking for Bridge and signing in to it. This takes a few seconds.')}</div>`;
+  const icon = { ok: [I.ok(), 'ok'], fail: [I.err, 'err'], advice: [I.warn, 'warnc'] };
+  const rows = r.steps.map(s => {
+    const [ic, cls] = icon[s.status] || icon.advice;
+    const what = s.status === 'ok' ? '' :
+      (s.hint ? `<div class="what"><b>What to do:</b> ${hintHTML(s.hint)}</div>` : '') +
+      (s.help ? `<div class="what"><a data-help="${esc(s.help)}" tabindex="0">Help with this</a></div>` : '');
+    return `<div class="row"><span class="icon ${cls}">${ic}</span><div class="text"><div class="title">${esc(s.title || s.name)}</div><div class="sub">${esc(cap(s.detail))}</div>${what}</div></div>`;
+  }).join('');
+  const top = r.failed
+    ? banner('error', 'Something needs fixing', "Claude can't reach your mailbox until the step marked in red works. Fix it, then choose <i>Check again</i>.")
+    : `<div class="card rows" style="margin-bottom:14px">${row(I.ok(), 'ok', 'Everything works', 'Claude can reach your mailbox through Proton Mail Bridge.')}</div>`;
+  return head + top + `<div class="card rows">${rows}</div>
+    <p class="small" style="margin-top:14px">Bridge reset, a new Bridge password, or a new Claude app? <a id="setup-again" tabindex="0">Set up again</a></p>`;
+}
+
+function viewAbout() {
+  const st = S.state || {};
+  const clients = (st.clients || []).map(c => c.registered
+    ? row(I.ok(), 'ok', esc(c.name), 'Starts this copy')
+    : row(I.warn, 'warnc', esc(c.name), c.other ? `Starts another copy: <span class="mono">${esc(c.other)}</span>` : 'Not added')).join('');
+  const groups = (st.tools || []).map(g => `<h3>${esc(g.group)}</h3><div class="card rows tools">${
+    g.tools.map(t => `<div class="row"><span class="name mono">${esc(t.name)}</span><div class="text sub">${esc(t.description)}</div></div>`).join('')}</div>`).join('');
+  return `<div class="appicon">${ICON}</div><h2>Proton Mail MCP ${esc(st.version)}</h2>
+    <p class="lead">Lets Claude read and organise your Proton Mail through Proton Mail Bridge. It can't send mail or permanently delete anything.</p>
+    <h3>Added to</h3><div class="card rows">${clients || row(I.warn, 'warnc', 'No Claude app found on this computer')}</div>
+    <p class="small" style="margin-top:8px">The program Claude starts: <span class="mono">${esc(st.exe)}</span>. <a id="setup-again" tabindex="0">Set up again</a></p>
+    <h3 style="margin-top:22px">What Claude can do</h3>${groups}
+    <p class="small" style="margin-top:14px"><a data-link="help" tabindex="0">Troubleshooting guide</a></p>`;
+}
+
+function renderApp() {
+  const v = S.view;
+  const mark = n => n === 'status' && S.status && !S.checking ? `<span class="mark ${S.status.failed ? 'fail' : 'ok'}" aria-label="${S.status.failed ? 'needs fixing' : 'works'}"></span>` : '';
+  $('#steps').innerHTML = VIEWS.map(([n, label]) => `<li class="nav ${n === v ? 'current' : ''}" data-view="${n}" tabindex="0" role="link" ${n === v ? 'aria-current="page"' : ''}>${label}${mark(n)}</li>`).join('');
+  $('#content').innerHTML = !v ? `<div class="card rows">${row(I.spin, '', 'Checking…')}</div>` : v === 'status' ? viewStatus() : v === 'about' ? viewAbout() : viewSettings();
+  $('#back').style.visibility = 'hidden';
+  $('#cancel').style.visibility = 'visible';
+  $('#cancel').textContent = 'Close';
+  $('#next').style.visibility = v === 'about' || !v ? 'hidden' : 'visible';
+  $('#next').textContent = v === 'status' ? 'Check again' : 'Save';
+  $('#next').disabled = v === 'status' ? S.checking : !S.settings?.setUp || S.savingSettings;
+  document.querySelectorAll('[data-view]').forEach(el => {
+    const f = () => show(el.dataset.view);
+    el.onclick = f; el.onkeydown = e => { if (e.key === 'Enter') f(); };
+  });
+  document.querySelectorAll('[data-help]').forEach(el => {
+    const f = () => call('openLink', { name: 'help:' + el.dataset.help }).catch(() => {});
+    el.onclick = f; el.onkeydown = e => { if (e.key === 'Enter') f(); };
+  });
+  const sa = $('#setup-again'); if (sa) { sa.onclick = setUpAgain; sa.onkeydown = e => { if (e.key === 'Enter') setUpAgain(); }; }
+  if (v === 'settings') wireSettings(); else wire();
+}
+
+function show(view) { S.view = view; renderApp(); $('#content').focus({ preventScroll: true }); }
+
+async function runStatus() {
+  S.checking = true; renderApp();
+  try { S.status = await call('runCheck'); } catch (e) { S.status = { failed: true, steps: [{ name: 'check', title: "Couldn't run the check", status: 'fail', detail: e.message }] }; }
+  S.checking = false;
+  if (!S.view) S.view = S.status.failed ? 'status' : 'settings';
+  renderApp();
+}
+
+function setUpAgain() {
+  S.state.mode = 'setup'; S.fromApp = true; S.step = 0;
+  render(); $('#content').focus({ preventScroll: true });
+}
+
+// Back from the setup steps to the app pages, checking again.
+async function backToApp() {
+  try { S.state = await call('state'); } catch (e) { S.fatal = e.message; render(); return; }
+  S.state.mode = 'app'; S.view = 'status';
+  try { S.settings = await call('getSettings'); } catch (e) { S.settingsError = e.message; }
+  runStatus();
+}
+
 function viewSettings() {
   const s = S.settings;
   const head = `<h2>Settings</h2><p class="lead">Options for Proton Mail MCP. Only you change them, here: Claude can't.</p>`;
   if (!s) return head + `<div class="card rows">${row(I.spin, '', 'Reading the settings…')}</div>`;
-  if (!s.setUp) return head + banner('warn', 'Not set up yet', 'Run <i>Proton Mail MCP Setup</i> from the Start menu first. The options are saved with its settings.');
+  if (!s.setUp) return head + banner('warn', 'Not set up yet', 'Set up Proton Mail MCP first: the options are saved with its settings.') + `<button class="btn" id="setup-again">Set up</button>`;
   const dis = n => (s.locked[n] || S.savingSettings) ? 'disabled' : '';
   const lock = n => s.locked[n] ? `<div class="help warnc">Set in ${s.locked[n] === '.env' ? 'the .env file' : 'an environment variable'}, which overrides this.</div>` : '';
   return head +
@@ -284,13 +379,9 @@ function viewSettings() {
     ${S.savingSettings ? `<div class="busy small">${I.spin} Saving…</div>` : ''}`;
 }
 
-function renderSettings() {
-  $('#steps').innerHTML = `<li class="current" aria-current="page"><span class="dot">${ICON.replace('<svg ', '<svg width="18" height="18" ')}</span>Settings</li>`;
-  $('#content').innerHTML = viewSettings();
-  $('#next').textContent = 'Save';
-  $('#next').disabled = !S.settings?.setUp || S.savingSettings;
-  $('#back').style.visibility = 'hidden';
-  $('#cancel').textContent = 'Close';
+function renderSettings() { renderApp(); }
+
+function wireSettings() {
   const im = $('#opt-images'), dir = $('#opt-dir'), max = $('#opt-max'), br = $('#opt-browse'), ob = $('#opt-outbox'), obr = $('#opt-browse-outbox');
   const changed = () => { S.settingsSaved = false; };
   if (im) im.onchange = e => { S.settings.allowRemoteImages = e.target.checked; changed(); };
@@ -336,7 +427,8 @@ function render() {
     $('#cancel').textContent = 'Close';
     return;
   }
-  if (S.state?.mode === 'settings') { renderSettings(); return; }
+  if (S.state?.mode === 'app') { renderApp(); return; }
+  $('#next').style.visibility = 'visible';
   // Keep a typed password across re-renders of the same step.
   const pass = $('#pass')?.value;
   $('#steps').innerHTML = STEPS.map((n, i) => `<li class="${i === S.step ? 'current' : i < S.step ? 'done' : ''}" ${i === S.step ? 'aria-current="step"' : ''}><span class="dot">${i < S.step ? I.ok() : i + 1}</span>${n}</li>`).join('');
@@ -348,6 +440,7 @@ function render() {
   // No way back once saved: the steps before it would start over.
   $('#back').style.visibility = S.step === 0 || S.step >= 3 ? 'hidden' : 'visible';
   $('#cancel').style.visibility = last ? 'hidden' : 'visible';
+  $('#cancel').textContent = S.fromApp ? 'Back' : 'Cancel';
   wire();
 }
 
@@ -411,7 +504,11 @@ function go(step) {
 }
 
 async function next() {
-  if (S.state?.mode === 'settings') { if (S.settings?.setUp && !S.savingSettings) saveSettings(); return; }
+  if (S.state?.mode === 'app') {
+    if (S.view === 'status') { if (!S.checking) runStatus(); }
+    else if (S.view === 'settings' && S.settings?.setUp && !S.savingSettings) saveSettings();
+    return;
+  }
   if (!canNext()) return;
   switch (S.step) {
     case 1:
@@ -419,14 +516,14 @@ async function next() {
       return go(2);
     case 2: return signIn();
     case 3: return register();
-    case 4: return call('close');
+    case 4: return S.fromApp ? backToApp() : call('close');
     default: return go(S.step + 1);
   }
 }
 
 $('#next').onclick = next;
 $('#back').onclick = () => { if (S.step > 0) go(S.step - 1); };
-$('#cancel').onclick = () => call('close');
+$('#cancel').onclick = () => (S.fromApp && S.state?.mode === 'setup' ? backToApp() : call('close'));
 addEventListener('keydown', e => { if (e.key === 'Escape') call('close'); });
 
 // ---- Start ----
@@ -441,9 +538,12 @@ mq.addEventListener('change', theme);
   if (/^#[0-9a-f]{6}$/i.test(a.light || '')) document.documentElement.style.setProperty('--sys-accent-light', a.light);
   if (/^#[0-9a-f]{6}$/i.test(a.dark || '')) document.documentElement.style.setProperty('--sys-accent-dark', a.dark);
   theme(); render();
-  if (S.state?.mode === 'settings') {
+  if (S.state?.mode === 'app') {
+    // Opens on Status when a step fails, else on Settings (issue #176).
+    S.view = S.state.start === 'settings' ? 'settings' : null;
     try { S.settings = await call('getSettings'); } catch (e) { S.fatal = e.message; }
     render();
+    runStatus();
   }
   // The page is laid out: the window can be shown. (Not requestAnimationFrame:
   // a web view in a hidden window draws no frames.)

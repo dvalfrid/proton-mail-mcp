@@ -82,7 +82,7 @@ function Invoke-Build {
         $copyright = (Get-Content LICENSE | Where-Object { $_ -like 'Copyright*' } | Select-Object -First 1)
         foreach ($r in @(
                 @{ Dir = 'cmd/proton-mail-mcp'; Manifest = 'cli'; Name = 'proton-mail-mcp.exe'; Description = 'Proton Mail MCP server' },
-                @{ Dir = 'cmd/proton-mail-mcp-setup'; Manifest = 'gui'; Name = 'proton-mail-mcp-setup.exe'; Description = 'Proton Mail MCP Setup' })) {
+                @{ Dir = 'cmd/proton-mail-mcp-setup'; Manifest = 'gui'; Name = 'proton-mail-mcp-setup.exe'; Description = 'Proton Mail MCP' })) {
             Invoke-Tool 'go-winres' @('simply', '--arch', $arch, '--out', "$($r.Dir)/rsrc", '--manifest', $r.Manifest,
                 '--icon', 'assets/icon.ico', '--product-name', 'Proton Mail MCP', '--file-description', $r.Description,
                 '--product-version', $Version, '--file-version', $fileVersion, '--copyright', $copyright, '--original-filename', $r.Name)
