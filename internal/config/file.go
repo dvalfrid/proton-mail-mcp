@@ -26,12 +26,16 @@ type Settings struct {
 	AttachmentDir     string `json:"attachment_dir,omitempty"`
 	OutboxDir         string `json:"outbox_dir,omitempty"`
 	MaxChanges        int    `json:"max_changes,omitempty"`
+	// AllowSend switches send_draft on (issue #181). Only the owner sets it,
+	// on the Settings page, never a tool.
+	AllowSend *bool `json:"allow_send,omitempty"`
 }
 
 // KeepOptions returns s with the owner's options from prev, so running
 // setup again keeps them.
 func (s Settings) KeepOptions(prev Settings) Settings {
 	s.AllowRemoteImages, s.AttachmentDir, s.OutboxDir, s.MaxChanges = prev.AllowRemoteImages, prev.AttachmentDir, prev.OutboxDir, prev.MaxChanges
+	s.AllowSend = prev.AllowSend
 	return s
 }
 
@@ -134,6 +138,12 @@ func (s Settings) Values() map[string]string {
 		m[EnvAllowRemoteImages] = "0"
 		if *s.AllowRemoteImages {
 			m[EnvAllowRemoteImages] = "1"
+		}
+	}
+	if s.AllowSend != nil {
+		m[EnvAllowSend] = "0"
+		if *s.AllowSend {
+			m[EnvAllowSend] = "1"
 		}
 	}
 	set(EnvAttachmentDir, s.AttachmentDir)

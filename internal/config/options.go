@@ -57,5 +57,6 @@ func Options(cfg Config, dotenv map[string]string, saved Settings) []Option {
 		{"attachment folder", orUnset(cfg.AttachmentDir), Origin(EnvAttachmentDir, dotenv, saved)},
 		{"changes per run", strconv.Itoa(cfg.MaxChanges), Origin(EnvMaxChanges, dotenv, saved)},
 		{"outbox folder (files to attach)", orUnset(cfg.OutboxDir), Origin(EnvOutboxDir, dotenv, saved)},
+		{"send drafts (send_draft)", onOff(cfg.AllowSend), Origin(EnvAllowSend, dotenv, saved)},
 	}
 }

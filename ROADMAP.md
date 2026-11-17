@@ -82,10 +82,12 @@ Before sending, so that organizing and drafts have been in daily use for a while
 - Labels in `list_messages` and `search_messages`: each message's Proton labels, as tags (#172). Bridge doesn't send label colours.
 - One program on Windows: one Start-menu entry, and Status (the same check as `proton-mail-mcp check`), Settings and About pages in the window; an update cleans up the copies Claude was running (#176).
 
-- `internal/send`: SMTP over STARTTLS; the only package allowed to send.
-- Tool: `send_draft` — sends an existing draft, refused unless `PROTON_ALLOW_SEND=1`, moves the draft away after sending.
-- Guardrail tests: refused without the flag, refuses non-drafts, nothing else reaches SMTP.
-- README: configuring each supported client to always ask before `send_draft`; a client that can't ask for every call is not supported for sending (#128).
+- `send_draft` (#181): sends an existing draft, only when the owner switched sending on (the Settings page, with a confirmation, or `PROTON_ALLOW_SEND=1`).
+  - The call must name the draft's recipients.
+  - At most 10 sends per run.
+  - `internal/send` is the only package that talks SMTP.
+  - Bridge removes the sent draft.
+  - The README says how to make Claude Desktop and Claude Code always ask; other clients come with #128.
 
 ## Installation
 

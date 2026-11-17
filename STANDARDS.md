@@ -119,15 +119,22 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 | Save | save an attachment into the owner's attachment folder | Allowed: never replaces a file, never opens one |
 | Organize | move, mark read/unread, flag, label, move to Trash, mark as spam | Allowed (undoable), at most `PROTON_MAX_CHANGES` messages (200 by default) per server run. Spam has its own rules, see [Spam](#spam) |
 | Draft | create, update draft in `Drafts`, with files from the owner's outbox folder attached | Allowed; files only from the outbox, see [Attaching files](#attaching-files) |
-| Send | `send_draft`: send an *existing* draft | Gated: see below |
+| Send | `send_draft`: send an *existing* draft | Gated: off until the owner switches it on, at most 10 per run, see [Sending](#sending) |
 | Delete permanently | — | **Never** |
 
 ### Sending
 
 1. The **only** way to send is `send_draft`, which sends a draft that already exists in `Drafts`. No tool ever takes recipients and a body and sends them in one step: the owner must be able to read what goes out.
-2. `send_draft` is refused unless `PROTON_ALLOW_SEND=1`. Refused means the tool returns an error, not that it's left out of the tool list. Claude should see that sending exists but is switched off.
-3. The MCP client is configured to **always ask** before `send_draft` runs (see README). That approval comes from the client, outside Claude's control, which is why the rule is in the client and not only here.
-4. SMTP code lives in one package. `forbidigo` rejects SMTP send calls anywhere else.
+2. `send_draft` is refused unless the owner switched sending on, outside Claude:
+   - on the Settings page, which asks for a confirmation (`allow_send` in `config.json`);
+   - or with `PROTON_ALLOW_SEND=1` in `.env` or the environment, which overrides the page.
+
+   Refused means the tool returns an error, not that it's left out of the tool list: Claude should see that sending exists but is switched off. No tool can change the setting (`TestNoToolWritesSettings`).
+3. The MCP client is configured to **always ask** before `send_draft` runs (see README). That approval comes from the client, outside Claude's control, which is why the rule is in the client and not only here. `send_draft` is annotated destructive and open-world, so clients that honour the hints ask anyway.
+4. **The wrong draft is not sent.** The call must name every recipient of the draft (To, Cc and Bcc); if they don't match the draft exactly, nothing is sent. The draft's From must be one of the owner's addresses.
+5. **At most 10 sends per server run**, counted when a send is attempted, apart from `PROTON_MAX_CHANGES`.
+6. **Only to Bridge on this computer**, over STARTTLS verified against the pinned certificate before the password is sent. Bridge's internal `X-Pm-*` headers are removed; `References` stays.
+7. **SMTP code lives in one package**, `internal/send`. depguard rejects `go-smtp` and `net/smtp` anywhere else (tests excepted), `forbidigo` rejects SMTP send calls, and `TestOnlySendDraftSends` fails on any other tool that looks like it sends.
 
 ### Spam
 
@@ -143,6 +150,7 @@ Moving to Spam is riskier than other moves: Proton can delete messages in Spam a
 - No IMAP `EXPUNGE` / `UID EXPUNGE`, with one exception. `forbidigo` rejects calls to `Expunge`/`UIDExpunge`.
 - **The exception** (approved by the owner, 2026-11-13, issue #55): `remove_label` sends `\Deleted` + `UID EXPUNGE` of the given uids, only while a user label (`Labels/…`, no special-use role) is the open folder. There Bridge removes the label and deletes nothing (docs/bridge.md §4, §6); it is Bridge's only way to remove just a label. The call is in `internal/mail/label.go` alone, with a `//nolint:forbidigo` naming this rule, and checks the open folder again right before. `TestExpungeOnlyInLabels` fails if any other folder gets `EXPUNGE` or `\Deleted`. Never plain `EXPUNGE`, and never in Trash or Drafts, where it is a permanent delete.
 - "Delete" means move to `Trash`. Proton empties Trash on its own schedule; the owner can still restore.
+- **After `send_draft`, Bridge deletes the sent draft itself** (approved by the owner, 2026-11-17, issue #181). Bridge sends a copy of the draft and then deletes the original permanently, only after a successful send, as Proton's own apps do (docs/bridge.md §8). The content stays in Sent. This is Bridge's doing: our code sends no `EXPUNGE` for it.
 
 ### Email content is untrusted
 

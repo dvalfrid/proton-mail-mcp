@@ -32,7 +32,7 @@ func session(t *testing.T, version string, updates update.Source) *mcp.ClientSes
 	ctx := context.Background()
 	m := mail.NewUnconfigured(errors.New("no settings"), slog.New(slog.DiscardHandler))
 	serverT, clientT := mcp.NewInMemoryTransports()
-	ss, err := New(version, m, Folders{}, nil, updates).Connect(ctx, serverT, nil)
+	ss, err := New(version, m, Folders{}, nil, updates, nil).Connect(ctx, serverT, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

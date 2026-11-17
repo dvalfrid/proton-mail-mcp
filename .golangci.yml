@@ -49,6 +49,18 @@ linters:
               desc: "use log/slog (to stderr)"
             - pkg: "github.com/pkg/errors"
               desc: "use the standard errors package and fmt.Errorf with %w"
+        # Guardrail: only internal/send talks SMTP (STANDARDS.md#sending).
+        smtp:
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/internal/send/*.go"
+            - "!**/internal/testutil/*.go"
+          deny:
+            - pkg: "github.com/emersion/go-smtp"
+              desc: "sending goes through send_draft and internal/send only (STANDARDS.md#sending)"
+            - pkg: "net/smtp"
+              desc: "sending goes through send_draft and internal/send only (STANDARDS.md#sending)"
         # Guardrail: only internal/fetch reaches the internet (STANDARDS.md#remote-images).
         internet:
           files:

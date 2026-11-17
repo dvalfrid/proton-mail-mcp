@@ -53,8 +53,8 @@ When in doubt, leave it out and ask. Before every commit, check the diff for the
 
 ## Hard rules (details: STANDARDS.md#security-guardrails)
 
-- Sending: only `send_draft` (sends an existing draft), refused unless `PROTON_ALLOW_SEND=1`, and the client must "always ask". Never add a tool that sends free-form text directly.
-- No permanent deletion (no `EXPUNGE`); "delete" = move to Trash. Sole exception: `remove_label`'s `UID EXPUNGE` in a user label (STANDARDS.md#deletion).
+- Sending: only `send_draft` (sends an existing draft), refused unless the owner switched sending on (the Settings page or `PROTON_ALLOW_SEND=1`), and the client must "always ask". Never add a tool that sends free-form text directly.
+- No permanent deletion (no `EXPUNGE`); "delete" = move to Trash. Sole exception: `remove_label`'s `UID EXPUNGE` in a user label. Bridge itself deletes a draft after `send_draft` sends it (STANDARDS.md#deletion).
 - Nothing is fetched from the internet, with two exceptions, both through `internal/fetch` alone:
   - `fetch_image`: off unless `PROTON_ALLOW_REMOTE_IMAGES=1`, only an image the message shows, https to public addresses only (STANDARDS.md#remote-images);
   - the update check: GitHub's latest release, one fixed address, only on the owner's request (STANDARDS.md#update-check).
@@ -117,6 +117,7 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 | `internal/fetch/` | Fetches an image a message links to, for `fetch_image`, and GitHub's latest release, for the update check: https to public addresses only, checked on every dial. The only package that reaches the internet |
 | `internal/update/` | Is there a newer release (semver compare, pre-releases before their release), and how to install it: `proton_mail_mcp_update` and the Settings page's *Check for updates* |
 | `internal/outbox/` | Reads the files a draft attaches: plain names only, through `os.OpenInRoot` on the outbox folder, regular files, capped. The only server code that reads the owner's files |
+| `internal/send/` | Sends an existing draft for `send_draft`: checks the recipients the call names against the draft's, strips Bridge's `X-Pm-*` headers, and submits over STARTTLS to Bridge on localhost. Off unless the owner switched sending on, at most 10 per run. The only package that talks SMTP |
 | `internal/save/` | Saves an attachment: cleans the sender's file name, writes through an `os.Root` on the attachment folder, never replaces, adds the Mark of the Web on Windows. The only server code that writes files |
 | `internal/server/` | Builds the MCP server and registers tools. `testdata/tools.golden.json` is the tool snapshot (`-update` to rewrite) |
 | `internal/bridge/` | Recognises Bridge (greeting), reads its certificate without trusting it (no InsecureSkipVerify), Windows port-owner check. Never logs in |

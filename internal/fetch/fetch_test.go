@@ -152,6 +152,7 @@ func TestNothingElseFetches(t *testing.T) {
 		"internal/fetch/fetch.go": true,
 		// Bridge on localhost only, never the internet (STANDARDS.md#transport):
 		"internal/mail/client.go":     true, // the IMAP connection
+		"internal/send/send.go":       true, // SMTP to Bridge, for send_draft (STANDARDS.md#sending)
 		"internal/bridge/probe.go":    true, // setup and check recognising Bridge
 		"internal/testutil/bridge.go": true, // tests only
 	}

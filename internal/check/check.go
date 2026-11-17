@@ -183,7 +183,7 @@ func smtpStep(ctx context.Context, cfg config.Config, pin *x509.Certificate) Ste
 	switch {
 	case err != nil:
 		return Step{Name: "SMTP", Status: Fail, Detail: "SMTP on " + addr + ": " + err.Error(), Help: help.SMTP,
-			Hint: "if Bridge shows another SMTP port, set " + config.EnvSMTPPort + " (sending isn't used yet, so reading still works)"}
+			Hint: "if Bridge shows another SMTP port, set " + config.EnvSMTPPort + " (only send_draft needs it: reading and drafts still work)"}
 	case bridge.Fingerprint(served) != bridge.Fingerprint(pin):
 		return Step{Name: "SMTP", Status: Fail, Detail: "SMTP on " + addr + " presents a different certificate than IMAP", Help: help.SMTP,
 			Hint: "something other than Bridge may be on the SMTP port"}

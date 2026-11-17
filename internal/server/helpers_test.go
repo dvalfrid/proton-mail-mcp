@@ -15,6 +15,7 @@ import (
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
+	"github.com/dvalfrid/proton-mail-mcp/internal/send"
 	"github.com/dvalfrid/proton-mail-mcp/internal/testutil"
 )
 
@@ -43,6 +44,12 @@ func newEnvWith(t *testing.T, change func(*mail.Options)) *env {
 // nil).
 func newEnvImages(t *testing.T, change func(*mail.Options), images ImageFetcher) *env {
 	t.Helper()
+	return newEnvAll(t, change, images, nil)
+}
+
+// newEnvAll is newEnvImages with a sender for send_draft.
+func newEnvAll(t *testing.T, change func(*mail.Options), images ImageFetcher, sender *send.Sender) *env {
+	t.Helper()
 	ctx := context.Background()
 	srv := testutil.NewIMAPServer(t)
 	logs := &syncBuffer{}
@@ -66,7 +73,7 @@ func newEnvImages(t *testing.T, change func(*mail.Options), images ImageFetcher)
 	dir := filepath.Join(t.TempDir(), "attachments") // created by the first save
 	outbox := t.TempDir()
 	serverT, clientT := mcp.NewInMemoryTransports()
-	ss, err := New("test", m, Folders{Attachments: dir, Outbox: outbox}, images, nil).Connect(ctx, serverT, nil)
+	ss, err := New("test", m, Folders{Attachments: dir, Outbox: outbox}, images, nil, sender).Connect(ctx, serverT, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

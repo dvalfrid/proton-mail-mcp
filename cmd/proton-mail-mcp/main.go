@@ -29,6 +29,7 @@ import (
 	"github.com/dvalfrid/proton-mail-mcp/internal/help"
 	"github.com/dvalfrid/proton-mail-mcp/internal/keystore"
 	"github.com/dvalfrid/proton-mail-mcp/internal/mail"
+	"github.com/dvalfrid/proton-mail-mcp/internal/send"
 	"github.com/dvalfrid/proton-mail-mcp/internal/server"
 	"github.com/dvalfrid/proton-mail-mcp/internal/setup"
 )
@@ -125,7 +126,7 @@ func runCheck() int {
 }
 
 func run(logger *slog.Logger) error {
-	mailClient, folders, images, settings := connect(logger)
+	mailClient, folders, images, sender, settings := connect(logger)
 	defer func() { _ = mailClient.Close() }() // best effort on shutdown
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -133,7 +134,7 @@ func run(logger *slog.Logger) error {
 
 	err := server.New(version, mailClient, folders, images,
 		fetch.New(0), // only proton_mail_mcp_update uses it, and only when the owner asks (STANDARDS.md#update-check)
-		settings...).Run(ctx, &mcp.StdioTransport{})
+		sender, settings...).Run(ctx, &mcp.StdioTransport{})
 	if errors.Is(err, context.Canceled) {
 		return nil
 	}
@@ -145,8 +146,9 @@ func run(logger *slog.Logger) error {
 // still starts, so Claude can tell the owner in the chat, rather than the
 // client only showing a disconnected server. No connection is made then.
 // It also returns the attachment and outbox folders, empty without settings, and the
-// image fetcher for fetch_image, nil unless PROTON_ALLOW_REMOTE_IMAGES=1.
-func connect(logger *slog.Logger) (*mail.Client, server.Folders, server.ImageFetcher, []config.Option) {
+// image fetcher for fetch_image, nil unless PROTON_ALLOW_REMOTE_IMAGES=1, and
+// the sender for send_draft, which refuses unless sending is switched on.
+func connect(logger *slog.Logger) (*mail.Client, server.Folders, server.ImageFetcher, *send.Sender, []config.Option) {
 	cfg, _, err := loadConfig()
 	if err == nil {
 		var tlsCfg *tls.Config
@@ -164,11 +166,15 @@ func connect(logger *slog.Logger) (*mail.Client, server.Folders, server.ImageFet
 				images = fetch.New(mail.MaxImageBytes)
 			}
 			return mail.New(mail.Options{
-				Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password,
-				TLSConfig: tlsCfg, MaxChanges: cfg.MaxChanges, Logger: logger,
-			}), server.Folders{Attachments: cfg.AttachmentDir, Outbox: cfg.OutboxDir}, images, cfg.Options
+					Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password,
+					TLSConfig: tlsCfg, MaxChanges: cfg.MaxChanges, Logger: logger,
+				}), server.Folders{Attachments: cfg.AttachmentDir, Outbox: cfg.OutboxDir}, images,
+				send.New(send.Options{
+					Allowed: cfg.AllowSend, Addr: cfg.SMTPAddr(), TLSConfig: tlsCfg, // Bridge uses one certificate for IMAP and SMTP
+					User: cfg.User, Password: cfg.Password,
+				}), cfg.Options
 		}
 	}
 	logger.Error("not set up; every tool will say so", "version", version, "err", err, "help", help.URL(help.NotSetUp))
-	return mail.NewUnconfigured(err, logger), server.Folders{}, nil, nil
+	return mail.NewUnconfigured(err, logger), server.Folders{}, nil, nil, nil
 }

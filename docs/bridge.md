@@ -502,7 +502,10 @@ SMTP never sends an existing draft directly.
   - Expect the UID to change whenever the owner edits the draft in another Proton app.
 - **`list_drafts`.** Sort by INTERNALDATE as everywhere else.
 
-**`send_draft` (0.6).**
+**`send_draft` (0.6, issue #181).** Built as below:
+- `internal/send` strips the four `X-Pm-*` headers, keeps `References`, and submits with `RCPT TO` = every To, Cc and Bcc address.
+- The owner approved letting Bridge delete the sent draft (STANDARDS.md#deletion).
+- **Not tried on a real Bridge yet:** that the draft disappears from Drafts and the message lands in Sent.
 
 - **There is no IMAP or SMTP command to "send draft X".** Bridge's SMTP path always creates a fresh draft and sends it (section 8).
 - **The route this research points to:**
