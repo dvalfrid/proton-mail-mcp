@@ -40,7 +40,7 @@ const maxRecipients = 150
 var (
 	// ErrOff means the owner hasn't switched sending on.
 	ErrOff = errors.New("sending is switched off. The owner switches it on outside Claude: " +
-		"on Windows on the Settings page of Proton Mail MCP (Start menu), elsewhere with " + config.EnvAllowSend + "=1, then restarts Claude. " +
+		"on Windows on the Settings page of Proton Mail MCP (Start menu), elsewhere with: proton-mail-mcp settings set allow_send on (or " + config.EnvAllowSend + "=1), then restarts Claude. " +
 		"Until then the owner can send the draft from Proton Mail")
 	// ErrLimit means this server run has sent MaxSendsPerRun messages.
 	ErrLimit = fmt.Errorf("this server run has sent %d messages, its limit; the owner restarts Claude to send more, or sends from Proton Mail", MaxSendsPerRun)

@@ -128,6 +128,19 @@ The five options above that aren't about Bridge can also be kept in `config.json
 
 On Windows, open **Proton Mail MCP** in the Start menu and choose **Settings** to change them in a window: a switch for images, folder pickers for attachments and the outbox, the number of changes per run, and a switch for sending (which asks you to confirm). It saves `config.json`, and shows an option that `.env` or the environment sets as locked.
 
+Elsewhere (macOS, Linux, or Windows without the window), use the terminal. Like the window, it saves `config.json` and checks values the same way:
+
+```bash
+proton-mail-mcp settings
+proton-mail-mcp settings set allow_remote_images on
+proton-mail-mcp settings set attachment_dir default
+proton-mail-mcp settings set allow_send on
+```
+
+- With no arguments, it lists each option, its value and where the value came from.
+- `allow_send on` asks you to type `yes` first.
+- An option that `.env` or the environment sets can't be changed here: the command says where it is set.
+
 The environment and `.env` override `config.json`. `proton-mail-mcp check` lists each option with its value and where it came from (environment, `.env`, `config.json` or default), and Claude's `about` shows the same. Only you change them: no tool can, so an email can't talk Claude into switching one on. Restart Claude after a change.
 
 Check the program: `proton-mail-mcp --version`.
@@ -177,7 +190,7 @@ Restart the client; the tools appear under `proton-mail`. Keep the password in `
 
 1. **Switch it on.**
    - On Windows: open **Proton Mail MCP** in the Start menu → **Settings**, tick *Let Claude send drafts*, confirm, and save.
-   - Elsewhere: set `"allow_send": true` in `config.json`, or `PROTON_ALLOW_SEND=1`.
+   - Elsewhere: run `proton-mail-mcp settings set allow_send on` (or set `PROTON_ALLOW_SEND=1`).
 
    Then restart Claude.
 2. **Make your client ask before every send.**

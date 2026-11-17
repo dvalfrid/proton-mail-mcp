@@ -425,8 +425,8 @@ func TestNoMailContentInLogs(t *testing.T) {
 // for the settings writers.
 func TestNoToolWritesSettings(t *testing.T) {
 	t.Parallel()
-	writer := regexp.MustCompile(`config\.Write(File|Settings)\(|\.env"|SettingsFile\(`)
-	for _, dir := range []string{".", "../mail", "../fetch", "../save"} {
+	writer := regexp.MustCompile(`config\.Write(File|Settings)\(|\.env"|SettingsFile\(|ApplyOptions\(|SettingsCommand|internal/setup"|internal/wizard"`)
+	for _, dir := range []string{".", "../mail", "../fetch", "../save", "../send", "../outbox", "../update", "../catalog"} {
 		files, err := filepath.Glob(filepath.Join(dir, "*.go"))
 		if err != nil {
 			t.Fatal(err)

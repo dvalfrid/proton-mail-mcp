@@ -82,6 +82,7 @@ Before sending, so that organizing and drafts have been in daily use for a while
 - Labels in `list_messages` and `search_messages`: each message's Proton labels, as tags (#172). Bridge doesn't send label colours.
 - One program on Windows: one Start-menu entry, and Status (the same check as `proton-mail-mcp check`), Settings and About pages in the window; an update cleans up the copies Claude was running (#176).
 
+- Options without the window: `proton-mail-mcp settings` shows them and `settings set` changes one, checked as the Settings page checks them; `fetch_image`'s error points to where to switch it on (#180).
 - `send_draft` (#181): sends an existing draft, only when the owner switched sending on (the Settings page, with a confirmation, or `PROTON_ALLOW_SEND=1`).
   - The call must name the draft's recipients.
   - At most 10 sends per run.
