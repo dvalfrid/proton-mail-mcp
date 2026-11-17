@@ -295,7 +295,10 @@ SMTP never sends an existing draft directly.
   2. Submit it over SMTP.
   3. Bridge sends a *copy* built from it and then deletes the original draft.
 - If the draft is a reply, its `References` also carry the parent's ID, so threading and the "replied" state come back at send time. That parent's ID only appears if it was in the draft's own `References`, and section 7 notes that an APPEND loses them.
-  - **Inferred / unconfirmed.** That this whole route works end to end. A test against a real Bridge would confirm it.
+  - **Verified on a real Bridge** (2026-11-17, `TestLiveSendDraft`, one mail from the owner to themselves):
+    - the draft, with its `X-Pm-*` headers stripped and `References` kept, was sent in about 3 s;
+    - within 11 s it had left Drafts and was in Sent;
+    - the message arrived in INBOX.
 
 **Sent copy. Verified in source** on the Bridge side; the server side is inferred.
 
@@ -505,7 +508,7 @@ SMTP never sends an existing draft directly.
 **`send_draft` (0.6, issue #181).** Built as below:
 - `internal/send` strips the four `X-Pm-*` headers, keeps `References`, and submits with `RCPT TO` = every To, Cc and Bcc address.
 - The owner approved letting Bridge delete the sent draft (STANDARDS.md#deletion).
-- **Not tried on a real Bridge yet:** that the draft disappears from Drafts and the message lands in Sent.
+- **Verified on a real Bridge** (2026-11-17): the draft disappears from Drafts and the message lands in Sent (section 8).
 
 - **There is no IMAP or SMTP command to "send draft X".** Bridge's SMTP path always creates a fresh draft and sends it (section 8).
 - **The route this research points to:**
