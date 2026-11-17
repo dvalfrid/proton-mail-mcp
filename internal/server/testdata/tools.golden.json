@@ -964,7 +964,7 @@
       "readOnlyHint": true,
       "title": "List messages"
     },
-    "description": "List the newest messages in a folder, newest first: uid, date, sender, subject, read and flagged state, and the owner's labels on each. Does not change anything; messages are not marked as read.",
+    "description": "List the newest messages in a folder, newest first: uid, date, sender, subject, read and flagged state, and the owner's labels on each. For recent mail only, give within_hours (e.g. 24 for the last day) or since: it returns just those, which is faster to read than a long list. Does not change anything; messages are not marked as read.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -976,9 +976,17 @@
           "description": "how many of the newest messages to return, 1-100 (default 20)",
           "type": "integer"
         },
+        "since": {
+          "description": "YYYY-MM-DD: only messages dated on or after this day, in the owner's time zone",
+          "type": "string"
+        },
         "unread_only": {
           "description": "only messages not yet read",
           "type": "boolean"
+        },
+        "within_hours": {
+          "description": "only messages from the last so many hours, e.g. 24 for the last day (1-720); instead of since",
+          "type": "integer"
         }
       },
       "required": [

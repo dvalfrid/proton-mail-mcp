@@ -266,3 +266,19 @@ func TestListMessagesErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestListMessagesWithinHoursArgs(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	var out ListMessagesOutput
+	e.callOK(t, "list_messages", map[string]any{"folder": "INBOX", "within_hours": 24}, &out)
+	for args, says := range map[string]map[string]any{
+		"between 1 and 720": {"folder": "INBOX", "within_hours": 721},
+		"not both":          {"folder": "INBOX", "within_hours": 2, "since": "2026-11-01"},
+		"YYYY-MM-DD":        {"folder": "INBOX", "since": "yesterday"},
+	} {
+		if res := e.call(t, "list_messages", says); !res.IsError || !strings.Contains(text(res), args) {
+			t.Errorf("%v: %s", says, text(res))
+		}
+	}
+}

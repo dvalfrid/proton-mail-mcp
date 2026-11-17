@@ -50,7 +50,15 @@ type Summary struct {
 type ListOptions struct {
 	Limit      int  // newest first; DefaultListLimit if zero, capped at MaxListLimit
 	UnreadOnly bool // only messages without \Seen
+	// Since is a day in the owner's time zone: only messages dated on or
+	// after it. WithinHours, if set, is instead the last so many hours.
+	// A message is dated as its Summary shows.
+	Since       time.Time
+	WithinHours int
 }
+
+// MaxWithinHours caps ListOptions.WithinHours: 30 days.
+const MaxWithinHours = 30 * 24
 
 // Folders lists all folders with message and unread counts.
 func (c *Client) Folders(ctx context.Context) ([]Folder, error) {
@@ -121,7 +129,20 @@ func (c *Client) ListMessages(ctx context.Context, folder string, opts ListOptio
 	if opts.UnreadOnly {
 		criteria.NotFlag = []imap.Flag{imap.FlagSeen}
 	}
-	return c.summaries(ctx, folder, criteria, days{}, opts.Limit, c.opts.Timeout)
+	// As in SearchMessages: Bridge compares SINCE with UTC midnight on the
+	// received date, so IMAP is asked for a day more, and the matches are
+	// cut by the date that is shown.
+	var within days
+	switch {
+	case opts.WithinHours > 0:
+		within.from = time.Now().Add(-time.Duration(min(opts.WithinHours, MaxWithinHours)) * time.Hour)
+	case !opts.Since.IsZero():
+		within.from = c.midnight(opts.Since)
+	}
+	if !within.from.IsZero() {
+		criteria.Since = utcDay(within.from).AddDate(0, 0, -1)
+	}
+	return c.summaries(ctx, folder, criteria, within, opts.Limit, c.opts.Timeout)
 }
 
 // SearchOptions are the criteria of SearchMessages, combined with AND. Text
