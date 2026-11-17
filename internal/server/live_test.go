@@ -394,3 +394,16 @@ func TestLiveOrganize(t *testing.T) {
 	_, _, labelled := find(label)
 	t.Logf("in Trash; still under %s: %v", label, labelled)
 }
+
+// find_contacts reads the newest envelopes in Sent and INBOX: how long it
+// takes on a real mailbox (issue #187). Counts and timings only.
+func TestLiveFindContacts(t *testing.T) {
+	e := liveSession(t, liveConfig(t))
+	start := time.Now()
+	var out FindContactsOutput
+	e.callOK(t, "find_contacts", map[string]any{"query": "a"}, &out)
+	t.Logf("query \"a\": %d people from %v in %v", len(out.People), out.Scanned, time.Since(start).Round(time.Millisecond))
+	start = time.Now()
+	e.callOK(t, "find_contacts", map[string]any{"query": "e"}, &out)
+	t.Logf("again: %d people in %v", len(out.People), time.Since(start).Round(time.Millisecond))
+}

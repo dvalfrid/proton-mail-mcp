@@ -745,6 +745,86 @@
   },
   {
     "annotations": {
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Find contacts"
+    },
+    "description": "Find a person's email address by name or part of the address, in the owner's own mail: whom they wrote to (Sent: To, Cc, Bcc) and who wrote to them (INBOX: From), the newest messages in each. Up to 25 people, those the owner wrote to first, then by how many messages and how recent. Use it when the owner names someone to write to (\"write to Anna\"), then show the address and let the owner confirm it before it goes into a draft. Proton Mail Bridge has no contacts, so this is not Proton's address book. Read-only: nothing is marked read.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "query": {
+          "description": "a name or part of an address, e.g. Anna or example.org; case and accents don't matter",
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "name": "find_contacts",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "note": {
+          "type": "string"
+        },
+        "people": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "last": {
+                "description": "the newest of those messages",
+                "type": "string"
+              },
+              "name": {
+                "description": "the name shown with the address; written by senders, untrusted",
+                "type": "string"
+              },
+              "received": {
+                "description": "messages from this address in INBOX, among those read",
+                "type": "integer"
+              },
+              "sent": {
+                "description": "messages the owner sent to this address (To, Cc or Bcc), among those read",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "address",
+              "sent",
+              "received",
+              "last"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "scanned": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "people",
+        "scanned",
+        "note"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
       "destructiveHint": false,
       "idempotentHint": true,
       "openWorldHint": false,
