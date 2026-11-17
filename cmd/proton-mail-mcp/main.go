@@ -55,8 +55,10 @@ func main() {
 		os.Exit(runCheck())
 	case "setup":
 		os.Exit(runSetup(flag.Args()[1:]))
+	case "settings":
+		os.Exit(runSettings(flag.Args()[1:]))
 	default:
-		logger.Error("unknown command", "command", flag.Arg(0), "usage", "proton-mail-mcp [-version] [setup | check]")
+		logger.Error("unknown command", "command", flag.Arg(0), "usage", "proton-mail-mcp [-version] [setup | check | settings [set <option> <value>]]")
 		os.Exit(2)
 	}
 
@@ -78,6 +80,23 @@ func loadConfig() (config.Config, string, error) {
 		return config.Config{}, check.EnvFile(exe), err
 	}
 	return check.Load(check.EnvFile(exe), dir, keystore.OS{}.Get)
+}
+
+// runSettings shows or changes the owner's options in the terminal
+// (issue #180). Output goes to stderr: stdout is reserved for MCP.
+func runSettings(args []string) int {
+	dir, err := config.Dir()
+	if err == nil {
+		var exe string
+		if exe, err = os.Executable(); err == nil {
+			err = setup.SettingsCommand{Dir: dir, EnvFile: check.EnvFile(exe), In: os.Stdin, Out: os.Stderr}.Run(args)
+		}
+	}
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err) // nowhere else to report it
+		return 1
+	}
+	return 0
 }
 
 // runSetup runs the interactive setup in the terminal and returns the exit

@@ -20,7 +20,9 @@ type ImageFetcher interface {
 
 // errRemoteImagesOff is fetch_image's answer while it is switched off.
 var errRemoteImagesOff = errors.New("fetching images from the internet is switched off. " +
-	"The owner can open the message in Proton Mail to see them, or switch fetching on with " + config.EnvAllowRemoteImages + "=1 in the settings and restart Claude")
+	"The owner can open the message in Proton Mail to see them, or switch fetching on outside Claude, then restart Claude: " +
+	"on Windows, tick 'Fetch images from the internet' on the Settings page of Proton Mail MCP (Start menu); " +
+	"elsewhere, run: proton-mail-mcp settings set allow_remote_images on (or set " + config.EnvAllowRemoteImages + "=1)")
 
 // remoteImageNote accompanies fetch_image.
 const remoteImageNote = "The image was fetched from the internet address the sender put in the message; the sender's server now knows the message was opened. " +

@@ -7,14 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/check"
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
 )
 
 // MaxMaxChanges caps the changes-per-run option the page accepts.
-const MaxMaxChanges = 10000
+const MaxMaxChanges = config.MaxMaxChanges
 
 // Settings is the Settings page (issue #158): the owner's options as they
 // are saved, and which ones .env or the environment set instead. Never the
@@ -147,54 +146,24 @@ func (b *Backend) saveSettings(args json.RawMessage) (Settings, error) {
 	if err := json.Unmarshal(args, &a); err != nil {
 		return Settings{}, errors.New("bad settings request")
 	}
-	a.AttachmentDir = strings.TrimSpace(a.AttachmentDir)
-	a.OutboxDir = strings.TrimSpace(a.OutboxDir)
-	switch {
-	case a.MaxChanges < 1 || a.MaxChanges > MaxMaxChanges:
-		return Settings{}, fmt.Errorf("changes per run must be a whole number from 1 to %d", MaxMaxChanges)
-	case a.AttachmentDir != "" && !filepath.IsAbs(a.AttachmentDir):
-		return Settings{}, errors.New("the attachment folder must be a full path, like D:\\Mail attachments")
-	case a.OutboxDir != "" && !filepath.IsAbs(a.OutboxDir):
-		return Settings{}, errors.New("the outbox folder must be a full path, like D:\\Mail to send")
-	}
 	file := config.SettingsFile(b.o.Dir)
 	saved, err := config.ReadSettings(file)
 	if err != nil {
 		return Settings{}, fmt.Errorf("the settings could not be read (%w); run setup again first", err)
 	}
-	if saved.User == "" {
-		return Settings{}, errors.New("set up Proton Mail MCP first: the options are saved with its settings")
+	locked := map[string]bool{}
+	for name := range b.getSettings().Locked {
+		locked[optionVars[name]] = true
 	}
-	locked := b.getSettings().Locked
-	if locked["allowRemoteImages"] == "" {
-		on := a.AllowRemoteImages
-		saved.AllowRemoteImages = &on
+	saved, err = config.ApplyOptions(saved, config.OptionValues{
+		AllowRemoteImages: a.AllowRemoteImages, AttachmentDir: a.AttachmentDir, OutboxDir: a.OutboxDir,
+		MaxChanges: a.MaxChanges, AllowSend: a.AllowSend,
+	}, locked, a.ConfirmSend)
+	if errors.Is(err, config.ErrConfirmSend) {
+		return Settings{}, errConfirmSend
 	}
-	if locked["attachmentDir"] == "" {
-		saved.AttachmentDir = ""
-		if a.AttachmentDir != "" {
-			saved.AttachmentDir = filepath.Clean(a.AttachmentDir)
-		}
-	}
-	if locked["outboxDir"] == "" {
-		saved.OutboxDir = ""
-		if a.OutboxDir != "" {
-			saved.OutboxDir = filepath.Clean(a.OutboxDir)
-		}
-	}
-	if locked["allowSend"] == "" {
-		wasOn := saved.AllowSend != nil && *saved.AllowSend
-		if a.AllowSend && !wasOn && !a.ConfirmSend {
-			return Settings{}, errConfirmSend
-		}
-		on := a.AllowSend
-		saved.AllowSend = &on
-	}
-	if locked["maxChanges"] == "" {
-		saved.MaxChanges = 0
-		if a.MaxChanges != config.DefaultMaxChanges {
-			saved.MaxChanges = a.MaxChanges
-		}
+	if err != nil {
+		return Settings{}, err
 	}
 	if err := config.WriteSettings(file, saved); err != nil {
 		return Settings{}, err
