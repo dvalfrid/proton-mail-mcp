@@ -41,6 +41,7 @@ var Groups = []Group{
 	{"Drafts (nothing is sent)", []Tool{
 		{"create_draft", "Write a new email as a draft in Drafts."},
 		{"create_reply_draft", "Write a reply to a message as a draft, with the original quoted."},
+		{"create_forward_draft", "Write a forward of a message as a draft, with its attachments."},
 		{"update_draft", "Replace a draft with a new version; the old one goes to Trash."},
 	}},
 	{"Send (off unless you switch it on)", []Tool{

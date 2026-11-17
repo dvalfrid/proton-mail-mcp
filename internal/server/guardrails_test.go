@@ -87,7 +87,7 @@ var fileTools = map[string]bool{"save_attachment": true}
 
 // draftTools write a new draft into Drafts: not read-only, not destructive
 // (they never change an existing message), and they send nothing.
-var draftTools = map[string]bool{"create_draft": true, "update_draft": true, "create_reply_draft": true}
+var draftTools = map[string]bool{"create_draft": true, "update_draft": true, "create_reply_draft": true, "create_forward_draft": true}
 
 // organizeArgs adds a tool's own arguments to the common ones.
 func organizeArgs(name string, common map[string]any) map[string]any {
@@ -269,8 +269,9 @@ func TestOnlySendDraftSends(t *testing.T) {
 	}
 	for _, tool := range res.Tools {
 		n := strings.ToLower(tool.Name)
-		sends := strings.Contains(n, "send") || strings.Contains(n, "forward") ||
-			(strings.Contains(n, "reply") && !strings.Contains(n, "draft"))
+		// A reply or forward that only writes a draft doesn't send.
+		sends := strings.Contains(n, "send") ||
+			((strings.Contains(n, "forward") || strings.Contains(n, "reply")) && !strings.Contains(n, "draft"))
 		if tool.Name == "send_draft" {
 			a := tool.Annotations
 			if a == nil || a.ReadOnlyHint || a.DestructiveHint == nil || !*a.DestructiveHint || a.OpenWorldHint == nil || !*a.OpenWorldHint {
