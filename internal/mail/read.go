@@ -41,6 +41,9 @@ type Summary struct {
 	Unread  bool      `json:"unread"`
 	Flagged bool      `json:"flagged"`
 	Size    int64     `json:"size_bytes"`
+	// Labels are the owner's Proton labels on the message (the Labels/
+	// mailboxes it is in), without the prefix.
+	Labels []string `json:"labels,omitempty" jsonschema:"the owner's Proton labels on the message, by name"`
 }
 
 // ListOptions selects which messages ListMessages returns.
@@ -106,6 +109,9 @@ type Listing struct {
 	// with a new UIDVALIDITY, when it resyncs from scratch (docs/bridge.md §3).
 	UIDValidity uint32
 	Messages    []Summary // newest first
+	// LabelsIncomplete means not every label was looked in: too many labels,
+	// or not enough time left. A message may then have more labels.
+	LabelsIncomplete bool
 }
 
 // ListMessages returns the newest messages in folder, newest first. The
@@ -211,6 +217,8 @@ func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.Se
 
 	var out Listing
 	err := c.doFor(ctx, timeout, func(ic *imapclient.Client) error {
+		// Half the operation's time is left for the labels, which come last.
+		budget := time.Now().Add(timeout / 2)
 		sel, err := ic.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait()
 		if err != nil {
 			return fmt.Errorf("open folder %q: %w", folder, err)
@@ -256,8 +264,15 @@ func (c *Client) summaries(ctx context.Context, folder string, criteria *imap.Se
 			return fmt.Errorf("fetch messages in %q: %w", folder, err)
 		}
 		slices.SortFunc(msgs, func(a, b *imapclient.FetchMessageBuffer) int { return cmp.Compare(rank[a.UID], rank[b.UID]) })
+		labels, complete, err := c.labelsOf(ic, msgs, budget)
+		if err != nil {
+			return err
+		}
+		out.LabelsIncomplete = !complete
 		for _, m := range msgs {
-			out.Messages = append(out.Messages, summarize(m, c.opts.Location))
+			s := summarize(m, c.opts.Location)
+			s.Labels = labels[m.UID]
+			out.Messages = append(out.Messages, s)
 		}
 		return nil
 	})

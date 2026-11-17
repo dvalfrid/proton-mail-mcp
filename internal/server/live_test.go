@@ -20,6 +20,7 @@ import (
 	"maps"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -164,6 +165,38 @@ func TestLiveListNewestFirst(t *testing.T) {
 	}
 	if after := folderNamed(t, e, "INBOX"); after.Unread != before.Unread {
 		t.Errorf("unread %d → %d after listing", before.Unread, after.Unread)
+	}
+}
+
+// Labels in a listing (issue #172): how long the first listing takes, when
+// every label mailbox is read, and the second, from the cache. Counts and
+// timings only, never the label names.
+func TestLiveListingLabels(t *testing.T) {
+	e := liveSession(t, liveConfig(t))
+	var folders ListFoldersOutput
+	e.callOK(t, "list_folders", map[string]any{}, &folders)
+	labels := 0
+	for _, f := range folders.Folders {
+		if strings.HasPrefix(f.Name, "Labels/") {
+			labels++
+		}
+	}
+	for _, run := range []string{"first", "cached"} {
+		began := time.Now()
+		var out ListMessagesOutput
+		e.callOK(t, "list_messages", map[string]any{"folder": "INBOX", "limit": 50}, &out)
+		took := time.Since(began)
+		labelled := 0
+		for _, m := range out.Messages {
+			if len(m.Labels) > 0 {
+				labelled++
+			}
+		}
+		t.Logf("%s: %d label mailboxes, %d of %d listed messages labelled, incomplete %v, in %v",
+			run, labels, labelled, len(out.Messages), strings.Contains(out.Note, "Not every label"), took)
+		if took > mail.DefaultTimeout/2 {
+			t.Errorf("listing took %v, more than half the %v operation timeout", took, mail.DefaultTimeout)
+		}
 	}
 }
 

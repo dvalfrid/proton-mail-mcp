@@ -46,6 +46,9 @@ type ListMessagesOutput struct {
 	Note        string         `json:"note"`
 }
 
+// labelsNote accompanies a listing whose labels are incomplete.
+const labelsNote = " Not every label was checked (too many labels, or Bridge was slow), so a message may have more labels than shown; list a Labels/ folder to see all of its messages."
+
 // maxSearchTermRunes caps each search term.
 const maxSearchTermRunes = 200
 
@@ -135,7 +138,7 @@ func registerReadTools(s *mcp.Server, m *mail.Client) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_messages",
-		Description: "List the newest messages in a folder, newest first: uid, date, sender, subject, read and flagged state. Does not change anything; messages are not marked as read.",
+		Description: "List the newest messages in a folder, newest first: uid, date, sender, subject, read and flagged state, and the owner's labels on each. Does not change anything; messages are not marked as read.",
 		Annotations: readOnly("List messages"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ListMessagesInput) (*mcp.CallToolResult, ListMessagesOutput, error) {
 		if in.Folder == "" {
@@ -281,5 +284,9 @@ func listingOutput(folder string, l mail.Listing) ListMessagesOutput {
 	if msgs == nil {
 		msgs = []mail.Summary{}
 	}
-	return ListMessagesOutput{Folder: folder, UIDValidity: l.UIDValidity, Messages: msgs, Note: untrustedNote}
+	note := untrustedNote + " Show each message's labels as short tags after its subject, e.g. [Customer]."
+	if l.LabelsIncomplete {
+		note += labelsNote
+	}
+	return ListMessagesOutput{Folder: folder, UIDValidity: l.UIDValidity, Messages: msgs, Note: note}
 }

@@ -83,6 +83,10 @@ type Client struct {
 	// only by tests so they needn't move 32 MiB.
 	maxFetch int64
 
+	// labelBoxes caches what each label mailbox holds, for the labels in a
+	// listing (labelsOf). Guarded by mu.
+	labelBoxes map[string]labelBox
+
 	// notSetUp, if set, is returned by every operation: see NewUnconfigured.
 	notSetUp error
 
