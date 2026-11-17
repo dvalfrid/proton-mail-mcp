@@ -81,6 +81,7 @@ Before sending, so that organizing and drafts have been in daily use for a while
 
 - Options without the window: `proton-mail-mcp settings` shows them and `settings set` changes one, checked as the Settings page checks them; `fetch_image`'s error points to where to switch it on (#180).
 - `create_forward_draft`: forward a message as a draft, with its attachments (#186).
+- `find_contacts`: a person's address by name, from the headers in Sent and INBOX; Bridge has no contacts (#187).
 - `send_draft` (#181): sends an existing draft, only when the owner switched sending on (the Settings page, with a confirmation, or `PROTON_ALLOW_SEND=1`).
   - The call must name the draft's recipients.
   - At most 10 sends per run.

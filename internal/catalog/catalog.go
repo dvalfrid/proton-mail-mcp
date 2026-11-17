@@ -23,6 +23,7 @@ var Groups = []Group{
 		{"list_folders", "List the folders and labels, with the number of unread messages."},
 		{"list_messages", "List the newest messages in a folder, with their labels."},
 		{"search_messages", "Search a folder by sender, recipient, subject, text or date."},
+		{"find_contacts", "Find a person's address by name, in the mail you sent and received."},
 		{"read_message", "Read one message, with its list of attachments. It stays unread."},
 		{"view_image", "Show an image attached to or embedded in a message."},
 		{"fetch_image", "Fetch and show an image a message links to on the internet, when you ask (off unless switched on)."},
