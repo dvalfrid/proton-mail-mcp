@@ -38,7 +38,7 @@ type AboutOutput struct {
 const aboutNote = "Show the owner the version and whether Bridge answers, then the tools as a short list per group: name and its one line. Don't add the tools' full descriptions. " +
 	"If the owner asks whether there is a newer version, call proton_mail_mcp_update; don't guess from this. " +
 	"If the owner asks about the settings, show them with their values; only the owner changes them, outside Claude, then restarts Claude: " +
-	"on Windows on the Settings page of Proton Mail MCP in the Start menu, elsewhere in config.json in the settings folder; one whose origin is .env or environment is changed there instead."
+	"on Windows on the Settings page of Proton Mail MCP in the Start menu, elsewhere in a terminal with proton-mail-mcp settings (proton-mail-mcp settings set <option> <value>); one whose origin is .env or environment is changed there instead."
 
 func registerAboutTool(s *mcp.Server, version string, m *mail.Client, settings []config.Option) {
 	mcp.AddTool(s, &mcp.Tool{

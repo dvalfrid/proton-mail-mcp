@@ -30,7 +30,9 @@ var icons embed.FS
 var iconSizes = []int{16, 20, 24, 32, 40, 48, 64}
 
 // The window's client size in pixels at 100% scaling.
-const width, height = 780, 560
+// The window's size in pixels at 100 %, the same on every page: tall
+// enough that Status and Settings need no scrolling (issue #204).
+const width, height = 780, 720
 
 // The page's background in each mode (page.html, .win.light and .win.dark
 // --bg), so the window never shows white before the page is drawn.
@@ -223,8 +225,13 @@ func (w *window) create(title string, scale float64, bg [3]uint8) error {
 	r := winRect{right: int32(float64(width) * scale), bottom: int32(float64(height) * scale)}
 	_, _, _ = procAdjustWindowRect.Call(uintptr(unsafe.Pointer(&r)), windowStyle, 0) //nolint:gosec // G103: Win32 call that adjusts the local rect
 	ww, wh := r.right-r.left, r.bottom-r.top
-	sw, _, _ := procGetSystemMetrics.Call(0)                   // SM_CXSCREEN
-	sh, _, _ := procGetSystemMetrics.Call(1)                   // SM_CYSCREEN
+	sw, _, _ := procGetSystemMetrics.Call(0) // SM_CXSCREEN
+	sh, _, _ := procGetSystemMetrics.Call(1) // SM_CYSCREEN
+	// On a small screen (a 1080p laptop at 150 %), keep the window clear of
+	// the taskbar: shorter, never off the screen. The page scrolls then.
+	if room := int32(sh) - int32(72*scale); wh > room { //nolint:gosec // G115: screen sizes in pixels fit an int32
+		wh = room
+	}
 	x, y := max((int32(sw)-ww)/2, 0), max((int32(sh)-wh)/2, 0) //nolint:gosec // G115: screen sizes in pixels fit an int32
 
 	// Not WS_VISIBLE: shown once the page has drawn itself.

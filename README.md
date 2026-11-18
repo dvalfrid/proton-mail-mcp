@@ -203,7 +203,8 @@ Restart the client; the tools appear under `proton-mail`. Keep the password in `
 
    Then restart Claude.
 2. **Make your client ask before every send.**
-   - **Claude Desktop:** Settings → Connectors → `proton-mail`, set `send_draft` to *Always ask* (not *Always allow*).
+   - **Claude Desktop:** open *Customize → Connectors*, then the *Permissions* tab. Under *Tool permissions*, set `send_draft` of `proton-mail` to *Needs approval*, not *Always allow*. When Claude asks, choose *Allow once*, never *Always allow*.
+     - Use Claude in *Manual* mode for sending. In *Auto* mode, a tool set to *Needs approval* can run without asking ([Anthropic: use connectors](https://support.claude.com/en/articles/11176164-use-connectors-to-extend-claude-s-capabilities)).
    - **Claude Code:** add `"mcp__proton-mail__send_draft"` to `permissions.ask` in your settings (`~/.claude/settings.json`), and never to `allow`:
 
      ```json
