@@ -1,5 +1,6 @@
 #!/usr/bin/env pwsh
-# Captures the setup wizard's five steps, light and dark, into site/img, from
+# Captures the setup wizard's five steps and the app's Status, Settings and
+# About pages, light and dark, into site/img, from
 # site/shots/main.go (the real page with invented data). Windows only. Run
 # from the repository root after changing the wizard's page:
 #
@@ -23,10 +24,11 @@ $exe = Join-Path ([IO.Path]::GetTempPath()) 'pmcp-shots.exe'
 & go build -o $exe site/shots/main.go
 if ($LASTEXITCODE -ne 0) { throw 'build failed' }
 New-Item -ItemType Directory -Force site/img | Out-Null
-$names = 'welcome', 'bridge', 'account', 'claude', 'done'
+$shots = @{ '0' = 'wizard-welcome'; '1' = 'wizard-bridge'; '2' = 'wizard-account'; '3' = 'wizard-claude'; '4' = 'wizard-done'
+    'status' = 'app-status'; 'settings' = 'app-settings'; 'about' = 'app-about' }
 try {
     foreach ($mode in 'light', 'dark') {
-        foreach ($step in 0..4) {
+        foreach ($step in '0', '1', '2', '3', '4', 'status', 'settings', 'about') {
             $p = Start-Process $exe -ArgumentList $step, $mode -PassThru
             $sw = [Diagnostics.Stopwatch]::StartNew(); $h = [IntPtr]::Zero
             while ($sw.ElapsedMilliseconds -lt 10000) {
@@ -41,7 +43,7 @@ try {
             $g = [System.Drawing.Graphics]::FromImage($bmp); $hdc = $g.GetHdc()
             [Shot]::PrintWindow($h, $hdc, 3) | Out-Null # PW_CLIENTONLY | PW_RENDERFULLCONTENT
             $g.ReleaseHdc($hdc); $g.Dispose()
-            $out = "site/img/wizard-$($names[$step])-$mode.png"
+            $out = "site/img/$($shots[$step])-$mode.png"
             $bmp.Save((Join-Path $PWD $out), [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
             Stop-Process -Id $p.Id
             "$out ($($r.R)x$($r.B))"

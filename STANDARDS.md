@@ -126,7 +126,7 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 
 1. The **only** way to send is `send_draft`, which sends a draft that already exists in `Drafts`. No tool ever takes recipients and a body and sends them in one step: the owner must be able to read what goes out.
 2. `send_draft` is refused unless the owner switched sending on, outside Claude:
-   - on the Settings page, which asks for a confirmation (`allow_send` in `config.json`);
+   - on the Settings page, whose switch asks for a confirmation first (`allow_send` in `config.json`), or with `proton-mail-mcp settings set allow_send on`, which asks the owner to type `yes`;
    - or with `PROTON_ALLOW_SEND=1` in `.env` or the environment, which overrides the page.
 
    Refused means the tool returns an error, not that it's left out of the tool list: Claude should see that sending exists but is switched off. No tool can change the setting (`TestNoToolWritesSettings`).
@@ -201,7 +201,7 @@ The program contacts GitHub only when the owner asks whether there is an update.
 
 - **Two places, both on request.** The check runs from:
   - the `proton_mail_mcp_update` tool, when the owner asks Claude;
-  - the *Check for updates* button on the Settings page, when the owner clicks it.
+  - the *Check for updates* button on the About page of the window, when the owner clicks it.
 
   Nothing checks in the background or at start-up. `about` gives the version and how to update without the internet.
 - **One fixed address.** `https://api.github.com/repos/dvalfrid/proton-mail-mcp/releases/latest`. The tool takes no input, so nothing from a message or from Claude goes into the request.

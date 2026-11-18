@@ -115,7 +115,7 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 | `internal/config/` | `.env` + environment → validated `Config`; `Secret` type that never prints the password |
 | `internal/mail/` | IMAP client to Bridge: one mutex-guarded connection, lazy connect and reconnect, per-operation timeout via `boundedConn` (imapclient resets its own deadlines). Reads use EXAMINE/PEEK: never marks read |
 | `internal/fetch/` | Fetches an image a message links to, for `fetch_image`, and GitHub's latest release, for the update check: https to public addresses only, checked on every dial. The only package that reaches the internet |
-| `internal/update/` | Is there a newer release (semver compare, pre-releases before their release), and how to install it: `proton_mail_mcp_update` and the Settings page's *Check for updates* |
+| `internal/update/` | Is there a newer release (semver compare, pre-releases before their release), and how to install it: `proton_mail_mcp_update` and the About page's *Check for updates* |
 | `internal/outbox/` | Reads the files a draft attaches: plain names only, through `os.OpenInRoot` on the outbox folder, regular files, capped. The only server code that reads the owner's files |
 | `internal/send/` | Sends an existing draft for `send_draft`: checks the recipients the call names against the draft's, strips Bridge's `X-Pm-*` headers, and submits over STARTTLS to Bridge on localhost. Off unless the owner switched sending on, at most 10 per run. The only package that talks SMTP |
 | `internal/save/` | Saves an attachment: cleans the sender's file name, writes through an `os.Root` on the attachment folder, never replaces, adds the Mark of the Web on Windows. The only server code that writes files |
@@ -129,7 +129,7 @@ Claude (MCP client) ──stdio──► cmd/proton-mail-mcp ──► internal/
 | `internal/setup/` | `proton-mail-mcp setup`: find Bridge, pin its certificate, ask for the password (hidden), test login, save, register in Claude |
 | `internal/keystore/` | The password in the OS credential store (go-keyring); `Memory` for tests |
 | `internal/testutil/` | In-memory IMAP server with STARTTLS and a per-test certificate; `NewBridge` imitates Bridge's greeting and SMTP |
-| `site/` | The website (GitHub Pages, `.github/workflows/pages.yml`): one page, no external content. `site/shots/shots.ps1` retakes the wizard screenshots from the real page with invented data |
+| `site/` | The website (GitHub Pages, `.github/workflows/pages.yml`): one page, no external content. `site/shots/shots.ps1` retakes the screenshots of the setup steps and of Status, Settings and About from the real page with invented data |
 | `tools/` | `task.ps1` (task runner) and `go.mod` pinning dev tools |
 | `docs/` | `architecture.md` (design decisions and why), `testing.md` (test strategy), `bridge.md` (how Proton Mail Bridge really behaves over IMAP/SMTP, from its source: read before changing IMAP/SMTP behaviour), `troubleshooting.md` (one section per error the owner can fix; `internal/help` links errors to it, and a test checks every link has its section) |
 

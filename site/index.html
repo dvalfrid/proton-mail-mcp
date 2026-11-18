@@ -6,7 +6,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Proton Mail MCP: let Claude work with your Proton Mail, safely and locally</title>
-<meta name="description" content="Open-source MCP server that lets Claude read, search and organise your Proton Mail through Proton Mail Bridge on your own computer. It can't send or permanently delete, and your password never reaches Claude.">
+<meta name="description" content="Open-source MCP server that lets Claude read, search, organise and draft your Proton Mail through Proton Mail Bridge on your own computer. It sends only a draft you have seen, after you switch sending on, never deletes for good, and your password never reaches Claude.">
 <meta property="og:title" content="Proton Mail MCP">
 <meta property="og:description" content="Let Claude read, search and organise your Proton Mail, locally through Proton Mail Bridge, with guardrails.">
 <meta property="og:image" content="https://proton-mail-mcp.codeby.se/assets/png/icon-512.png">
@@ -164,7 +164,7 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
   <div class="wrap">
     <a class="brand" href="#"><img src="assets/icon.svg" alt="" width="30" height="30">Proton Mail MCP</a>
     <nav class="menu" aria-label="Sections">
-      <a href="#what">What it does</a><a href="#how">How it works</a><a href="#safety">Safety</a><a href="#setup">Setup</a><a href="#install">Install</a><a href="#roadmap">Roadmap</a><a href="#faq">FAQ</a>
+      <a href="#what">What it does</a><a href="#how">How it works</a><a href="#safety">Safety</a><a href="#setup">Setup</a><a href="#window">The window</a><a href="#install">Install</a><a href="#roadmap">Roadmap</a><a href="#faq">FAQ</a>
     </nav>
     <a class="gh" href="https://github.com/dvalfrid/proton-mail-mcp" rel="noopener"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
   </div>
@@ -176,7 +176,7 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
     <div>
       <span class="eyebrow">Open source · Runs on your computer</span>
       <h1>Let Claude handle your <span class="accent">Proton Mail</span>, safely.</h1>
-      <p class="lead">Proton Mail MCP connects Claude to your mailbox through Proton Mail Bridge on your own computer. Ask Claude to find, read, sum up and tidy your mail. It can't send or permanently delete anything, and your password never reaches Claude.</p>
+      <p class="lead">Proton Mail MCP connects Claude to your mailbox through Proton Mail Bridge on your own computer. Ask Claude to find, read, sum up and tidy your mail, and to write drafts and replies. It sends only a draft you have seen, after you switch sending on. It never deletes anything for good, and your password never reaches Claude.</p>
       <div class="ctas">
         <a class="btn primary" href="https://github.com/dvalfrid/proton-mail-mcp/releases/latest"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 21h14"/></svg>Download for Windows</a>
         <a class="btn ghost" href="#how">How it works</a>
@@ -187,7 +187,7 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
       <div class="bar"><img src="assets/png/icon-32.png" alt="" width="16" height="16">Proton Mail MCP<span class="ctl" aria-hidden="true">— ▢ ✕</span></div>
       <picture>
         <source srcset="img/wizard-welcome-dark.png" media="(prefers-color-scheme: dark)">
-        <img src="img/wizard-welcome-light.png" width="1560" height="1120" alt="The Proton Mail MCP setup wizard: Set up Proton Mail MCP, with three steps: find Proton Mail Bridge, sign in with your Bridge password, add it to Claude.">
+        <img src="img/wizard-welcome-light.png" width="1560" height="1440" alt="The Proton Mail MCP setup wizard: Set up Proton Mail MCP, with three steps: find Proton Mail Bridge, sign in with your Bridge password, add it to Claude.">
       </picture>
     </figure>
   </div>
@@ -201,17 +201,20 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
       <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div><h3>Find and read</h3><p>List folders and messages, search by sender, recipient, subject, text or date, and read a message in full, with its attachments listed.</p></div>
       <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/></svg></div><h3>Sum up</h3><p>Ask what's new since Monday, what a long thread decided, or which invoices are still open. Claude reads, you decide.</p></div>
       <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><h3>Organise</h3><p>Mark read or unread, star, move to a folder, add a label, or move to Trash, up to 50 messages at a time.</p></div>
-      <div class="card"><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></div><h3>Stays in your control</h3><p>No sending, no permanent deletion, and a cap on how much one session can change. Everything Claude does is something you asked for.</p></div>
+      <div class="card"><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></div><h3>Drafts, sent on your word</h3><p>Claude writes drafts, replies and forwards for you to check. It sends only a draft you've seen, after you switch sending on, and one session can change only so much.</p></div>
     </div>
     <div class="asks" aria-label="Examples of what you can ask">
       <span class="ask">Sum up my unread mail from this week</span>
       <span class="ask">Find the booking for my flight to Lisbon</span>
       <span class="ask">Move all newsletters in my inbox to Archive</span>
       <span class="ask">Star the invoices I haven't paid</span>
+      <span class="ask">Forward the receipt to my accountant</span>
+      <span class="ask">Draft a reply to Anna, I'll check it before it goes</span>
       <span class="ask">What did the landlord say about the lease?</span>
     </div>
-    <p class="tools">Tools: <code>list_folders</code> <code>list_messages</code> <code>search_messages</code> <code>read_message</code> <code>mark_read</code> <code>mark_unread</code> <code>flag</code> <code>unflag</code> <code>move_message</code> <code>add_label</code> <code>trash_message</code>.
-      Coming in 0.4.0: drafts, viewing images and saving attachments. <a href="#roadmap">See what's next</a>.</p>
+    <p class="tools">Tools: <code>list_folders</code> <code>list_messages</code> <code>search_messages</code> <code>read_message</code> <code>find_contacts</code> <code>view_image</code> <code>save_attachment</code>
+      <code>mark_read</code> <code>flag</code> <code>move_message</code> <code>add_label</code> <code>trash_message</code> <code>mark_spam</code>
+      <code>create_draft</code> <code>create_reply_draft</code> <code>create_forward_draft</code> <code>update_draft</code> <code>send_draft</code>, and more. <a href="#roadmap">See what's next</a>.</p>
   </div>
 </section>
 
@@ -242,7 +245,7 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
         <path class="arrow" d="M232 155h64" style="marker-start:url(#a)"/>
         <text x="264" y="140" text-anchor="middle" class="small">MCP</text>
         <path class="arrow" d="M502 155h64" style="marker-start:url(#a)"/>
-        <text x="534" y="128" text-anchor="middle" class="small">IMAP</text>
+        <text x="534" y="128" text-anchor="middle" class="small">IMAP, SMTP</text>
         <text x="534" y="144" text-anchor="middle" class="small">127.0.0.1</text>
         <path class="arrow" d="M752 160h94" style="marker-start:url(#a)"/>
         <text x="808" y="124" text-anchor="middle" class="small">end-to-end</text>
@@ -252,14 +255,14 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
         <li><b>Claude</b><span>Desktop or Code, on your computer</span></li>
         <li class="via">MCP</li>
         <li class="us"><b>Proton Mail MCP</b><span>guardrails, on your computer</span></li>
-        <li class="via">IMAP over verified TLS, 127.0.0.1 only</li>
+        <li class="via">IMAP and SMTP over verified TLS, 127.0.0.1 only</li>
         <li><b>Proton Mail Bridge</b><span>decrypts locally, on your computer</span></li>
         <li class="via">end-to-end encrypted</li>
         <li><b>Proton servers</b></li>
       </ol>
     </div>
     <div class="grid" style="margin-top:24px">
-      <div class="card"><h3>Local only</h3><p>Proton Mail MCP talks to Bridge on 127.0.0.1 and nothing else. Its connection to Bridge is TLS, verified against Bridge's own certificate, which setup pins.</p></div>
+      <div class="card"><h3>Local only</h3><p>Proton Mail MCP talks to Bridge on 127.0.0.1, for reading and for sending. It contacts nothing else, unless you ask it to check for an update or to show an image from the internet. Its connection to Bridge is TLS, verified against Bridge's own certificate, which setup pins.</p></div>
       <div class="card"><h3>Started by Claude</h3><p>Claude Desktop and Claude Code start it when they need it. There's no service, no account and no server of ours in between.</p></div>
       <div class="card"><h3>Honest about Claude</h3><p>The messages Claude reads become part of your conversation with Claude, and are processed by Anthropic like anything else you share with Claude.</p></div>
     </div>
@@ -271,7 +274,7 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
     <h2>Built to be trusted with your mail</h2>
     <p class="sub">Mail is personal. These limits are part of the program, with tests that fail if any of them is weakened.</p>
     <div class="grid">
-      <div class="card"><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/><path d="M3 21 21 3" opacity=".9"/></svg></div><h3>Can't send mail</h3><p>There is no tool that sends. When sending comes in 0.6.0, it will only send a draft you've seen, and only after you turn it on.</p></div>
+      <div class="card"><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/><path d="M3 21 21 3" opacity=".9"/></svg></div><h3>Sends only what you have seen</h3><p>There is no tool that sends text directly. Claude can only send a draft you have read, after you switch sending on in Settings, and your Claude app asks you before every send.</p></div>
       <div class="card"><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></div><h3>Nothing is deleted for good</h3><p>"Delete" means move to Trash, where you can restore it. Permanent deletion isn't in the program at all.</p></div>
       <div class="card"><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div><h3>Your password stays put</h3><p>You type the Bridge password into setup, and it goes to Windows Credential Manager. Claude never sees it, and it's never in a config file.</p></div>
       <div class="card"><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div><h3>Reading changes nothing</h3><p>Reading a message never marks it read. Only "mark read" does that.</p></div>
@@ -286,18 +289,39 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
     <h2>Set up in about a minute</h2>
     <p class="sub">No terminal, no config files. The setup wizard finds Bridge, checks it's really Proton's, and adds Proton Mail MCP to Claude.</p>
     <div class="tour">
-      <ol class="steps" role="tablist" aria-label="Setup steps">
-        <li><button role="tab" aria-selected="true" data-shot="welcome"><span class="n">1</span><span class="t">Welcome</span><span class="d">What setup does, and what you need.</span></button></li>
-        <li><button role="tab" aria-selected="false" data-shot="bridge"><span class="n">2</span><span class="t">Find Bridge</span><span class="d">Checks that the program on the port is Proton's signed Bridge, then pins its certificate.</span></button></li>
-        <li><button role="tab" aria-selected="false" data-shot="account"><span class="n">3</span><span class="t">Sign in</span><span class="d">The Bridge password, typed by you and kept in Windows Credential Manager.</span></button></li>
-        <li><button role="tab" aria-selected="false" data-shot="claude"><span class="n">4</span><span class="t">Add to Claude</span><span class="d">Claude Desktop, Claude Code, or both.</span></button></li>
-        <li><button role="tab" aria-selected="false" data-shot="done"><span class="n">5</span><span class="t">Done</span><span class="d">Restart Claude and ask it about your mail.</span></button></li>
+      <ol class="steps" role="tablist" aria-label="Setup steps" data-pic="shot">
+        <li><button role="tab" aria-selected="true" data-shot="wizard-welcome"><span class="n">1</span><span class="t">Welcome</span><span class="d">What setup does, and what you need.</span></button></li>
+        <li><button role="tab" aria-selected="false" data-shot="wizard-bridge"><span class="n">2</span><span class="t">Find Bridge</span><span class="d">Checks that the program on the port is Proton's signed Bridge, then pins its certificate.</span></button></li>
+        <li><button role="tab" aria-selected="false" data-shot="wizard-account"><span class="n">3</span><span class="t">Sign in</span><span class="d">The Bridge password, typed by you and kept in Windows Credential Manager.</span></button></li>
+        <li><button role="tab" aria-selected="false" data-shot="wizard-claude"><span class="n">4</span><span class="t">Add to Claude</span><span class="d">Claude Desktop, Claude Code, or both.</span></button></li>
+        <li><button role="tab" aria-selected="false" data-shot="wizard-done"><span class="n">5</span><span class="t">Done</span><span class="d">Restart Claude and ask it about your mail.</span></button></li>
       </ol>
       <figure class="window" style="margin:0">
         <div class="bar"><img src="assets/png/icon-32.png" alt="" width="16" height="16">Proton Mail MCP<span class="ctl" aria-hidden="true">— ▢ ✕</span></div>
         <picture id="shot">
           <source srcset="img/wizard-welcome-dark.png" media="(prefers-color-scheme: dark)">
-          <img src="img/wizard-welcome-light.png" width="1560" height="1120" alt="Setup wizard, step 1: Welcome.">
+          <img src="img/wizard-welcome-light.png" width="1560" height="1440" alt="Setup wizard, step 1: Welcome.">
+        </picture>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="window">
+  <div class="wrap">
+    <h2>One window for everything else</h2>
+    <p class="sub">Open <em>Proton Mail MCP</em> from the Start menu to see that everything works, to choose what Claude may do, and to check for updates. Claude can't change any of it.</p>
+    <div class="tour">
+      <ol class="steps" role="tablist" aria-label="The window's pages" data-pic="app-shot">
+        <li><button role="tab" aria-selected="true" data-shot="app-status"><span class="n">1</span><span class="t">Status</span><span class="d">Checks every link from Claude to your mailbox, and says what to do if one fails.</span></button></li>
+        <li><button role="tab" aria-selected="false" data-shot="app-settings"><span class="n">2</span><span class="t">Settings</span><span class="d">Switches for sending and for images from the internet, the change limit, and your folders. Saved at once.</span></button></li>
+        <li><button role="tab" aria-selected="false" data-shot="app-about"><span class="n">3</span><span class="t">About</span><span class="d">The version, a check for updates when you click it, and what Claude can do.</span></button></li>
+      </ol>
+      <figure class="window" style="margin:0">
+        <div class="bar"><img src="assets/png/icon-32.png" alt="" width="16" height="16">Proton Mail MCP<span class="ctl" aria-hidden="true">— ▢ ✕</span></div>
+        <picture id="app-shot">
+          <source srcset="img/app-status-dark.png" media="(prefers-color-scheme: dark)">
+          <img src="img/app-status-light.png" width="1560" height="1440" alt="Proton Mail MCP's Status page: Everything works, with the checks folded under Details.">
         </picture>
       </figure>
     </div>
@@ -322,7 +346,7 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
       </div>
       <div class="card">
         <h3>macOS and Linux</h3>
-        <ul><li>Download the archive for your system from the release</li><li>Run <code>proton-mail-mcp setup</code> in a terminal</li><li>The setup wizard is coming in 0.5.0</li></ul>
+        <ul><li>Download the archive for your system from the release</li><li>Run <code>proton-mail-mcp setup</code> in a terminal</li><li>A setup window for macOS and Linux comes later</li></ul>
         <a class="btn ghost" href="https://github.com/dvalfrid/proton-mail-mcp#setup">Setup guide</a>
       </div>
     </div>
@@ -334,14 +358,12 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
     <h2>What's next</h2>
     <p class="sub">Each version widens what Claude may do, and starts only once the one before is in daily use. Plans, not promises: the details are in the <a href="https://github.com/dvalfrid/proton-mail-mcp/blob/main/ROADMAP.md">roadmap</a>.</p>
     <div class="road">
-      <div class="card now"><div class="ver"><b>0.3.0</b><span class="tag">Available now</span></div><h3>Windows installer</h3>
-        <ul><li>Read, search and organise your mail</li><li>Setup wizard, no terminal needed</li><li>Updates that keep your settings</li></ul></div>
-      <div class="card"><div class="ver"><b>0.4.0</b><span class="tag">Coming next</span></div><h3>Drafts and attachments</h3>
-        <ul><li>Claude writes drafts and replies, for you to send</li><li>Claude can look at the images in a message</li><li>Save an attachment to a folder you choose</li><li>Remove labels</li></ul></div>
-      <div class="card"><div class="ver"><b>0.5.0</b><span class="tag">Coming</span></div><h3>macOS and Linux</h3>
-        <ul><li>The setup wizard on macOS and Linux</li><li>Homebrew, and .deb and .rpm packages</li><li>A Claude Desktop extension</li></ul></div>
-      <div class="card"><div class="ver"><b>0.6.0</b><span class="tag">Coming</span></div><h3>Send on your command</h3>
-        <ul><li>Sends only a draft you've seen</li><li>Off until you turn it on</li><li>Claude Desktop set to ask you before every send</li></ul></div>
+      <div class="card now"><div class="ver"><b>0.6.0</b><span class="tag">Available now</span></div><h3>Send on your command</h3>
+        <ul><li>Drafts, replies and forwards, formatted if you like</li><li>Sends only a draft you've seen, after you turn it on</li><li>One window for status, settings and updates</li></ul></div>
+      <div class="card"><div class="ver"><b>Next</b><span class="tag">Coming</span></div><h3>More for daily mail</h3>
+        <ul><li>New folders and labels when you ask</li><li>Search all mail at once</li><li>Whole conversations</li></ul></div>
+      <div class="card"><div class="ver"><b>Later</b><span class="tag">Coming</span></div><h3>macOS and Linux</h3>
+        <ul><li>The setup window on macOS and Linux</li><li>Homebrew, and .deb and .rpm packages</li><li>A Claude Desktop extension</li></ul></div>
     </div>
   </div>
 </section>
@@ -352,9 +374,9 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
     <details><summary>Is this made by Proton or Anthropic?</summary><p>No. Proton Mail MCP is an independent open-source project. It uses Proton Mail Bridge, Proton's own app, the way any mail program does, and Claude's standard way of adding tools (MCP).</p></details>
     <details><summary>Does my mail leave my computer?</summary><p>Bridge decrypts your mail on your computer, and Proton Mail MCP only talks to Bridge, locally. It never contacts the internet on its own: only when you ask it to check for an update (it then asks GitHub which version is the latest, and sends nothing about you or your mail), or to fetch an image a message links to, which is off unless you turn it on. But the messages you ask Claude to read become part of your conversation with Claude, which Anthropic processes. Ask Claude about the mail you're comfortable sharing with Claude.</p></details>
     <details><summary>Why do I need Proton Mail Bridge and a paid plan?</summary><p>Proton Mail is end-to-end encrypted, so only Bridge, on your computer, can turn it into ordinary mail that programs can read. Bridge is part of Proton's paid plans.</p></details>
-    <details><summary>Can Claude send email or delete my mail?</summary><p>It can't send at all today. Deleting means moving to Trash, which you can undo. Permanent deletion isn't possible. Sending comes in 0.6.0, and it will only send a draft you've seen, after you turn it on.</p></details>
-    <details><summary>What if a message tries to trick Claude?</summary><p>Messages are given to Claude marked as untrusted content written by their sender, and the tools can only do the limited things above, at most 200 changes per session. You see what Claude does in the conversation.</p></details>
-    <details><summary>How do I update or uninstall?</summary><p>Ask Claude "is there an update for Proton Mail MCP?", or click <em>Check for updates</em> on the Settings page. Run a newer installer, or <code>winget upgrade</code>: it replaces the program and keeps your settings. Uninstall from Settings → Apps. It removes Proton Mail MCP from Claude, and your settings and saved password only if you tick that box.</p></details>
+    <details><summary>Can Claude send email or delete my mail?</summary><p>Only a draft you have seen, after you switch sending on in Settings, and your Claude app asks you before every send. Deleting means moving to Trash, which you can undo. Permanent deletion isn't possible.</p></details>
+    <details><summary>What if a message tries to trick Claude?</summary><p>Messages are given to Claude marked as untrusted content written by their sender, and the tools can only do the limited things above, at most 200 changes and 10 sends per session. You see what Claude does in the conversation.</p></details>
+    <details><summary>How do I update or uninstall?</summary><p>Ask Claude "is there an update for Proton Mail MCP?", or click <em>Check for updates</em> on the About page of <em>Proton Mail MCP</em>. Run a newer installer, or <code>winget upgrade</code>: it replaces the program and keeps your settings. Uninstall from Settings → Apps. It removes Proton Mail MCP from Claude, and your settings and saved password only if you tick that box.</p></details>
     <details><summary>Something doesn't work</summary><p>Open <em>Proton Mail MCP</em> from the Start menu: its Status page tests each step and links to the fix. Every error has a section in the <a href="https://github.com/dvalfrid/proton-mail-mcp/blob/main/docs/troubleshooting.md">troubleshooting guide</a>. Still stuck? <a href="https://github.com/dvalfrid/proton-mail-mcp/issues">Open an issue</a>.</p></details>
   </div></div>
 </section>
@@ -376,22 +398,28 @@ footer .links { display: flex; flex-wrap: wrap; gap: 20px; }
 
 <script>
 'use strict';
-// The setup tour: show the screenshot of the chosen step.
-const alts = { welcome: 'Setup wizard, step 1: Welcome.', bridge: "Setup wizard, step 2: Bridge answers, it is Proton's own Bridge, certificate pinned.",
-  account: 'Setup wizard, step 3: Bridge username and password.', claude: 'Setup wizard, step 4: add to Claude Desktop and Claude Code.',
-  done: "Setup wizard, step 5: You're all set." };
-const tabs = [...document.querySelectorAll('.steps [role="tab"]')];
-function show(btn) {
-  tabs.forEach(t => t.setAttribute('aria-selected', String(t === btn)));
-  const name = btn.dataset.shot, pic = document.getElementById('shot');
-  pic.querySelector('source').srcset = `img/wizard-${name}-dark.png`;
-  const img = pic.querySelector('img'); img.src = `img/wizard-${name}-light.png`; img.alt = alts[name];
-}
-tabs.forEach((t, i) => {
-  t.addEventListener('click', () => show(t));
-  t.addEventListener('keydown', e => {
-    const d = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
-    if (d) { e.preventDefault(); const n = tabs[(i + d + tabs.length) % tabs.length]; n.focus(); show(n); }
+// The tours: each shows the screenshot of the chosen tab.
+const alts = { 'wizard-welcome': 'Setup wizard, step 1: Welcome.', 'wizard-bridge': "Setup wizard, step 2: Bridge answers, it is Proton's own Bridge, certificate pinned.",
+  'wizard-account': 'Setup wizard, step 3: Bridge username and password.', 'wizard-claude': 'Setup wizard, step 4: add to Claude Desktop and Claude Code.',
+  'wizard-done': "Setup wizard, step 5: You're all set.",
+  'app-status': "Proton Mail MCP's Status page: Everything works, with the checks folded under Details.",
+  'app-settings': "Proton Mail MCP's Settings page: switches for sending and images, the change limit, and the folders.",
+  'app-about': "Proton Mail MCP's About page: the version, Up to date after Check for updates, and what Claude can do." };
+document.querySelectorAll('.tour [role="tablist"]').forEach(list => {
+  const tabs = [...list.querySelectorAll('[role="tab"]')];
+  const pic = document.getElementById(list.dataset.pic);
+  const show = btn => {
+    tabs.forEach(t => t.setAttribute('aria-selected', String(t === btn)));
+    const name = btn.dataset.shot;
+    pic.querySelector('source').srcset = `img/${name}-dark.png`;
+    const img = pic.querySelector('img'); img.src = `img/${name}-light.png`; img.alt = alts[name];
+  };
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => show(t));
+    t.addEventListener('keydown', e => {
+      const d = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+      if (d) { e.preventDefault(); const n = tabs[(i + d + tabs.length) % tabs.length]; n.focus(); show(n); }
+    });
   });
 });
 </script>
