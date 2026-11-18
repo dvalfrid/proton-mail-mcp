@@ -110,6 +110,68 @@ details summary { cursor: pointer; color: var(--fg2); font-size: var(--fs-small)
 .tools .row { padding: 8px 16px; }
 .tools .name { width: 150px; flex: none; }
 h3 { font-size: var(--fs); font-weight: 600; margin: 18px 0 8px; }
+
+/* The app pages (issue #204): Fluent 2 navigation, cards and switches. */
+.footer[hidden] { display: none; }
+.nav.app { display: flex; flex-direction: column; align-items: stretch; padding: 14px 8px; }
+.nav.app .steps { align-self: stretch; }
+.nav.app .steps li { width: 100%; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 12px 18px; }
+.brand b { display: block; font-weight: 600; }
+.brand span { display: block; font-size: var(--fs-small); color: var(--fg2); }
+.brandicon svg { width: 32px; height: 32px; display: block; }
+.navicon { width: 16px; height: 16px; display: grid; place-items: center; }
+.navicon svg { width: 16px; height: 16px; }
+.steps li.nav { gap: 12px; color: var(--fg); }
+.navspacer { flex: 1; }
+.content h1 { font-size: var(--fs-hero); margin: 0 0 18px; }
+.content h3 { margin: 22px 0 8px; }
+.content h3.first { margin-top: 0; }
+.hero { display: flex; align-items: center; gap: 18px; padding: 18px 20px; margin-bottom: 8px; }
+.hero .badge { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.hero.bad .badge { background: var(--err-bg); color: var(--err); }
+.hero .badge.busy { background: var(--sel); }
+.hero .badge svg { width: 26px; height: 26px; }
+.hero .text, .app .text, .fix .text, .srow .text { flex: 1; min-width: 0; }
+.htitle { font-size: var(--fs-title); font-weight: 600; line-height: 1.3; }
+.sub { font-size: var(--fs-small); color: var(--fg2); overflow-wrap: anywhere; }
+.fix { display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 8px; background: var(--err-bg) !important; }
+.srow { display: flex; align-items: center; gap: 16px; padding: 12px 16px; min-height: 60px; }
+.card > .srow + .srow, .card > .srow + .infobar, .card > .infobar + .srow { border-top: 1px solid var(--card-border); }
+.srow .title { font-weight: 400; }
+.sicon { width: 20px; height: 20px; flex: none; color: var(--fg); }
+.expander .srow { cursor: pointer; }
+.expander .srow:hover, .steps li.nav:hover { background: var(--sel); }
+.chev { width: 16px; height: 16px; color: var(--fg2); flex: none; }
+.chev svg { width: 16px; height: 16px; }
+.details { border-top: 1px solid var(--card-border); }
+.details .row { padding-left: 20px; }
+.morebody { border-top: 1px solid var(--card-border); padding: 12px 16px; }
+.btn.small { min-width: 0; }
+.toggle { display: flex; align-items: center; gap: 10px; color: var(--fg2); flex: none; cursor: pointer; }
+.toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch { width: 40px; height: 20px; border-radius: 10px; border: 1px solid var(--ctl-border-bottom, var(--fg2)); background: var(--ctl); position: relative; transition: background .1s; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--fg2); transition: left .1s; }
+.toggle input:checked + .switch { background: var(--accent); border-color: var(--accent); }
+.toggle input:checked + .switch::after { left: 23px; background: var(--accent-fg); }
+.toggle input:focus-visible + .switch { outline: 2px solid var(--fg); outline-offset: 2px; }
+.toggle input:disabled + .switch { opacity: .45; }
+.num { width: 80px; font: inherit; color: var(--fg); background: var(--ctl); border: 1px solid var(--ctl-border); border-bottom-color: var(--ctl-border-bottom, var(--ctl-border)); border-radius: var(--radius-ctl); padding: 5px 10px; user-select: text; }
+.infobar { display: flex; gap: 12px; padding: 12px 16px; background: var(--warn-bg); }
+.infobar .buttons { display: flex; gap: 8px; margin-top: 10px; }
+.app { display: flex; align-items: center; gap: 16px; padding: 18px 20px; }
+.bigicon svg { width: 56px; height: 56px; display: block; }
+.pill { display: inline-block; font-size: var(--fs-small); font-weight: 400; padding: 0 8px; border-radius: 10px; vertical-align: 2px; margin-left: 6px;
+  background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; }
+.tiles .srow { min-height: 56px; }
+.tiles .srow:nth-child(n+3) { border-top: 1px solid var(--card-border); }
+.tiles .srow:nth-child(odd) { border-right: 1px solid var(--card-border); }
+.app .htitle { white-space: nowrap; }
+.tiles + .expander { margin-top: 8px; }
+@media (prefers-reduced-motion: reduce) { .switch, .switch::after { transition: none; } }
 </style>
 </head>
 <body class="win light">
@@ -145,12 +207,15 @@ function call(method, args = {}) {
 for (const ev of ['dragover', 'drop']) addEventListener(ev, e => e.preventDefault());
 
 // ---- Icons ----
-const ICON = `<svg viewBox="0 3 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+const ICON_SVG = `<svg viewBox="0 3 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b6cf6"/><stop offset="1" stop-color="#5b3fd1"/></linearGradient></defs>
   <rect x="4" y="12" width="48" height="36" rx="7" fill="url(#g)"/>
   <path d="M8 18l20 15 20-15" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>
   <path d="M48 30l12 4.5v8.5c0 7.5-5.2 12.5-12 15-6.8-2.5-12-7.5-12-15v-8.5z" fill="#1fb47a" stroke="#fff" stroke-width="2.5"/>
   <path d="M42.5 43l4 4 7-8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+// Each copy gets its own gradient id: the menu and About show the icon at once.
+let iconSeq = 0;
+const ICON = () => { const n = ++iconSeq; return ICON_SVG.replace('id="g"', `id="g${n}"`).replace('url(#g)', `url(#g${n})`); };
 const I = {
   ok: (n = 18) => `<svg width="${n}" height="${n}" viewBox="0 0 20 20" role="img" aria-label="OK"><circle cx="10" cy="10" r="9" fill="currentColor"/><path d="M6 10.3l2.6 2.6L14 7.6" fill="none" stroke="var(--bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   warn: `<svg width="18" height="18" viewBox="0 0 20 20" role="img" aria-label="Warning"><path d="M10 2l9 16H1z" fill="currentColor"/><path d="M10 8v4.5M10 15.2v.3" stroke="var(--warn-bg)" stroke-width="2" stroke-linecap="round"/></svg>`,
@@ -171,12 +236,12 @@ const S = {
   pick: {}, registering: false, registered: null, fatal: '',
   settings: null, savingSettings: false, settingsSaved: false, settingsError: '',
   view: null, status: null, checking: false, fromApp: false,
-  update: null, checkingUpdate: false, sendSaved: false, confirmSend: false,
+  update: null, checkingUpdate: false, askSend: false, detailsOpen: undefined, aboutMore: false,
 };
 
 // ---- Steps ----
 function stepWelcome() {
-  return `<div class="appicon">${ICON}</div><h1>Set up Proton Mail MCP</h1>
+  return `<div class="appicon">${ICON()}</div><h1>Set up Proton Mail MCP</h1>
     <p class="lead">Lets Claude read and organise your Proton Mail, through Proton Mail Bridge on this computer. It takes about a minute.</p>
     <ol class="bullets"><li><span class="num">1</span>Find Proton Mail Bridge</li><li><span class="num">2</span>Sign in with your Bridge password</li><li><span class="num">3</span>Add it to Claude</li></ol>
     <p class="small">You need Proton Mail Bridge installed and signed in. <a data-link="bridge" tabindex="0">Get Bridge</a></p>
@@ -279,67 +344,156 @@ const VIEWS = [['status', 'Status'], ['settings', 'Settings'], ['about', 'About'
 const cap = s => { s = String(s ?? ''); return /[@.\\/:]/.test(s.split(/\s/)[0]) ? s : s.charAt(0).toUpperCase() + s.slice(1); };
 const hintHTML = s => esc(cap(s)).replace(/`([^`]+)`/g, '<code>$1</code>');
 
+// Fluent 2 line icons for the app pages (issue #204).
+const L = (d, w = 1.5) => `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const G = {
+  status: L('<path d="M2 10h3.5l2-5 4 10 2-5H18"/>'),
+  settings: L('<circle cx="10" cy="10" r="2.6"/><path d="M10 1.8v2.4M10 15.8v2.4M18.2 10h-2.4M4.2 10H1.8M15.8 4.2l-1.7 1.7M5.9 14.1l-1.7 1.7M15.8 15.8l-1.7-1.7M5.9 5.9L4.2 4.2"/>'),
+  about: L('<circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6.2v.3"/>'),
+  close: L('<path d="M8 4H4v12h4M13 6l4 4-4 4M17 10H8"/>'),
+  check: L('<path d="M4 10.5l4 4 8-9"/>', 2.2),
+  cross: L('<path d="M5 5l10 10M15 5L5 15"/>', 2.2),
+  chevDown: L('<path d="M5 8l5 5 5-5"/>'), chevUp: L('<path d="M5 12l5-5 5 5"/>'),
+  image: L('<rect x="2.5" y="4" width="15" height="12" rx="2"/><circle cx="7" cy="8.2" r="1.3"/><path d="M3 14l4.5-4 3.5 3 2.5-2 4 3.5"/>'),
+  send: L('<path d="M18 2L9 11M18 2l-5.5 16L9 11 2 7.5z"/>'),
+  folder: L('<path d="M2.5 5.5a1.5 1.5 0 0 1 1.5-1.5h3.5l2 2H16a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5z"/>'),
+  outbox: L('<path d="M3 11v4.5h14V11M10 3v9M6.5 6.5L10 3l3.5 3.5"/>'),
+  shield: L('<path d="M10 2l6.5 2.5v5c0 4-2.8 6.8-6.5 8.5C6.3 16.3 3.5 13.5 3.5 9.5v-5z"/>'),
+  app: L('<rect x="3" y="3" width="14" height="14" rx="3"/><path d="M7 10h6"/>'),
+  read: L('<path d="M2 5.5l8 5 8-5M2.5 4h15v12h-15z"/>'),
+  org: L('<path d="M3 6h14M3 10h9M3 14h5"/>'),
+  draft: L('<path d="M13.5 3.5l3 3L7 16H4v-3z"/>'),
+  trash: L('<path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10"/>'),
+};
+
+// A path shown the way Explorer's address bar does: the last parts under
+// the user's folder, "Downloads › Proton Mail MCP".
+const shortPath = p => {
+  const parts = String(p || '').split(/[\\/]+/).filter(Boolean);
+  const users = parts.findIndex(x => /^(users|home)$/i.test(x));
+  return (users >= 0 && parts.length > users + 2 ? parts.slice(users + 2) : parts).join(' › ');
+};
+
+// The navigation pane: the app, its pages, and Close.
+function appNav(v) {
+  const mark = n => n === 'status' && S.status && !S.checking ? `<span class="mark ${S.status.failed ? 'fail' : 'ok'}" aria-label="${S.status.failed ? 'needs fixing' : 'works'}"></span>` : '';
+  return `<div class="brand"><span class="brandicon">${ICON()}</span><div><b>Proton Mail MCP</b><span>${esc(S.state?.version || '')}</span></div></div>
+    <ol class="steps">${VIEWS.map(([n, label]) => `<li class="nav ${n === v ? 'current' : ''}" data-view="${n}" tabindex="0" role="link" ${n === v ? 'aria-current="page"' : ''}><span class="navicon">${G[n]}</span>${label}${mark(n)}</li>`).join('')}</ol>
+    <span class="navspacer"></span>
+    <ol class="steps"><li class="nav" id="nav-close" tabindex="0" role="button"><span class="navicon">${G.close}</span>Close</li></ol>`;
+}
+
+// One row of a settings card: icon, title and a line under it, then the
+// control on the right.
+const srow = (icon, title, sub, control, extra = '') =>
+  `<div class="srow"><span class="sicon">${icon}</span><div class="text"><div class="title">${title}</div>${sub ? `<div class="sub">${sub}</div>` : ''}${extra}</div>${control}</div>`;
+const toggle = (id, on, disabled) =>
+  `<label class="toggle"><span>${on ? 'On' : 'Off'}</span><input type="checkbox" role="switch" id="${id}" ${on ? 'checked' : ''} ${disabled ? 'disabled' : ''}><span class="switch" aria-hidden="true"></span></label>`;
+
 function viewStatus() {
-  const head = `<h2>Status</h2><p class="lead">Checks every link from Claude to your mailbox: the same check as <code>proton-mail-mcp check</code>.</p>`;
+  const head = `<h1>Status</h1>`;
   const r = S.status;
-  if (!r || S.checking) return head + `<div class="card rows">${row(I.spin, '', 'Checking…', 'Looking for Bridge and signing in to it. This takes a few seconds.')}</div>`;
+  if (!r || S.checking) return head + `<div class="card hero"><div class="badge busy">${I.spin}</div><div class="text"><div class="htitle">Checking…</div><div class="sub">Looking for Proton Mail Bridge and signing in. This takes a few seconds.</div></div></div>`;
+  const fail = r.steps.find(s => s.status === 'fail');
   const icon = { ok: [I.ok(), 'ok'], fail: [I.err, 'err'], advice: [I.warn, 'warnc'] };
-  const rows = r.steps.map(s => {
+  const details = r.steps.map(s => {
     const [ic, cls] = icon[s.status] || icon.advice;
     const what = s.status === 'ok' ? '' :
-      (s.hint ? `<div class="what"><b>What to do:</b> ${hintHTML(s.hint)}</div>` : '') +
+      (s.hint ? `<div class="what">${hintHTML(s.hint)}</div>` : '') +
       (s.help ? `<div class="what"><a data-help="${esc(s.help)}" tabindex="0">Help with this</a></div>` : '');
     return `<div class="row"><span class="icon ${cls}">${ic}</span><div class="text"><div class="title">${esc(s.title || s.name)}</div><div class="sub">${esc(cap(s.detail))}</div>${what}</div></div>`;
   }).join('');
-  const top = r.failed
-    ? banner('error', 'Something needs fixing', "Claude can't reach your mailbox until the step marked in red works. Fix it, then choose <i>Check again</i>.")
-    : `<div class="card rows" style="margin-bottom:14px">${row(I.ok(), 'ok', 'Everything works', 'Claude can reach your mailbox through Proton Mail Bridge.')}</div>`;
-  return head + top + `<div class="card rows">${rows}</div>
+  const open = S.detailsOpen ?? !!r.failed;
+  const failed = r.steps.filter(s => s.status === 'fail').length;
+  const hero = r.failed
+    ? `<div class="card hero bad"><div class="badge">${G.cross}</div><div class="text"><div class="htitle">${esc(fail?.title || 'Something needs fixing')}</div><div class="sub">Claude can't reach your mailbox until this works.</div></div></div>
+       <div class="card fix"><span class="icon err">${I.err}</span><div class="text"><div class="title">${fail?.hint ? hintHTML(fail.hint) : 'Fix it, then check again.'}</div>${fail?.help ? `<div class="sub"><a data-help="${esc(fail.help)}" tabindex="0">Help with this</a></div>` : ''}</div><button class="btn primary" id="check-again">Check again</button></div>`
+    : `<div class="card hero"><div class="badge">${G.check}</div><div class="text"><div class="htitle">Everything works</div><div class="sub">Claude can reach your mailbox through Proton Mail Bridge.</div></div><button class="btn" id="check-again">Check again</button></div>`;
+  const clients = (S.state?.clients || []).map(c => srow(G.app, esc(c.name),
+    c.registered ? 'Connected' : c.other ? `Starts another copy: <span class="mono">${esc(c.other)}</span>` : 'Not added',
+    `<span class="icon ${c.registered ? 'ok' : 'warnc'}">${c.registered ? I.ok() : I.warn}</span>`)).join('');
+  return head + hero +
+    `<div class="card expander"><div class="srow" id="details" tabindex="0" role="button" aria-expanded="${open}"><div class="text"><div class="title">Details</div><div class="sub">${failed ? `${failed} of ${r.steps.length} checks failed` : `${r.steps.length} checks passed`}</div></div><span class="chev">${open ? G.chevUp : G.chevDown}</span></div>
+      ${open ? `<div class="rows details">${details}</div>` : ''}</div>
+    ${clients ? `<h3>Used by</h3><div class="card">${clients}</div>` : ''}
     <p class="small" style="margin-top:14px">Bridge reset, a new Bridge password, or a new Claude app? <a id="setup-again" tabindex="0">Set up again</a></p>`;
+}
+
+function viewSettings() {
+  const s = S.settings;
+  const head = `<h1>Settings</h1>`;
+  if (!s) return head + `<div class="card rows">${row(I.spin, '', 'Reading the settings…')}</div>`;
+  if (!s.setUp) return head + banner('warn', 'Not set up yet', 'Set up Proton Mail MCP first: the options are saved with its settings.') + `<button class="btn" id="setup-again">Set up</button>`;
+  const locked = n => s.locked[n] ? `<div class="sub warnc">Set in ${s.locked[n] === '.env' ? 'the .env file' : 'an environment variable'}, which overrides this.</div>` : '';
+  const busy = S.savingSettings;
+  const asking = S.askSend && !s.allowSend;
+  const folder = (key, def, icon, title) => srow(icon, title,
+    esc(shortPath(s[key] || def) || 'Not found: choose a folder') + (s[key] ? ' · <a data-reset="' + key + '" tabindex="0">Use default</a>' : ''),
+    `<button class="btn small" data-pick="${key}" ${s.locked[key] || busy ? 'disabled' : ''}>Change…</button>`, locked(key));
+  return head +
+    (S.settingsError ? banner('error', "Couldn't save", esc(S.settingsError)) : '') +
+    `<h3 class="first">What Claude may do</h3><div class="card">
+      ${srow(G.send, 'Send drafts', 'Claude sends a draft you have seen, after asking you. At most 10 per session.', toggle('opt-send', s.allowSend || asking, s.locked.allowSend || busy), locked('allowSend'))}
+      ${asking ? `<div class="infobar"><span class="icon warnc">${I.warn}</span><div class="text"><div class="title">Let Claude send email in your name?</div><div class="sub">Claude asks you before every send. Sent mail can't be taken back.</div>
+        <div class="buttons"><button class="btn primary small" id="send-on">Turn on</button><button class="btn small" id="send-cancel">Cancel</button></div></div></div>` : ''}
+      ${srow(G.image, 'Show images from the internet', 'Claude fetches an image a message links to, when you ask. The sender can see that you opened the message.', toggle('opt-images', s.allowRemoteImages, s.locked.allowRemoteImages || busy), locked('allowRemoteImages'))}
+      ${srow(G.shield, 'Changes per session', `How many messages Claude may change, and drafts it may write, before Claude is restarted. Default ${esc(s.defaultMaxChanges)}.`,
+        `<input class="num" id="opt-max" type="number" min="1" max="10000" value="${esc(s.maxChanges)}" ${s.locked.maxChanges || busy ? 'disabled' : ''} aria-label="Changes per session">`, locked('maxChanges'))}
+    </div>
+    <h3>Folders</h3><div class="card">
+      ${folder('attachmentDir', s.defaultAttachmentDir, G.folder, 'Saved attachments')}
+      ${folder('outboxDir', s.defaultOutboxDir, G.outbox, 'Files to send')}
+    </div>
+    <p class="small" style="margin-top:10px">${busy ? 'Saving…' : S.settingsSaved ? 'Saved. Restart Claude to use the change.' : 'Changes are saved at once. Restart Claude to use them.'}</p>`;
 }
 
 function viewAbout() {
   const st = S.state || {};
-  const clients = (st.clients || []).map(c => c.registered
-    ? row(I.ok(), 'ok', esc(c.name), 'Starts this copy')
-    : row(I.warn, 'warnc', esc(c.name), c.other ? `Starts another copy: <span class="mono">${esc(c.other)}</span>` : 'Not added')).join('');
+  const u = S.update;
+  const pill = u && !u.error ? (u.update_available ? `<span class="pill warn">Update available</span>` : `<span class="pill">Up to date</span>`) : '';
+  const result = S.checkingUpdate ? `<div class="sub">${I.spin} Checking for updates…</div>`
+    : !u ? ''
+    : u.error ? `<div class="sub warnc">Couldn't check for updates: ${esc(u.error)}</div>`
+    : u.update_available ? `<div class="sub">${esc(u.latest)} is available. ${esc(u.how_to_update)} <a data-link="release" tabindex="0">Open the release page</a></div>`
+    : `<div class="sub">${esc(u.message)}</div>`;
+  const tiles = [[G.read, 'Read and search', 'Mail stays unread'], [G.org, 'Organise', 'Move, label, star, Trash'],
+    [G.draft, 'Write drafts', 'New, replies and forwards'], [G.send, 'Send', 'Only a draft you have seen, when on']]
+    .map(([ic, t, s]) => srow(ic, t, s, '')).join('');
+  const more = S.aboutMore;
   const groups = (st.tools || []).map(g => `<h3>${esc(g.group)}</h3><div class="card rows tools">${
     g.tools.map(t => `<div class="row"><span class="name mono">${esc(t.name)}</span><div class="text sub">${esc(t.description)}</div></div>`).join('')}</div>`).join('');
-  return `<div class="appicon">${ICON}</div><h2>Proton Mail MCP ${esc(st.version)}</h2>
-    <p class="lead">Lets Claude read and organise your Proton Mail through Proton Mail Bridge, and write drafts. It sends only a draft you have seen, after you switch sending on in Settings, and it can't permanently delete anything.</p>
-    <h3>Added to</h3><div class="card rows">${clients || row(I.warn, 'warnc', 'No Claude app found on this computer')}</div>
-    <p class="small" style="margin-top:8px">The program Claude starts: <span class="mono">${esc(st.exe)}</span>. <a id="setup-again" tabindex="0">Set up again</a></p>
-    <h3 style="margin-top:22px">What Claude can do</h3>${groups}
-    <p class="small" style="margin-top:14px"><a data-link="help" tabindex="0">Troubleshooting guide</a></p>`;
+  return `<h1>About</h1>
+    <div class="card app"><span class="bigicon">${ICON()}</span><div class="text"><div class="htitle">Proton Mail MCP ${pill}</div>
+      <div class="sub">Version ${esc(st.version)}</div><div class="sub">Lets Claude read, organise and draft your Proton Mail.</div>${result}</div>
+      <button class="btn" id="check-update" ${S.checkingUpdate ? 'disabled' : ''}>Check for updates</button></div>
+    <h3>What Claude can do</h3><div class="card tiles">${tiles}</div>
+    <div class="card expander"><div class="srow" id="about-more" tabindex="0" role="button" aria-expanded="${!!more}"><div class="text"><div class="title">All tools, setup again, and technical details</div></div><span class="chev">${more ? G.chevUp : G.chevDown}</span></div>
+      ${more ? `<div class="morebody"><p class="small">The program Claude starts: <span class="mono">${esc(st.exe)}</span>. <a id="setup-again" tabindex="0">Set up again</a></p>${groups}</div>` : ''}</div>
+    <p class="small" style="margin-top:14px"><a data-link="help" tabindex="0">Help and troubleshooting</a></p>`;
 }
 
 function renderApp() {
   const v = S.view;
-  const mark = n => n === 'status' && S.status && !S.checking ? `<span class="mark ${S.status.failed ? 'fail' : 'ok'}" aria-label="${S.status.failed ? 'needs fixing' : 'works'}"></span>` : '';
-  $('#steps').innerHTML = VIEWS.map(([n, label]) => `<li class="nav ${n === v ? 'current' : ''}" data-view="${n}" tabindex="0" role="link" ${n === v ? 'aria-current="page"' : ''}>${label}${mark(n)}</li>`).join('');
+  $('.footer').hidden = true;
+  $('nav.nav').classList.add('app');
+  $('nav.nav').innerHTML = appNav(v);
   $('#content').innerHTML = !v ? `<div class="card rows">${row(I.spin, '', 'Checking…')}</div>` : v === 'status' ? viewStatus() : v === 'about' ? viewAbout() : viewSettings();
-  $('#back').style.visibility = 'hidden';
-  $('#cancel').style.visibility = 'visible';
-  $('#cancel').textContent = 'Close';
-  $('#next').style.visibility = v === 'about' || !v ? 'hidden' : 'visible';
-  $('#next').textContent = v === 'status' ? 'Check again' : 'Save';
-  $('#next').disabled = v === 'status' ? S.checking : !S.settings?.setUp || S.savingSettings;
-  document.querySelectorAll('[data-view]').forEach(el => {
-    const f = () => show(el.dataset.view);
-    el.onclick = f; el.onkeydown = e => { if (e.key === 'Enter') f(); };
-  });
-  document.querySelectorAll('[data-help]').forEach(el => {
-    const f = () => call('openLink', { name: 'help:' + el.dataset.help }).catch(() => {});
-    el.onclick = f; el.onkeydown = e => { if (e.key === 'Enter') f(); };
-  });
-  const sa = $('#setup-again'); if (sa) { sa.onclick = setUpAgain; sa.onkeydown = e => { if (e.key === 'Enter') setUpAgain(); }; }
+  const act = (sel, f) => document.querySelectorAll(sel).forEach(el => { el.onclick = f; el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); f.call(el, e); } }; });
+  act('[data-view]', function () { show(this.dataset.view); });
+  act('#nav-close', () => call('close'));
+  act('[data-help]', function () { call('openLink', { name: 'help:' + this.dataset.help }).catch(() => {}); });
+  act('#setup-again', setUpAgain);
+  act('#check-again', () => { if (!S.checking) runStatus(); });
+  act('#details', () => { S.detailsOpen = !(S.detailsOpen ?? !!S.status?.failed); renderApp(); });
+  act('#about-more', () => { S.aboutMore = !S.aboutMore; renderApp(); });
+  act('#check-update', checkUpdate);
   if (v === 'settings') wireSettings(); else wire();
 }
 
 function show(view) { S.view = view; renderApp(); $('#content').focus({ preventScroll: true }); }
 
 async function runStatus() {
-  S.checking = true; renderApp();
+  S.checking = true; S.detailsOpen = undefined; renderApp();
   try { S.status = await call('runCheck'); } catch (e) { S.status = { failed: true, steps: [{ name: 'check', title: "Couldn't run the check", status: 'fail', detail: e.message }] }; }
   S.checking = false;
   if (!S.view) S.view = S.status.failed ? 'status' : 'settings';
@@ -355,91 +509,53 @@ function setUpAgain() {
 async function backToApp() {
   try { S.state = await call('state'); } catch (e) { S.fatal = e.message; render(); return; }
   S.state.mode = 'app'; S.view = 'status';
-  try { S.settings = await call('getSettings'); S.sendSaved = !!S.settings.allowSend; } catch (e) { S.settingsError = e.message; }
+  try { S.settings = await call('getSettings'); } catch (e) { S.settingsError = e.message; }
   runStatus();
 }
 
-function viewSettings() {
-  const s = S.settings;
-  const head = `<h2>Settings</h2><p class="lead">Options for Proton Mail MCP. Only you change them, here: Claude can't.</p>`;
-  if (!s) return head + `<div class="card rows">${row(I.spin, '', 'Reading the settings…')}</div>`;
-  if (!s.setUp) return head + banner('warn', 'Not set up yet', 'Set up Proton Mail MCP first: the options are saved with its settings.') + `<button class="btn" id="setup-again">Set up</button>` + updateSection();
-  const dis = n => (s.locked[n] || S.savingSettings) ? 'disabled' : '';
-  const lock = n => s.locked[n] ? `<div class="help warnc">Set in ${s.locked[n] === '.env' ? 'the .env file' : 'an environment variable'}, which overrides this.</div>` : '';
-  return head +
-    (S.settingsError ? banner('error', "Couldn't save", esc(S.settingsError)) : '') +
-    (S.settingsSaved ? `<div class="card rows" style="margin-bottom:14px">${row(I.ok(), 'ok', 'Saved', 'Restart Claude to use them. Claude Desktop: right-click its icon by the clock, Quit, then start it again. Claude Code: start a new session.')}</div>` : '') +
-    `<div class="field"><label class="check"><input type="checkbox" id="opt-images" ${s.allowRemoteImages ? 'checked' : ''} ${dis('allowRemoteImages')}> Fetch images from the internet</label>
-      <div class="help">Lets Claude fetch an image a message links to, when you ask. The sender then sees that the message was opened.</div>${lock('allowRemoteImages')}</div>
-    <div class="field"><label for="opt-dir">Attachment folder</label>
-      <div class="input" style="gap:8px"><input id="opt-dir" type="text" spellcheck="false" autocomplete="off" placeholder="${esc(s.defaultAttachmentDir)}" value="${esc(s.attachmentDir)}" ${dis('attachmentDir')}><button class="btn" id="opt-browse" style="min-width:0" ${dis('attachmentDir')}>Browse…</button></div>
-      <div class="help">Where Claude saves the attachments you ask for. Empty: ${esc(s.defaultAttachmentDir || 'Proton Mail MCP in Downloads')}.</div>${lock('attachmentDir')}</div>
-    <div class="field"><label for="opt-outbox">Outbox folder</label>
-      <div class="input" style="gap:8px"><input id="opt-outbox" type="text" spellcheck="false" autocomplete="off" placeholder="${esc(s.defaultOutboxDir)}" value="${esc(s.outboxDir)}" ${dis('outboxDir')}><button class="btn" id="opt-browse-outbox" style="min-width:0" ${dis('outboxDir')}>Browse…</button></div>
-      <div class="help">The only folder Claude attaches files to a draft from. Put only what you mean to send here. Empty: ${esc(s.defaultOutboxDir || 'Proton Mail MCP outbox in Documents')}.</div>${lock('outboxDir')}</div>
-    <div class="field"><label for="opt-max">Changes per run</label><div class="input" style="max-width:140px"><input id="opt-max" type="number" min="1" max="10000" value="${esc(s.maxChanges)}" ${dis('maxChanges')}></div>
-      <div class="help">How many messages Claude may change, and drafts it may write, before Claude is restarted: a guard against instructions hidden in emails. Default ${esc(s.defaultMaxChanges)}.</div>${lock('maxChanges')}</div>
-    <div class="field"><label class="check"><input type="checkbox" id="opt-send" ${s.allowSend ? 'checked' : ''} ${dis('allowSend')}> Let Claude send drafts</label>
-      <div class="help">Lets Claude send a draft you have seen, when you ask it to. Claude asks you before every send, at most 10 per session. Sent mail can't be taken back.</div>${lock('allowSend')}
-      ${s.allowSend && !S.sendSaved && !s.locked.allowSend ? `<label class="check" style="margin-top:8px"><input type="checkbox" id="opt-send-confirm" ${S.confirmSend ? 'checked' : ''}> I understand that Claude can then send email in my name, after asking me.</label>` : ''}</div>
-    ${S.savingSettings ? `<div class="busy small">${I.spin} Saving…</div>` : ''}` + updateSection();
-}
-
 // Updates: GitHub is asked only when the owner clicks (issue #159).
-function updateSection() {
-  const u = S.update;
-  const page = `<a data-link="release" tabindex="0">Open the release page</a>`;
-  const result = S.checkingUpdate ? row(I.spin, '', 'Checking for updates…')
-    : !u ? ''
-    : u.error ? row(I.warn, 'warnc', "Couldn't check for updates", esc(u.error))
-    : u.update_available ? row(I.warn, 'warnc', esc(u.latest) + ' is available', `You have ${esc(u.running)}. ${esc(u.how_to_update)} ${page}`)
-    : row(I.ok(), 'ok', esc(u.message), '');
-  return `<h3 style="margin-top:22px">Updates</h3>
-    ${result ? `<div class="card rows" style="margin-bottom:10px">${result}</div>` : ''}
-    <button class="btn" id="check-update" ${S.checkingUpdate ? 'disabled' : ''}>Check for updates</button>
-    <div class="help">Asks GitHub once whether a newer version exists. Nothing is downloaded or installed, and nothing is checked unless you click.</div>`;
-}
-
 async function checkUpdate() {
   S.checkingUpdate = true; S.update = null; renderApp();
   try { S.update = await call('checkUpdate'); } catch (e) { S.update = { error: e.message }; }
   S.checkingUpdate = false; renderApp();
 }
 
-function renderSettings() { renderApp(); }
-
+// Settings take effect when changed: each change is saved at once, as
+// Windows' own Settings do. Switching sending on asks first (issue #181).
 function wireSettings() {
-  const im = $('#opt-images'), dir = $('#opt-dir'), max = $('#opt-max'), br = $('#opt-browse'), ob = $('#opt-outbox'), obr = $('#opt-browse-outbox');
-  const changed = () => { S.settingsSaved = false; };
-  if (im) im.onchange = e => { S.settings.allowRemoteImages = e.target.checked; changed(); };
-  if (dir) dir.oninput = e => { S.settings.attachmentDir = e.target.value; changed(); };
-  if (ob) ob.oninput = e => { S.settings.outboxDir = e.target.value; changed(); };
-  if (max) max.oninput = e => { S.settings.maxChanges = e.target.value; changed(); };
-  const snd = $('#opt-send'), sc = $('#opt-send-confirm');
-  if (snd) snd.onchange = e => { S.settings.allowSend = e.target.checked; S.confirmSend = false; changed(); renderSettings(); };
-  if (sc) sc.onchange = e => { S.confirmSend = e.target.checked; changed(); };
-  const browse = key => async () => {
-    try {
-      const picked = await call('pickFolder', { start: S.settings[key] });
-      if (picked) { S.settings[key] = picked; S.settingsSaved = false; }
-    } catch (e) { S.settingsError = e.message; }
-    renderSettings();
+  const s = S.settings;
+  const im = $('#opt-images'), snd = $('#opt-send'), max = $('#opt-max');
+  if (im) im.onchange = e => saveSettings({ allowRemoteImages: e.target.checked });
+  if (snd) snd.onchange = e => {
+    if (e.target.checked && !s.allowSend) { S.askSend = true; renderApp(); return; }
+    S.askSend = false; saveSettings({ allowSend: e.target.checked });
   };
-  const cu = $('#check-update'); if (cu) cu.onclick = checkUpdate;
-  if (br) br.onclick = browse('attachmentDir');
-  if (obr) obr.onclick = browse('outboxDir');
+  const on = $('#send-on'); if (on) on.onclick = () => { S.askSend = false; saveSettings({ allowSend: true }, true); };
+  const cancel = $('#send-cancel'); if (cancel) cancel.onclick = () => { S.askSend = false; renderApp(); };
+  if (max) max.onchange = e => saveSettings({ maxChanges: Number(e.target.value) });
+  document.querySelectorAll('[data-pick]').forEach(b => b.onclick = async () => {
+    const key = b.dataset.pick;
+    try {
+      const picked = await call('pickFolder', { start: s[key] || (key === 'attachmentDir' ? s.defaultAttachmentDir : s.defaultOutboxDir) });
+      if (picked) saveSettings({ [key]: picked });
+    } catch (e) { S.settingsError = e.message; renderApp(); }
+  });
+  document.querySelectorAll('[data-reset]').forEach(a => {
+    const f = () => saveSettings({ [a.dataset.reset]: '' });
+    a.onclick = f; a.onkeydown = e => { if (e.key === 'Enter') f(); };
+  });
   wire();
 }
 
-async function saveSettings() {
-  const s = S.settings;
-  S.savingSettings = true; S.settingsError = ''; S.settingsSaved = false; renderSettings();
+async function saveSettings(change, confirmSend = false) {
+  const s = { ...S.settings, ...change };
+  S.savingSettings = true; S.settingsError = ''; S.settingsSaved = false; renderApp();
   try {
-    S.settings = await call('saveSettings', { allowRemoteImages: !!s.allowRemoteImages, attachmentDir: s.attachmentDir || '', outboxDir: s.outboxDir || '', maxChanges: Number(s.maxChanges), allowSend: !!s.allowSend, confirmSend: !!S.confirmSend });
-    S.sendSaved = !!S.settings.allowSend; S.confirmSend = false;
+    S.settings = await call('saveSettings', { allowRemoteImages: !!s.allowRemoteImages, attachmentDir: s.attachmentDir || '', outboxDir: s.outboxDir || '',
+      maxChanges: Number(s.maxChanges), allowSend: !!s.allowSend, confirmSend });
     S.settingsSaved = true;
   } catch (e) { S.settingsError = e.message; }
-  S.savingSettings = false; renderSettings();
+  S.savingSettings = false; renderApp();
 }
 
 // ---- Rendering ----
@@ -460,6 +576,8 @@ function render() {
     return;
   }
   if (S.state?.mode === 'app') { renderApp(); return; }
+  $('.footer').hidden = false;
+  if (!$('#steps')) { $('nav.nav').classList.remove('app'); $('nav.nav').innerHTML = '<ol class="steps" id="steps"></ol>'; }
   $('#next').style.visibility = 'visible';
   // Keep a typed password across re-renders of the same step.
   const pass = $('#pass')?.value;
@@ -537,9 +655,8 @@ function go(step) {
 
 async function next() {
   if (S.state?.mode === 'app') {
-    if (S.view === 'status') { if (!S.checking) runStatus(); }
-    else if (S.view === 'settings' && S.settings?.setUp && !S.savingSettings) saveSettings();
-    return;
+    return; // the app pages have their own buttons
+
   }
   if (!canNext()) return;
   switch (S.step) {
@@ -573,7 +690,7 @@ mq.addEventListener('change', theme);
   if (S.state?.mode === 'app') {
     // Opens on Status when a step fails, else on Settings (issue #176).
     S.view = S.state.start === 'settings' ? 'settings' : null;
-    try { S.settings = await call('getSettings'); S.sendSaved = !!S.settings.allowSend; } catch (e) { S.fatal = e.message; }
+    try { S.settings = await call('getSettings'); } catch (e) { S.fatal = e.message; }
     render();
     runStatus();
   }
