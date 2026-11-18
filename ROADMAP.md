@@ -68,7 +68,6 @@ Install without a terminal, and updates that keep Claude's registration:
 - `mark_spam`: move messages to Spam when the owner asks, at most 10 a call, asking each time (#160).
 - Settings without `.env` (#158): the options in `config.json`, a Settings page in the setup window (Start menu), and `check` and `about` show what is in effect.
 - Drafts from the owner's other addresses: a reply comes from the address the mail came to, `from` picks another of theirs, and reply-all leaves them all out (#162).
-- More AI assistants than Claude (#128): setup and the wizard register the server in OpenAI Codex, GitHub Copilot in VS Code, Cursor, Gemini CLI and LM Studio; texts say "the assistant"; the website says where each one sends the mail.
 - Ask Claude which version is installed and whether an update exists, and how to update (#125): `about` gives the version, whether Bridge answers and how to update, without network; `proton_mail_mcp_update` and *Check for updates* on the Settings page (#159) ask GitHub only when the owner asks (STANDARDS.md#update-check, approved 2026-11-17).
 
 Before sending, so that organizing and drafts have been in daily use for a while when 0.6 starts.
@@ -78,10 +77,12 @@ Before sending, so that organizing and drafts have been in daily use for a while
 - Attach files from the owner's outbox folder to a draft (`attachments` on the draft tools, `internal/outbox`) (#173).
 - Labels in `list_messages` and `search_messages`: each message's Proton labels, as tags (#172). Bridge doesn't send label colours.
 - One program on Windows: one Start-menu entry, and Status (the same check as `proton-mail-mcp check`), Settings and About pages in the window; an update cleans up the copies Claude was running (#176).
+- A professional design of the window, after Windows' Fluent 2: switches that save at once, the checks folded until one fails, Check for updates on About, the same height on every page (#204).
 
 - Options without the window: `proton-mail-mcp settings` shows them and `settings set` changes one, checked as the Settings page checks them; `fetch_image`'s error points to where to switch it on (#180).
 - `create_forward_draft`: forward a message as a draft, with its attachments (#186).
-- `find_contacts`: a person's address by name, from the headers in Sent and INBOX; Bridge has no contacts (#187).
+- `find_contacts`: a person's address by name, from the headers in Sent, INBOX and Archive; words in any order, misspellings forgiven (marked as close matches); Bridge has no contacts (#187).
+- `list_messages` with `within_hours` or `since`: only recent mail, for a short daily overview (#197).
 - Formatted drafts: `format: markdown` on the draft tools, turned into HTML by the server from a small, safe Markdown subset (#188).
 - `send_draft` (#181): sends an existing draft, only when the owner switched sending on (the Settings page, with a confirmation, or `PROTON_ALLOW_SEND=1`).
   - The call must name the draft's recipients.
@@ -114,4 +115,6 @@ Part of a working product: a user sets it up without editing files by hand, on W
 
 ## Later (ideas, not commitments)
 
+- More AI assistants than Claude (#128): setup and the window register the server in OpenAI Codex, GitHub Copilot in VS Code, Cursor, Gemini CLI and LM Studio; texts say "the assistant"; the website says where each one sends the mail.
+- New folders and labels (#189), search all mail at once (#190), whole conversations (#191), and the performance options in #197.
 - Optional direct Proton API (`go-proton-api`) instead of Bridge — unofficial API, its own risk assessment first.

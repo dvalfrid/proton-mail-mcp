@@ -77,13 +77,13 @@ The tools that change messages take a folder, 1 to 50 `uids` from that folder an
 
 **On Windows, the easy way:** download `proton-mail-mcp_<version>_windows_amd64_setup.exe` (or `_arm64_` for Windows on ARM) from the release and run it. It installs for you only, without administrator rights, into `%LOCALAPPDATA%\Programs\proton-mail-mcp`, adds **Proton Mail MCP** to the Start menu, and starts the setup wizard below. Running a newer installer later only updates the program: no questions, your settings stay. An update replaces the Start-menu entries of 0.5 and earlier (*Setup*, *Settings* and *Check*) with this one, and removes the copies of the old version Claude was still running once Claude has let go of them: at your next sign-in, or the next time you open Proton Mail MCP. Uninstall from *Settings → Apps*; it removes the program from Claude too, and your settings and saved password only if you tick that box.
 
-**On Windows** there is also a graphical setup: `proton-mail-mcp-setup.exe`, next to `proton-mail-mcp.exe` in the Windows download (the installer's *Proton Mail MCP* in the Start menu). Start it (double-click) and it does the steps below in a window that follows the Windows 11 look, light or dark: no terminal needed. Once set up, the same window is where you look after it, with three pages in its side menu:
+**On Windows** there is also a graphical setup: `proton-mail-mcp-setup.exe`, next to `proton-mail-mcp.exe` in the Windows download (the installer's *Proton Mail MCP* in the Start menu). Start it (double-click) and it does the steps below in a window that follows Windows 11's design (Fluent), light or dark: no terminal needed. Once set up, the same window is where you look after it, with three pages in its side menu:
 
-- **Status** runs the same check as `proton-mail-mcp check` (the same code, on the settings loaded the same way) and shows each step with a green or red mark. A step that fails says what to do and links to its section of the troubleshooting guide. *Check again* runs it again, for example after starting Bridge.
-- **Settings** changes the options (see [Options in config.json](#options-in-configjson)). *Check for updates* asks GitHub whether a newer version exists, only when you click, and links to its release page. Nothing is downloaded.
-- **About** shows the version, every tool by group (as Claude's `about` lists them) and which Claude apps start the server.
+- **Status** runs the same check as `proton-mail-mcp check` (the same code, on the settings loaded the same way). When all is well it says *Everything works*, with the checks folded under *Details*. When a check fails, it names the problem, says what to do, links to its section of the troubleshooting guide, and opens the details. *Check again* runs it again, for example after starting Bridge. *Used by* lists the Claude apps that start it.
+- **Settings** changes the options (see [Options in config.json](#options-in-configjson)) with switches that are saved at once. Switching sending on asks you to confirm first.
+- **About** shows the version and what Claude can do. *Check for updates* asks GitHub whether a newer version exists, only when you click, and links to its release page; nothing is downloaded. *All tools, setup again, and technical details* opens every tool by group (as Claude's `about` lists them) and the path of the program Claude starts.
 
-It opens on Status when a step fails, otherwise on Settings. *Set up again* (on Status and About) runs the setup steps again, after a Bridge reset or a new Bridge password. It needs Microsoft Edge WebView2, which Windows 11 has; without it, it opens the terminal setup instead. macOS and Linux get it later ([#91](https://github.com/dvalfrid/proton-mail-mcp/issues/91)).
+It opens on Status when a check fails, otherwise on Settings. *Set up again* (on Status, and under About's details) runs the setup steps again, after a Bridge reset or a new Bridge password. It needs Microsoft Edge WebView2, which Windows 11 has; without it, it opens the terminal setup instead. macOS and Linux get it later ([#91](https://github.com/dvalfrid/proton-mail-mcp/issues/91)).
 
 Put the program somewhere permanent, for example `C:\Tools\proton-mail-mcp\` (Windows) or `~/bin` (macOS/Linux). Build it with `./tools/task.ps1 build`, or download a release. Then, with Proton Mail Bridge running and signed in, run in a terminal:
 
@@ -135,7 +135,7 @@ The five options above that aren't about Bridge can also be kept in `config.json
 "allow_send": true
 ```
 
-On Windows, open **Proton Mail MCP** in the Start menu and choose **Settings** to change them in a window: a switch for images, folder pickers for attachments and the outbox, the number of changes per run, and a switch for sending (which asks you to confirm). It saves `config.json`, and shows an option that `.env` or the environment sets as locked.
+On Windows, open **Proton Mail MCP** in the Start menu and choose **Settings** to change them in a window: switches for sending (which asks you to confirm) and for images, the number of changes per run, and folder pickers (*Change…*, *Use default*) for attachments and the outbox. Each change is saved to `config.json` at once, and shows an option that `.env` or the environment sets as locked.
 
 Elsewhere (macOS, Linux, or Windows without the window), use the terminal. Like the window, it saves `config.json` and checks values the same way:
 
@@ -198,7 +198,7 @@ Restart the client; the tools appear under `proton-mail`. Keep the password in `
 `send_draft` is off until you switch it on, and then Claude must still ask you before every send:
 
 1. **Switch it on.**
-   - On Windows: open **Proton Mail MCP** in the Start menu → **Settings**, tick *Let Claude send drafts*, confirm, and save.
+   - On Windows: open **Proton Mail MCP** in the Start menu → **Settings**, switch on *Send drafts*, and choose *Turn on* when it asks.
    - Elsewhere: run `proton-mail-mcp settings set allow_send on` (or set `PROTON_ALLOW_SEND=1`).
 
    Then restart Claude.

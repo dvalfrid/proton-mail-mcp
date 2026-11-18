@@ -242,7 +242,7 @@ const S = {
 // ---- Steps ----
 function stepWelcome() {
   return `<div class="appicon">${ICON()}</div><h1>Set up Proton Mail MCP</h1>
-    <p class="lead">Lets Claude read and organise your Proton Mail, through Proton Mail Bridge on this computer. It takes about a minute.</p>
+    <p class="lead">Lets Claude read, organise and draft your Proton Mail, through Proton Mail Bridge on this computer. It takes about a minute.</p>
     <ol class="bullets"><li><span class="num">1</span>Find Proton Mail Bridge</li><li><span class="num">2</span>Sign in with your Bridge password</li><li><span class="num">3</span>Add it to Claude</li></ol>
     <p class="small">You need Proton Mail Bridge installed and signed in. <a data-link="bridge" tabindex="0">Get Bridge</a></p>
     ${S.state?.error ? banner('warn', 'Your earlier settings could not be read', esc(S.state.error) + ' Setup will write new ones.') : ''}`;
