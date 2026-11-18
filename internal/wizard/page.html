@@ -253,7 +253,7 @@ function stepClaude() {
     : `<div class="row"><label class="check" style="width:100%"><input type="checkbox" data-i="${i}" ${S.pick[c.name] !== false ? 'checked' : ''} ${S.registering ? 'disabled' : ''}><div class="text"><div class="title">${esc(c.name)}${c.other ? ': switch to this copy' : ''}</div><div class="sub">${c.other ? `Now starts another copy: <span class="mono">${esc(c.other)}</span>` : 'Found on this computer'}</div></div></label></div>`).join('');
   return `<h2>Add to Claude</h2><p class="lead">Choose where Claude gets access to your mailbox. You can change this later by running setup again.</p>
     <div class="card rows">${items}</div>
-    <p class="small" style="margin-top:14px">Claude can read and organise mail. It can't send mail or permanently delete anything.</p>
+    <p class="small" style="margin-top:14px">Claude can read and organise mail and write drafts. It sends only a draft you have seen, after you switch sending on in Settings, and it can't permanently delete anything.</p>
     ${S.registering ? `<div class="busy small">${I.spin} Adding…</div>` : ''}`;
 }
 
@@ -274,7 +274,9 @@ function stepDone() {
 const VIEWS = [['status', 'Status'], ['settings', 'Settings'], ['about', 'About']];
 // Hints write commands in `backticks`.
 // The check writes sentences for the terminal, lower-case first.
-const cap = s => String(s ?? '').charAt(0).toUpperCase() + String(s ?? '').slice(1);
+// cap starts a sentence with a capital, but never changes an address,
+// file name or path: "alice@example.com" and "config.json" stay as written.
+const cap = s => { s = String(s ?? ''); return /[@.\\/:]/.test(s.split(/\s/)[0]) ? s : s.charAt(0).toUpperCase() + s.slice(1); };
 const hintHTML = s => esc(cap(s)).replace(/`([^`]+)`/g, '<code>$1</code>');
 
 function viewStatus() {
@@ -304,7 +306,7 @@ function viewAbout() {
   const groups = (st.tools || []).map(g => `<h3>${esc(g.group)}</h3><div class="card rows tools">${
     g.tools.map(t => `<div class="row"><span class="name mono">${esc(t.name)}</span><div class="text sub">${esc(t.description)}</div></div>`).join('')}</div>`).join('');
   return `<div class="appicon">${ICON}</div><h2>Proton Mail MCP ${esc(st.version)}</h2>
-    <p class="lead">Lets Claude read and organise your Proton Mail through Proton Mail Bridge. It can't send mail or permanently delete anything.</p>
+    <p class="lead">Lets Claude read and organise your Proton Mail through Proton Mail Bridge, and write drafts. It sends only a draft you have seen, after you switch sending on in Settings, and it can't permanently delete anything.</p>
     <h3>Added to</h3><div class="card rows">${clients || row(I.warn, 'warnc', 'No Claude app found on this computer')}</div>
     <p class="small" style="margin-top:8px">The program Claude starts: <span class="mono">${esc(st.exe)}</span>. <a id="setup-again" tabindex="0">Set up again</a></p>
     <h3 style="margin-top:22px">What Claude can do</h3>${groups}
