@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.6.0](https://github.com/dvalfrid/proton-mail-mcp/compare/v0.5.0...v0.6.0) (2026-11-18)
+
+
+### Features
+
+* **setup:** a professional design for Status, Settings and About (Fluent 2) ([#206](https://github.com/dvalfrid/proton-mail-mcp/issues/206)) ([35e9d63](https://github.com/dvalfrid/proton-mail-mcp/commit/35e9d6305d0f2f8e24ff3bd5e37bdb099131f8e7))
+* **setup:** one program on Windows with Status and About pages ([#177](https://github.com/dvalfrid/proton-mail-mcp/issues/177)) ([13d057b](https://github.com/dvalfrid/proton-mail-mcp/commit/13d057ba22a41eb4ce8afda7b3423e7d9ac8a7cf))
+* **tools:** attach files from the owner's outbox folder to a draft ([#174](https://github.com/dvalfrid/proton-mail-mcp/issues/174)) ([cbc4f40](https://github.com/dvalfrid/proton-mail-mcp/commit/cbc4f40944f0c1ca79752dcb6f6b8b5459536af3))
+* **tools:** check for a newer version, on request, from Claude and the Settings page ([#179](https://github.com/dvalfrid/proton-mail-mcp/issues/179)) ([5eb8cc1](https://github.com/dvalfrid/proton-mail-mcp/commit/5eb8cc1151d817b1b361099fdba4e626e82ac374))
+* **tools:** find a person's address by name in the owner's mail ([#193](https://github.com/dvalfrid/proton-mail-mcp/issues/193)) ([a2fa94b](https://github.com/dvalfrid/proton-mail-mcp/commit/a2fa94bf740082f23a9ac15daf568f894e9d6cc4))
+* **tools:** find_contacts finds a misspelt name, marked as a close match ([#196](https://github.com/dvalfrid/proton-mail-mcp/issues/196)) ([cc028aa](https://github.com/dvalfrid/proton-mail-mcp/commit/cc028aa6242da5983ccb42f547ced13d63e6ccab))
+* **tools:** find_contacts matches words in any order, reads Archive, and caches ([#195](https://github.com/dvalfrid/proton-mail-mcp/issues/195)) ([27070ae](https://github.com/dvalfrid/proton-mail-mcp/commit/27070ae5648498bd0cc60389af46bbfd6c05ae5e))
+* **tools:** formatted drafts from a small, safe Markdown subset ([#194](https://github.com/dvalfrid/proton-mail-mcp/issues/194)) ([8e37703](https://github.com/dvalfrid/proton-mail-mcp/commit/8e3770351e5e8aa3f0adb2a9bfaef0fecc4ea2f1))
+* **tools:** forward a message as a draft, with its attachments ([#192](https://github.com/dvalfrid/proton-mail-mcp/issues/192)) ([2dea4ba](https://github.com/dvalfrid/proton-mail-mcp/commit/2dea4ba20a1f5ca898bef3472dc0d59ba649c99b))
+* **tools:** list only recent mail with within_hours or since ([#202](https://github.com/dvalfrid/proton-mail-mcp/issues/202)) ([e01518f](https://github.com/dvalfrid/proton-mail-mcp/commit/e01518f150364a2e8c7266e903ba35cc21e335ca))
+* **tools:** send_draft sends an existing draft, when switched on and asked ([#182](https://github.com/dvalfrid/proton-mail-mcp/issues/182)) ([d029fbb](https://github.com/dvalfrid/proton-mail-mcp/commit/d029fbbd1b8a4dd27589d3ff1ae7e7fd1cb47e5c))
+* **tools:** show each message's labels in list_messages and search_messages ([#178](https://github.com/dvalfrid/proton-mail-mcp/issues/178)) ([f2d101e](https://github.com/dvalfrid/proton-mail-mcp/commit/f2d101e612832c614ebd2d5c1c471319f1d2bedd))
+
+
+### Bug Fixes
+
+* **setup:** a taller window, the settings command in about, and the right Claude Desktop path ([#207](https://github.com/dvalfrid/proton-mail-mcp/issues/207)) ([31be09c](https://github.com/dvalfrid/proton-mail-mcp/commit/31be09cd31111dec2dd7ff905c251d9d3d1c67bb))
+* **setup:** say that drafts can be sent, and keep addresses as written ([#205](https://github.com/dvalfrid/proton-mail-mcp/issues/205)) ([4b9e618](https://github.com/dvalfrid/proton-mail-mcp/commit/4b9e618b2639707a7df795f03b3d54862ecbc5bd))
+
 ## [0.5.0](https://github.com/dvalfrid/proton-mail-mcp/compare/v0.4.0...v0.5.0) (2026-11-15)
 
 
