@@ -19,8 +19,8 @@ import (
 	"github.com/dvalfrid/proton-mail-mcp/internal/wizard"
 )
 
-// Twice the wizard's 780x560, for sharp images on high-density screens.
-const zoom, width, height = 2, 780, 560
+// Twice the wizard's 780x720, for sharp images on high-density screens.
+const zoom, width, height = 2, 780, 720
 
 // mock answers the page's calls with invented data.
 const mock = `

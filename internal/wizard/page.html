@@ -398,7 +398,8 @@ function viewStatus() {
   const icon = { ok: [I.ok(), 'ok'], fail: [I.err, 'err'], advice: [I.warn, 'warnc'] };
   const details = r.steps.map(s => {
     const [ic, cls] = icon[s.status] || icon.advice;
-    const what = s.status === 'ok' ? '' :
+    // The failing step's fix is in the red row above: not twice.
+    const what = s.status === 'ok' || s === fail ? '' :
       (s.hint ? `<div class="what">${hintHTML(s.hint)}</div>` : '') +
       (s.help ? `<div class="what"><a data-help="${esc(s.help)}" tabindex="0">Help with this</a></div>` : '');
     return `<div class="row"><span class="icon ${cls}">${ic}</span><div class="text"><div class="title">${esc(s.title || s.name)}</div><div class="sub">${esc(cap(s.detail))}</div>${what}</div></div>`;
