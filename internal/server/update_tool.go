@@ -27,7 +27,7 @@ func registerUpdateTool(s *mcp.Server, version string, updates update.Source) {
 		Name: "proton_mail_mcp_update",
 		Description: "Proton Mail connector (proton-mail-mcp): is there a newer version of this program? " + knownAs + " " +
 			"Use it only when the owner asks whether there is an update. It asks GitHub once for the latest release " +
-			"(" + fetch.ReleasesPage + "; pre-releases are never offered), sending nothing but the program's name, and says whether it is newer than the running version, with how to update. " +
+			"(" + fetch.ReleasesPage + "; release candidates only if the owner chose the test channel), sending nothing but the program's name, and says whether it is newer than the running version, with how to update. " +
 			"Never downloads or installs anything. Does not touch the mailbox. For the installed version alone, use about, which needs no internet.",
 		Annotations: &mcp.ToolAnnotations{Title: "Check for a Proton Mail MCP update", ReadOnlyHint: true, OpenWorldHint: &open},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ UpdateInput) (*mcp.CallToolResult, UpdateOutput, error) {

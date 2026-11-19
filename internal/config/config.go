@@ -40,6 +40,15 @@ const (
 	// EnvAllowRemoteImages turns on fetch_image, which fetches an image a
 	// message links to on the internet (off by default, issue #150).
 	EnvAllowRemoteImages = "PROTON_ALLOW_REMOTE_IMAGES"
+	// EnvUpdateChannel is ChannelStable (the default) or ChannelTest, which
+	// makes the update check offer release candidates too (issue #213).
+	EnvUpdateChannel = "PROTON_UPDATE_CHANNEL"
+)
+
+// The update channels.
+const (
+	ChannelStable = "stable"
+	ChannelTest   = "test"
 )
 
 // Bridge defaults.
@@ -74,6 +83,8 @@ type Config struct {
 	// LabelColors maps the owner's label names to a color from Colors
 	// (issue #209). Nil if none is set.
 	LabelColors map[string]string
+	// UpdateChannel is ChannelStable or ChannelTest.
+	UpdateChannel string
 	// Options are the owner's options with where each came from, filled in
 	// by the caller that knows the files (Options); nil from Load.
 	Options []Option
@@ -99,6 +110,7 @@ func (c Config) LogValue() slog.Value {
 		slog.Bool("attachment_dir", c.AttachmentDir != ""),
 		slog.Bool("outbox_dir", c.OutboxDir != ""),
 		slog.Int("label_colors", len(c.LabelColors)), // the names are the owner's: not logged
+		slog.String("update_channel", c.UpdateChannel),
 	)
 }
 
@@ -162,6 +174,15 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		if cfg.LabelColors, err = parseLabelColors(v); err != nil {
 			errs = append(errs, err)
 		}
+	}
+
+	switch v := strings.ToLower(get(EnvUpdateChannel)); v {
+	case "", ChannelStable:
+		cfg.UpdateChannel = ChannelStable
+	case ChannelTest:
+		cfg.UpdateChannel = ChannelTest
+	default:
+		errs = append(errs, fmt.Errorf("%s=%q: use stable or test", EnvUpdateChannel, v))
 	}
 
 	switch v := get(EnvAllowSend); v {

@@ -35,7 +35,7 @@ Claude can list, search and read messages, mark them read or unread, star them, 
 | Tool | What it does | Changes the mailbox |
 |---|---|---|
 | `about` | The running version, whether Proton Mail Bridge answers, how to update, and every tool in one line, grouped. Ask Claude "which version of Proton Mail MCP do I have?", "does the connection to Proton Mail work?" or "what can the Proton Mail tools do?". No internet | No |
-| `proton_mail_mcp_update` | Whether a newer version exists, and how to install it. Ask Claude "is there an update for Proton Mail MCP?". It asks GitHub once for the latest release (one fixed address; pre-releases are never offered) and never downloads anything. Nothing checks for updates unless you ask | No |
+| `proton_mail_mcp_update` | Whether a newer version exists, and how to install it. Ask Claude "is there an update for Proton Mail MCP?". It asks GitHub once for the latest release (one fixed address; release candidates only if you chose the test channel, see [Release candidates](#release-candidates)) and never downloads anything. Nothing checks for updates unless you ask | No |
 | `list_folders` | Folders with message and unread counts, and the color you picked for each label (see [Label colors](#label-colors)) | No |
 | `list_messages` | Newest messages in a folder: uid, date, sender, subject, read/flagged, the message's labels (`labels`, e.g. `["Customer", "Invoice"]`, which Claude shows as tags, with their colors in `label_colors`), plus the folder's `uidvalidity`. `within_hours` (e.g. 24) or `since` (a date) lists only recent mail, which keeps an overview short | No (messages stay unread) |
 | `search_messages` | Messages in one folder matching all given criteria: `from`, `to`, `subject`, `body` (case-insensitive text), `since` / `before` (dates received), `unread_only`. At least one criterion; same result shape as `list_messages` | No (messages stay unread) |
@@ -121,12 +121,13 @@ For the certificate, export it from Bridge (Settings → Advanced → Export TLS
 | `PROTON_ATTACHMENT_DIR` | `Proton Mail MCP` in your Downloads folder | The only folder `save_attachment` saves into, as a full path. Created on the first save |
 | `PROTON_OUTBOX_DIR` | `Proton Mail MCP outbox` in your Documents folder | The only folder the draft tools attach files from, as a full path. Put only what you mean to send there: to send a file Claude made, ask Claude to save it there first. At most 10 files and 20 MiB per draft; no subfolders, hidden files or links out of the folder. The server never writes there |
 | `PROTON_MAX_CHANGES` | `200` | How many messages the organize tools may change, and drafts the draft tools may write, together, per server run: a guard against instructions hidden in emails. Restart Claude to reset the count |
+| `PROTON_UPDATE_CHANNEL` | `stable` | `test` makes the update check offer release candidates too. See [Release candidates](#release-candidates) |
 | `PROTON_LABEL_COLORS` | none | A color for each label, as JSON: `{"Work":"blue","Family":"green"}`. See [Label colors](#label-colors) |
 | `PROTON_MCP_CONFIG_DIR` | your config dir | Where setup's settings are kept |
 
 ### Options in config.json
 
-The six options above that aren't about Bridge can also be kept in `config.json`, the file setup writes in the settings folder (`PROTON_MCP_CONFIG_DIR`), so you don't need a `.env` file for them. Running setup again keeps them.
+The seven options above that aren't about Bridge can also be kept in `config.json`, the file setup writes in the settings folder (`PROTON_MCP_CONFIG_DIR`), so you don't need a `.env` file for them. Running setup again keeps them.
 
 ```json
 "allow_remote_images": true,
@@ -134,10 +135,11 @@ The six options above that aren't about Bridge can also be kept in `config.json`
 "outbox_dir": "D:\\Mail to send",
 "max_changes": 300,
 "allow_send": true,
-"label_colors": { "Work": "blue", "Family": "green" }
+"label_colors": { "Work": "blue", "Family": "green" },
+"update_channel": "test"
 ```
 
-On Windows, open **Proton Mail MCP** in the Start menu and choose **Settings** to change them in a window: switches for sending (which asks you to confirm) and for images, the number of changes per run, and folder pickers (*Change…*, *Use default*) for attachments and the outbox, and a color for each label. Each change is saved to `config.json` at once, and shows an option that `.env` or the environment sets as locked.
+On Windows, open **Proton Mail MCP** in the Start menu and choose **Settings** to change them in a window: switches for sending (which asks you to confirm) and for images, the number of changes per run, and folder pickers (*Change…*, *Use default*) for attachments and the outbox, a color for each label, and a switch for release candidates. Each change is saved to `config.json` at once, and shows an option that `.env` or the environment sets as locked.
 
 Elsewhere (macOS, Linux, or Windows without the window), use the terminal. Like the window, it saves `config.json` and checks values the same way:
 
@@ -148,6 +150,7 @@ proton-mail-mcp settings set attachment_dir default
 proton-mail-mcp settings set allow_send on
 proton-mail-mcp settings set label_color Work blue
 proton-mail-mcp settings set label_color Work none
+proton-mail-mcp settings set update_channel test
 ```
 
 - With no arguments, it lists each option, its value and where the value came from.
@@ -159,6 +162,10 @@ The environment and `.env` override `config.json`. `proton-mail-mcp check` lists
 ### Label colors
 
 Proton Mail Bridge doesn't pass on the colors your labels have in Proton Mail, so Claude can't see them. Pick a color for each label instead, on the Settings page or with `settings set label_color`, and Claude shows the label with it: *Invoice* 🔵Work 🟢Family. The colors are those chat apps can show: red 🔴, orange 🟠, yellow 🟡, green 🟢, blue 🔵, purple 🟣, brown 🟤, black ⚫ and white ⚪; pick the nearest one (Proton's pink, for instance, has no circle of its own). Names are matched without regard to case. A label without a color is shown as a plain tag.
+
+### Release candidates
+
+A release candidate (`0.7.0-rc.1`) is a test version of the next release, published as a pre-release before the release itself. It is built and signed like a release, but the website, `releases/latest` and winget never offer it. To try them, switch on *Release candidates* on the Settings page, or run `proton-mail-mcp settings set update_channel test`. Then *Check for updates* and `proton_mail_mcp_update` offer the newest release or release candidate, whichever is newer, and say when it is a release candidate. Nothing is downloaded: you install it from its release page as usual. Switch back to `stable` at any time; the release itself counts as newer than its candidates, so you get it as an ordinary update.
 
 Check the program: `proton-mail-mcp --version`.
 

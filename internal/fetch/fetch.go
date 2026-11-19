@@ -48,6 +48,8 @@ type Fetcher struct {
 	limit  int64
 	// latestURL is where Latest asks; tests point it at a test server.
 	latestURL string
+	// releasesURL is where Releases asks, for the test channel.
+	releasesURL string
 	// allow decides whether a connection may be made to an address; tests
 	// replace it to reach a local test server.
 	allow func(netip.AddrPort) bool
@@ -55,7 +57,7 @@ type Fetcher struct {
 
 // New returns a Fetcher that reads at most limit bytes of a response.
 func New(limit int64) *Fetcher {
-	f := &Fetcher{limit: limit, latestURL: latestURL, allow: Public}
+	f := &Fetcher{limit: limit, latestURL: latestURL, releasesURL: releasesURL, allow: Public}
 	dialer := &net.Dialer{
 		Timeout: Timeout,
 		// Control runs for every connection, after DNS, with the address

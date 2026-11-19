@@ -31,13 +31,16 @@ type Settings struct {
 	AllowSend *bool `json:"allow_send,omitempty"`
 	// LabelColors maps label names to colors (issue #209).
 	LabelColors map[string]string `json:"label_colors,omitempty"`
+	// UpdateChannel is "test" for release candidates (issue #213); empty
+	// is the stable channel.
+	UpdateChannel string `json:"update_channel,omitempty"`
 }
 
 // KeepOptions returns s with the owner's options from prev, so running
 // setup again keeps them.
 func (s Settings) KeepOptions(prev Settings) Settings {
 	s.AllowRemoteImages, s.AttachmentDir, s.OutboxDir, s.MaxChanges = prev.AllowRemoteImages, prev.AttachmentDir, prev.OutboxDir, prev.MaxChanges
-	s.AllowSend, s.LabelColors = prev.AllowSend, prev.LabelColors
+	s.AllowSend, s.LabelColors, s.UpdateChannel = prev.AllowSend, prev.LabelColors, prev.UpdateChannel
 	return s
 }
 
@@ -148,6 +151,7 @@ func (s Settings) Values() map[string]string {
 			m[EnvAllowSend] = "1"
 		}
 	}
+	set(EnvUpdateChannel, s.UpdateChannel)
 	set(EnvAttachmentDir, s.AttachmentDir)
 	set(EnvOutboxDir, s.OutboxDir)
 	if s.MaxChanges != 0 {

@@ -161,3 +161,21 @@ func TestSettingsCommandLabelColor(t *testing.T) {
 		t.Errorf("after none: %v", got)
 	}
 }
+
+// update_channel switches release candidates on and off (issue #213).
+func TestSettingsCommandUpdateChannel(t *testing.T) {
+	t.Parallel()
+	c, out := settingsCmd(t, "")
+	if err := c.Run(nil); err != nil || !strings.Contains(out.String(), "update_channel       stable  (default)") {
+		t.Errorf("show: %v\n%s", err, out)
+	}
+	if err := c.Run([]string{"set", "update_channel", "test"}); err != nil || saved(t, c).UpdateChannel != config.ChannelTest {
+		t.Errorf("test: %v, %+v", err, saved(t, c))
+	}
+	if err := c.Run([]string{"set", "update_channel", "beta"}); err == nil {
+		t.Error("beta accepted")
+	}
+	if err := c.Run([]string{"set", "update_channel", "stable"}); err != nil || saved(t, c).UpdateChannel != "" {
+		t.Errorf("stable: %v, %+v", err, saved(t, c))
+	}
+}

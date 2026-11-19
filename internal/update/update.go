@@ -1,7 +1,9 @@
 // Package update tells the owner whether a newer release of proton-mail-mcp
 // exists and how to install it. Only on request: the proton_mail_mcp_update
-// tool and the Check for updates button on the Settings page (issue #125,
-// STANDARDS.md#update-check). It never downloads or installs anything.
+// tool and the Check for updates button on the About page (issue #125,
+// STANDARDS.md#update-check). Release candidates count only in the test
+// channel the owner chose (issue #213). It never downloads or installs
+// anything.
 package update
 
 import (
@@ -11,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dvalfrid/proton-mail-mcp/internal/config"
 	"github.com/dvalfrid/proton-mail-mcp/internal/fetch"
 )
 
@@ -19,10 +22,48 @@ type Source interface {
 	Latest(ctx context.Context) (fetch.Release, error)
 }
 
+// Lister also lists the newest releases and release candidates:
+// fetch.Fetcher.
+type Lister interface {
+	Source
+	Releases(ctx context.Context) ([]fetch.Release, error)
+}
+
+// ForChannel is src for the owner's update channel (issue #213): as it is
+// for the stable channel, and for the test channel one whose latest is the
+// newest release or release candidate.
+func ForChannel(src Lister, channel string) Source {
+	if channel == config.ChannelTest {
+		return testChannel{src}
+	}
+	return src
+}
+
+type testChannel struct{ src Lister }
+
+// Latest is the newest of the releases and release candidates.
+func (t testChannel) Latest(ctx context.Context) (fetch.Release, error) {
+	list, err := t.src.Releases(ctx)
+	if err != nil {
+		return fetch.Release{}, err
+	}
+	if len(list) == 0 {
+		return fetch.Release{}, fmt.Errorf("%w: GitHub's answer holds no release", fetch.ErrNoRelease)
+	}
+	best := list[0]
+	for _, r := range list[1:] {
+		if order, ok := Compare(r.Version, best.Version); ok && order > 0 {
+			best = r
+		}
+	}
+	return best, nil
+}
+
 // Result is the answer to "is there an update?".
 type Result struct {
 	Running         string `json:"running" jsonschema:"the version running now"`
-	Latest          string `json:"latest" jsonschema:"the latest release; pre-releases are never offered"`
+	Latest          string `json:"latest" jsonschema:"the latest release; a release candidate only in the test channel the owner chose"`
+	Candidate       bool   `json:"release_candidate,omitempty" jsonschema:"latest is a release candidate, for testing: offered only because the owner chose the test channel"`
 	UpdateAvailable bool   `json:"update_available"`
 	ReleaseURL      string `json:"release_url" jsonschema:"the latest release's page, where its files are downloaded"`
 	Message         string `json:"message" jsonschema:"the answer in one sentence, for the owner"`
@@ -35,14 +76,18 @@ func Check(ctx context.Context, src Source, running string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	r := Result{Running: running, Latest: rel.Version, ReleaseURL: rel.URL}
+	r := Result{Running: running, Latest: rel.Version, ReleaseURL: rel.URL, Candidate: rel.Candidate}
+	name := rel.Version
+	if rel.Candidate {
+		name += ", a release candidate for testing,"
+	}
 	order, ok := Compare(running, rel.Version)
 	switch {
 	case !ok:
 		r.Message = fmt.Sprintf("This build has no release version (%s); the latest release is %s.", running, rel.Version)
 	case order < 0:
 		r.UpdateAvailable = true
-		r.Message = fmt.Sprintf("Proton Mail MCP %s is available; you have %s.", rel.Version, strings.TrimPrefix(running, "v"))
+		r.Message = fmt.Sprintf("Proton Mail MCP %s is available; you have %s.", name, strings.TrimPrefix(running, "v"))
 		r.HowToUpdate = HowTo(rel.Version)
 	case order == 0:
 		r.Message = fmt.Sprintf("You have the latest version (%s).", rel.Version)

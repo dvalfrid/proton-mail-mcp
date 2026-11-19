@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/dvalfrid/proton-mail-mcp/internal/check"
 	"github.com/dvalfrid/proton-mail-mcp/internal/config"
@@ -30,6 +31,7 @@ type Settings struct {
 	DefaultMaxChanges    int               `json:"defaultMaxChanges"`
 	LabelColors          map[string]string `json:"labelColors"` // label → color name (issue #209)
 	Colors               []config.Color    `json:"colors"`      // the colors a label can have
+	TestChannel          bool              `json:"testChannel"` // Check for updates offers release candidates (issue #213)
 	Locked               map[string]string `json:"locked"`      // option → where it is set instead: "environment" or ".env"
 }
 
@@ -41,6 +43,7 @@ var optionVars = map[string]string{
 	"maxChanges":        config.EnvMaxChanges,
 	"allowSend":         config.EnvAllowSend,
 	"labelColors":       config.EnvLabelColors,
+	"testChannel":       config.EnvUpdateChannel,
 }
 
 // errConfirmSend is saveSettings' answer when sending is switched on
@@ -91,6 +94,7 @@ func (b *Backend) getSettings() Settings {
 	if saved.LabelColors != nil {
 		s.LabelColors = saved.LabelColors
 	}
+	s.TestChannel = saved.UpdateChannel == config.ChannelTest
 	dotenv := b.dotEnv()
 	for name, key := range optionVars {
 		switch o := config.Origin(key, dotenv, saved); o {
@@ -132,6 +136,8 @@ func (s *Settings) showLocked(name, v string) {
 		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
 			s.MaxChanges = n
 		}
+	case "testChannel":
+		s.TestChannel = strings.EqualFold(v, config.ChannelTest)
 	case "labelColors":
 		var m map[string]string
 		if json.Unmarshal([]byte(v), &m) == nil {
@@ -156,6 +162,7 @@ func (b *Backend) saveSettings(args json.RawMessage) (Settings, error) {
 		MaxChanges        int
 		AllowSend         bool
 		LabelColors       map[string]string
+		TestChannel       bool
 		// ConfirmSend is the page's confirmation, needed to switch
 		// sending on when it was off.
 		ConfirmSend bool
@@ -174,7 +181,7 @@ func (b *Backend) saveSettings(args json.RawMessage) (Settings, error) {
 	}
 	saved, err = config.ApplyOptions(saved, config.OptionValues{
 		AllowRemoteImages: a.AllowRemoteImages, AttachmentDir: a.AttachmentDir, OutboxDir: a.OutboxDir,
-		MaxChanges: a.MaxChanges, AllowSend: a.AllowSend, LabelColors: a.LabelColors,
+		MaxChanges: a.MaxChanges, AllowSend: a.AllowSend, LabelColors: a.LabelColors, TestChannel: a.TestChannel,
 	}, locked, a.ConfirmSend)
 	if errors.Is(err, config.ErrConfirmSend) {
 		return Settings{}, errConfirmSend

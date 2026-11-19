@@ -32,6 +32,7 @@ import (
 	"github.com/dvalfrid/proton-mail-mcp/internal/send"
 	"github.com/dvalfrid/proton-mail-mcp/internal/server"
 	"github.com/dvalfrid/proton-mail-mcp/internal/setup"
+	"github.com/dvalfrid/proton-mail-mcp/internal/update"
 )
 
 // version is set at build time: -ldflags "-X main.version=...".
@@ -145,14 +146,14 @@ func runCheck() int {
 }
 
 func run(logger *slog.Logger) error {
-	mailClient, folders, images, sender, settings := connect(logger)
+	mailClient, folders, images, sender, settings, updates := connect(logger)
 	defer func() { _ = mailClient.Close() }() // best effort on shutdown
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
 	err := server.New(version, mailClient, folders, images,
-		fetch.New(0), // only proton_mail_mcp_update uses it, and only when the owner asks (STANDARDS.md#update-check)
+		updates, // only proton_mail_mcp_update uses it, and only when the owner asks (STANDARDS.md#update-check)
 		sender, settings...).Run(ctx, &mcp.StdioTransport{})
 	if errors.Is(err, context.Canceled) {
 		return nil
@@ -166,8 +167,9 @@ func run(logger *slog.Logger) error {
 // client only showing a disconnected server. No connection is made then.
 // It also returns the attachment and outbox folders, empty without settings, and the
 // image fetcher for fetch_image, nil unless PROTON_ALLOW_REMOTE_IMAGES=1, and
-// the sender for send_draft, which refuses unless sending is switched on.
-func connect(logger *slog.Logger) (*mail.Client, server.Folders, server.ImageFetcher, *send.Sender, []config.Option) {
+// the sender for send_draft, which refuses unless sending is switched on,
+// and the update check for the owner's channel.
+func connect(logger *slog.Logger) (*mail.Client, server.Folders, server.ImageFetcher, *send.Sender, []config.Option, update.Source) {
 	cfg, _, err := loadConfig()
 	if err == nil {
 		var tlsCfg *tls.Config
@@ -191,9 +193,9 @@ func connect(logger *slog.Logger) (*mail.Client, server.Folders, server.ImageFet
 				send.New(send.Options{
 					Allowed: cfg.AllowSend, Addr: cfg.SMTPAddr(), TLSConfig: tlsCfg, // Bridge uses one certificate for IMAP and SMTP
 					User: cfg.User, Password: cfg.Password,
-				}), cfg.Options
+				}), cfg.Options, update.ForChannel(fetch.New(0), cfg.UpdateChannel)
 		}
 	}
 	logger.Error("not set up; every tool will say so", "version", version, "err", err, "help", help.URL(help.NotSetUp))
-	return mail.NewUnconfigured(err, logger), server.Folders{}, nil, nil, nil
+	return mail.NewUnconfigured(err, logger), server.Folders{}, nil, nil, nil, fetch.New(0)
 }

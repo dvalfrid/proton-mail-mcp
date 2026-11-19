@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dvalfrid/proton-mail-mcp/internal/config"
 	"github.com/dvalfrid/proton-mail-mcp/internal/fetch"
 )
 
@@ -73,5 +74,46 @@ func TestCheck(t *testing.T) {
 	offline := fixed{err: fetch.ErrNoRelease}
 	if _, err := Check(context.Background(), offline, "0.5.0"); !errors.Is(err, fetch.ErrNoRelease) {
 		t.Errorf("offline: err = %v", err)
+	}
+}
+
+type listed struct {
+	fixed
+	list []fetch.Release
+}
+
+func (l listed) Releases(context.Context) ([]fetch.Release, error) { return l.list, l.err }
+
+// The stable channel asks for the latest release only; the test channel
+// takes the newest release or release candidate (issue #213).
+func TestForChannel(t *testing.T) {
+	t.Parallel()
+	src := listed{
+		fixed: fixed{rel: fetch.Release{Version: "0.6.0", URL: fetch.ReleasesPage + "/tag/v0.6.0"}},
+		list: []fetch.Release{
+			{Version: "0.6.0", URL: fetch.ReleasesPage + "/tag/v0.6.0"},
+			{Version: "0.7.0-rc.2", URL: fetch.ReleasesPage + "/tag/v0.7.0-rc.2", Candidate: true},
+			{Version: "0.7.0-rc.10", URL: fetch.ReleasesPage + "/tag/v0.7.0-rc.10", Candidate: true},
+			{Version: "0.6.0-rc.5", URL: fetch.ReleasesPage + "/tag/v0.6.0-rc.5", Candidate: true},
+		},
+	}
+	r, err := Check(context.Background(), ForChannel(src, config.ChannelStable), "0.6.0")
+	if err != nil || r.UpdateAvailable || r.Latest != "0.6.0" || r.Candidate {
+		t.Errorf("stable: %+v, %v", r, err)
+	}
+	r, err = Check(context.Background(), ForChannel(src, config.ChannelTest), "0.6.0")
+	if err != nil || !r.UpdateAvailable || r.Latest != "0.7.0-rc.10" || !r.Candidate || !strings.Contains(r.Message, "release candidate") ||
+		!strings.Contains(r.HowToUpdate, "proton-mail-mcp_0.7.0-rc.10_") || r.ReleaseURL != fetch.ReleasesPage+"/tag/v0.7.0-rc.10" {
+		t.Errorf("test: %+v, %v", r, err)
+	}
+	// Once the release is out, it is newer than its candidates.
+	src.list = append(src.list, fetch.Release{Version: "0.7.0", URL: fetch.ReleasesPage + "/tag/v0.7.0"})
+	r, err = Check(context.Background(), ForChannel(src, config.ChannelTest), "0.7.0-rc.10")
+	if err != nil || !r.UpdateAvailable || r.Latest != "0.7.0" || r.Candidate {
+		t.Errorf("test, after the release: %+v, %v", r, err)
+	}
+	src.list, src.err = nil, fetch.ErrNoRelease
+	if _, err := Check(context.Background(), ForChannel(src, config.ChannelTest), "0.6.0"); !errors.Is(err, fetch.ErrNoRelease) {
+		t.Errorf("offline: %v", err)
 	}
 }
