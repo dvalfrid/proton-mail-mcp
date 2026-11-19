@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/dvalfrid/proton-mail-mcp/compare/v0.6.0...v0.7.0) (2026-11-19)
+
+
+### Features
+
+* **tools:** label colors, shown as an emoji before the label's name ([#211](https://github.com/dvalfrid/proton-mail-mcp/issues/211)) ([873a3b7](https://github.com/dvalfrid/proton-mail-mcp/commit/873a3b781749f18224273f66fd20456803a61618))
+* **update:** a test channel that offers release candidates ([#214](https://github.com/dvalfrid/proton-mail-mcp/issues/214)) ([4ffb764](https://github.com/dvalfrid/proton-mail-mcp/commit/4ffb764d5aed368ebdd499aad217d5606ef3e2b8))
+
 ## [0.6.0](https://github.com/dvalfrid/proton-mail-mcp/compare/v0.5.0...v0.6.0) (2026-11-18)
 
 
