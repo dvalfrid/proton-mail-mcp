@@ -29,6 +29,9 @@ type Folder struct {
 	Role     string `json:"role,omitempty" jsonschema:"special use: inbox, drafts, sent, trash, spam, archive or all"`
 	Messages uint32 `json:"messages"`
 	Unread   uint32 `json:"unread"`
+	// Color is a label's color as an emoji, from the owner's settings
+	// (Bridge doesn't send label colors); set by the server.
+	Color string `json:"color,omitempty" jsonschema:"for a label: the color the owner picked, as an emoji to show before its name"`
 }
 
 // Summary is one message in a listing. Subject and From are written by the

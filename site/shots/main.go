@@ -43,7 +43,9 @@ window.__pmcp = (id, method, args) => {
       { name: 'smtp', title: 'Sending', status: 'ok', detail: '127.0.0.1:1025 answers' }] }); break;
     case 'getSettings': case 'saveSettings': reply({ setUp: true, allowRemoteImages: false, attachmentDir: '',
       defaultAttachmentDir: 'C:\\Users\\alice\\Downloads\\Proton Mail MCP', outboxDir: '',
-      defaultOutboxDir: 'C:\\Users\\alice\\Documents\\Proton Mail MCP outbox', maxChanges: 200, defaultMaxChanges: 200, allowSend: true, locked: {} }); break;
+      defaultOutboxDir: 'C:\\Users\\alice\\Documents\\Proton Mail MCP outbox', maxChanges: 200, defaultMaxChanges: 200, allowSend: true, locked: {},
+      labelColors: { Work: 'blue', Family: 'green', Receipts: 'yellow' },
+      colors: [['red', '🔴'], ['orange', '🟠'], ['yellow', '🟡'], ['green', '🟢'], ['blue', '🔵'], ['purple', '🟣'], ['brown', '🟤'], ['black', '⚫'], ['white', '⚪']].map(([name, emoji]) => ({ name, emoji })) }); break;
     case 'checkUpdate': reply({ running: '0.6.0', latest: '0.6.0', update_available: false, message: 'You have the latest version (0.6.0).' }); break;
     case 'findBridge': reply({ addr: '127.0.0.1:1143', answers: true, isBridge: true, installed: true,
       fingerprint: '5C:1E:9A:04:7D:B2:63:F0:8A:21:CE:47:93:0B:D8:6F:12:A5:3E:C9:70:4D:E1:88:2B:96:F4:0C:57:A3:1D:6E',

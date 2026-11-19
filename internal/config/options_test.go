@@ -26,7 +26,7 @@ func TestOptionsFromTheSettingsFile(t *testing.T) {
 	if !cfg.AllowRemoteImages || cfg.AttachmentDir != dir || cfg.OutboxDir != outbox || cfg.MaxChanges != 30 {
 		t.Errorf("from config.json: %+v", cfg)
 	}
-	if got := origins(cfg); !slices.Equal(got, []string{FromSettings, FromSettings, FromSettings, FromSettings, FromDefault}) {
+	if got := origins(cfg); !slices.Equal(got, []string{FromSettings, FromSettings, FromSettings, FromSettings, FromDefault, FromDefault}) {
 		t.Errorf("origins %q", got)
 	}
 

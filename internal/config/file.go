@@ -29,13 +29,15 @@ type Settings struct {
 	// AllowSend switches send_draft on (issue #181). Only the owner sets it,
 	// on the Settings page, never a tool.
 	AllowSend *bool `json:"allow_send,omitempty"`
+	// LabelColors maps label names to colors (issue #209).
+	LabelColors map[string]string `json:"label_colors,omitempty"`
 }
 
 // KeepOptions returns s with the owner's options from prev, so running
 // setup again keeps them.
 func (s Settings) KeepOptions(prev Settings) Settings {
 	s.AllowRemoteImages, s.AttachmentDir, s.OutboxDir, s.MaxChanges = prev.AllowRemoteImages, prev.AttachmentDir, prev.OutboxDir, prev.MaxChanges
-	s.AllowSend = prev.AllowSend
+	s.AllowSend, s.LabelColors = prev.AllowSend, prev.LabelColors
 	return s
 }
 
@@ -150,6 +152,11 @@ func (s Settings) Values() map[string]string {
 	set(EnvOutboxDir, s.OutboxDir)
 	if s.MaxChanges != 0 {
 		m[EnvMaxChanges] = strconv.Itoa(s.MaxChanges)
+	}
+	if len(s.LabelColors) > 0 {
+		if data, err := json.Marshal(s.LabelColors); err == nil { // a map of strings always marshals
+			m[EnvLabelColors] = string(data)
+		}
 	}
 	return m
 }

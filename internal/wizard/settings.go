@@ -28,7 +28,9 @@ type Settings struct {
 	MaxChanges           int               `json:"maxChanges"`
 	AllowSend            bool              `json:"allowSend"`
 	DefaultMaxChanges    int               `json:"defaultMaxChanges"`
-	Locked               map[string]string `json:"locked"` // option → where it is set instead: "environment" or ".env"
+	LabelColors          map[string]string `json:"labelColors"` // label → color name (issue #209)
+	Colors               []config.Color    `json:"colors"`      // the colors a label can have
+	Locked               map[string]string `json:"locked"`      // option → where it is set instead: "environment" or ".env"
 }
 
 // The options by the name the page uses, with their variables.
@@ -38,6 +40,7 @@ var optionVars = map[string]string{
 	"outboxDir":         config.EnvOutboxDir,
 	"maxChanges":        config.EnvMaxChanges,
 	"allowSend":         config.EnvAllowSend,
+	"labelColors":       config.EnvLabelColors,
 }
 
 // errConfirmSend is saveSettings' answer when sending is switched on
@@ -72,7 +75,7 @@ func (b *Backend) dotEnv() map[string]string {
 
 func (b *Backend) getSettings() Settings {
 	saved, err := config.ReadSettings(config.SettingsFile(b.o.Dir))
-	s := Settings{SetUp: err == nil && saved.User != "", DefaultMaxChanges: config.DefaultMaxChanges, MaxChanges: config.DefaultMaxChanges, Locked: map[string]string{}}
+	s := Settings{SetUp: err == nil && saved.User != "", DefaultMaxChanges: config.DefaultMaxChanges, MaxChanges: config.DefaultMaxChanges, Locked: map[string]string{}, LabelColors: map[string]string{}, Colors: config.Colors}
 	s.DefaultAttachmentDir, _ = config.DefaultAttachmentDir()
 	s.DefaultOutboxDir, _ = config.DefaultOutboxDir()
 	if saved.AllowRemoteImages != nil {
@@ -84,6 +87,9 @@ func (b *Backend) getSettings() Settings {
 	}
 	if saved.AllowSend != nil {
 		s.AllowSend = *saved.AllowSend
+	}
+	if saved.LabelColors != nil {
+		s.LabelColors = saved.LabelColors
 	}
 	dotenv := b.dotEnv()
 	for name, key := range optionVars {
@@ -126,6 +132,16 @@ func (s *Settings) showLocked(name, v string) {
 		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
 			s.MaxChanges = n
 		}
+	case "labelColors":
+		var m map[string]string
+		if json.Unmarshal([]byte(v), &m) == nil {
+			if m, err := config.CheckLabelColors(m); err == nil {
+				s.LabelColors = map[string]string{} // what .env sets, even none
+				for k, c := range m {
+					s.LabelColors[k] = c
+				}
+			}
+		}
 	}
 }
 
@@ -139,6 +155,7 @@ func (b *Backend) saveSettings(args json.RawMessage) (Settings, error) {
 		OutboxDir         string
 		MaxChanges        int
 		AllowSend         bool
+		LabelColors       map[string]string
 		// ConfirmSend is the page's confirmation, needed to switch
 		// sending on when it was off.
 		ConfirmSend bool
@@ -157,7 +174,7 @@ func (b *Backend) saveSettings(args json.RawMessage) (Settings, error) {
 	}
 	saved, err = config.ApplyOptions(saved, config.OptionValues{
 		AllowRemoteImages: a.AllowRemoteImages, AttachmentDir: a.AttachmentDir, OutboxDir: a.OutboxDir,
-		MaxChanges: a.MaxChanges, AllowSend: a.AllowSend,
+		MaxChanges: a.MaxChanges, AllowSend: a.AllowSend, LabelColors: a.LabelColors,
 	}, locked, a.ConfirmSend)
 	if errors.Is(err, config.ErrConfirmSend) {
 		return Settings{}, errConfirmSend

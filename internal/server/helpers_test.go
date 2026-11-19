@@ -29,6 +29,10 @@ type env struct {
 	outbox  string // the outbox folder: a fresh temporary folder, made
 }
 
+// testLabelColors are the owner's label colors in every test: the label
+// in lower case, as matching ignores case.
+var testLabelColors = map[string]string{"travel": "blue", "Unused": "red"}
+
 func newEnv(t *testing.T) *env {
 	t.Helper()
 	return newEnvWith(t, nil)
@@ -73,7 +77,7 @@ func newEnvAll(t *testing.T, change func(*mail.Options), images ImageFetcher, se
 	dir := filepath.Join(t.TempDir(), "attachments") // created by the first save
 	outbox := t.TempDir()
 	serverT, clientT := mcp.NewInMemoryTransports()
-	ss, err := New("test", m, Folders{Attachments: dir, Outbox: outbox}, images, nil, sender).Connect(ctx, serverT, nil)
+	ss, err := New("test", m, Folders{Attachments: dir, Outbox: outbox, LabelColors: testLabelColors}, images, nil, sender).Connect(ctx, serverT, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 )
@@ -13,15 +14,15 @@ func TestSettingsRoundTrip(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "proton-mail-mcp")
 	path := SettingsFile(dir)
 
-	if s, err := ReadSettings(path); err != nil || s != (Settings{}) {
+	if s, err := ReadSettings(path); err != nil || !reflect.DeepEqual(s, Settings{}) {
 		t.Fatalf("missing file: %+v, %v", s, err)
 	}
-	want := Settings{User: "alice@example.com", Host: "127.0.0.1", IMAPPort: 1144, SMTPPort: 1026, CertFile: CertPath(dir), Fingerprint: "AA:BB"}
+	want := Settings{User: "alice@example.com", Host: "127.0.0.1", IMAPPort: 1144, SMTPPort: 1026, CertFile: CertPath(dir), Fingerprint: "AA:BB", LabelColors: map[string]string{"Work": "blue"}}
 	if err := WriteSettings(path, want); err != nil {
 		t.Fatal(err)
 	}
 	got, err := ReadSettings(path)
-	if err != nil || got != want {
+	if err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("read back %+v, %v; want %+v", got, err, want)
 	}
 	if runtime.GOOS != "windows" { // Windows has no Unix permission bits
