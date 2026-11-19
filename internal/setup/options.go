@@ -34,10 +34,20 @@ var settingsOptions = []option{
 	{"outbox_dir", config.EnvOutboxDir, "a full path, or default: the only folder drafts attach files from"},
 	{"max_changes", config.EnvMaxChanges, fmt.Sprintf("1 to %d: messages changed and drafts written per run", config.MaxMaxChanges)},
 	{"allow_send", config.EnvAllowSend, "on or off: send_draft sends a draft you have seen, after asking you"},
+	{"label_color", config.EnvLabelColors, "<label> <color>, or <label> none: the color Claude shows the label in (" + colorList() + ")"},
+}
+
+// colorList names the colors a label can have.
+func colorList() string {
+	names := make([]string, len(config.Colors))
+	for i, c := range config.Colors {
+		names[i] = c.Name
+	}
+	return strings.Join(names, ", ")
 }
 
 // errUsage is a command the settings command doesn't know.
-var errUsage = errors.New("usage: proton-mail-mcp settings [set <option> <value>]")
+var errUsage = errors.New("usage: proton-mail-mcp settings [set <option> <value>], or settings set label_color <label> <color>")
 
 // Run shows the options (no args) or changes one ("set", name, value).
 func (c SettingsCommand) Run(args []string) error {
@@ -54,11 +64,17 @@ func (c SettingsCommand) Run(args []string) error {
 		c.show(dotenv, saved)
 		return nil
 	}
-	if len(args) != 3 || args[0] != "set" {
-		return errUsage
+	switch len(args) {
+	case 4: // set label_color <label> <color>
+		if a := [4]string(args); a[0] == "set" && a[1] == "label_color" {
+			return c.setLabelColor(file, dotenv, saved, a[2], a[3])
+		}
+	case 3: // set <option> <value>
+		if a := [3]string(args); a[0] == "set" && a[1] != "label_color" {
+			return c.set(file, dotenv, saved, a[1], a[2])
+		}
 	}
-	name, value := args[1], args[2]
-	return c.set(file, dotenv, saved, name, value)
+	return errUsage
 }
 
 func (c SettingsCommand) show(dotenv map[string]string, saved config.Settings) {
@@ -66,6 +82,7 @@ func (c SettingsCommand) show(dotenv map[string]string, saved config.Settings) {
 	shown := map[string]string{
 		"allow_remote_images": onOff(v.AllowRemoteImages), "attachment_dir": orDefault(v.AttachmentDir),
 		"outbox_dir": orDefault(v.OutboxDir), "max_changes": strconv.Itoa(v.MaxChanges), "allow_send": onOff(v.AllowSend),
+		"label_color": config.FormatLabelColors(v.LabelColors),
 	}
 	lookup := config.Lookup(dotenv)
 	for _, o := range settingsOptions {
@@ -90,8 +107,8 @@ func (c SettingsCommand) set(file string, dotenv map[string]string, saved config
 			opt = &settingsOptions[i]
 		}
 	}
-	if opt == nil {
-		return fmt.Errorf("no option %q; the options are allow_remote_images, attachment_dir, outbox_dir, max_changes and allow_send", name)
+	if opt == nil || opt.name == "label_color" {
+		return fmt.Errorf("no option %q; the options are allow_remote_images, attachment_dir, outbox_dir, max_changes, allow_send and label_color", name)
 	}
 	locked := config.Locked(dotenv, saved)
 	if locked[opt.key] {
@@ -116,6 +133,32 @@ func (c SettingsCommand) set(file string, dotenv map[string]string, saved config
 	if err != nil {
 		return err
 	}
+	return c.save(file, saved, v, locked, name)
+}
+
+// setLabelColor gives label a color, or takes its color away ("none").
+func (c SettingsCommand) setLabelColor(file string, dotenv map[string]string, saved config.Settings, label, color string) error {
+	locked := config.Locked(dotenv, saved)
+	if locked[config.EnvLabelColors] {
+		return fmt.Errorf("label colors are set in %s (%s), which overrides config.json: change them there", config.Origin(config.EnvLabelColors, dotenv, saved), config.EnvLabelColors)
+	}
+	label = strings.TrimSpace(label)
+	v := saved.OptionValues()
+	colors := map[string]string{}
+	for name, c := range v.LabelColors {
+		if !strings.EqualFold(name, label) { // the new color replaces the old, whatever its case
+			colors[name] = c
+		}
+	}
+	if !strings.EqualFold(color, "none") {
+		colors[label] = color
+	}
+	v.LabelColors = colors
+	return c.save(file, saved, v, locked, "the color of "+label)
+}
+
+// save checks v, writes it into the settings file and says so.
+func (c SettingsCommand) save(file string, saved config.Settings, v config.OptionValues, locked map[string]bool, what string) error {
 	updated, err := config.ApplyOptions(saved, v, locked, false)
 	if errors.Is(err, config.ErrConfirmSend) {
 		if !c.confirmSend() {
@@ -129,7 +172,7 @@ func (c SettingsCommand) set(file string, dotenv map[string]string, saved config
 	if err := config.WriteSettings(file, updated); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(c.Out, "Saved %s. Restart Claude to use it.\n", name) // a failed write to the terminal can't be reported
+	_, _ = fmt.Fprintf(c.Out, "Saved %s. Restart Claude to use it.\n", what) // a failed write to the terminal can't be reported
 	return nil
 }
 

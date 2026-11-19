@@ -71,6 +71,9 @@ type Config struct {
 	// OutboxDir is the absolute path of the folder files are attached
 	// from. Empty if it is unset and the default couldn't be found.
 	OutboxDir string
+	// LabelColors maps the owner's label names to a color from Colors
+	// (issue #209). Nil if none is set.
+	LabelColors map[string]string
 	// Options are the owner's options with where each came from, filled in
 	// by the caller that knows the files (Options); nil from Load.
 	Options []Option
@@ -95,6 +98,7 @@ func (c Config) LogValue() slog.Value {
 		slog.Int("max_changes", c.MaxChanges),
 		slog.Bool("attachment_dir", c.AttachmentDir != ""),
 		slog.Bool("outbox_dir", c.OutboxDir != ""),
+		slog.Int("label_colors", len(c.LabelColors)), // the names are the owner's: not logged
 	)
 }
 
@@ -152,6 +156,12 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	}
 	if cfg.OutboxDir, err = folder(get(EnvOutboxDir), EnvOutboxDir, DefaultOutboxDir); err != nil {
 		errs = append(errs, err)
+	}
+
+	if v := get(EnvLabelColors); v != "" {
+		if cfg.LabelColors, err = parseLabelColors(v); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	switch v := get(EnvAllowSend); v {

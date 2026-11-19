@@ -143,3 +143,44 @@ func TestSettingsSendNeedsConfirmation(t *testing.T) {
 		t.Errorf("off saved as %+v", got)
 	}
 }
+
+// The Settings page reads and saves label colors, refuses a color not in
+// the palette, and shows those .env sets as locked (issue #209).
+func TestSettingsLabelColors(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t, true)
+	exeDir := t.TempDir()
+	f.b.o.Exe = filepath.Join(exeDir, "proton-mail-mcp.exe")
+	file := config.SettingsFile(f.o.Dir)
+	if err := config.WriteSettings(file, config.Settings{User: "alice@example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	var s Settings
+	if err := f.call(t, "getSettings", nil, &s); err != nil || len(s.LabelColors) != 0 || len(s.Colors) != len(config.Colors) {
+		t.Fatalf("before: %+v, %v", s, err)
+	}
+	args := map[string]any{"maxChanges": 5, "labelColors": map[string]string{"Work": "blue", "Family": "green"}}
+	if err := f.call(t, "saveSettings", args, &s); err != nil || s.LabelColors["Work"] != "blue" || s.LabelColors["Family"] != "green" {
+		t.Fatalf("saved %v, %v", s.LabelColors, err)
+	}
+	if got, _ := config.ReadSettings(file); len(got.LabelColors) != 2 {
+		t.Errorf("in the file: %v", got.LabelColors)
+	}
+	if err := f.call(t, "saveSettings", map[string]any{"maxChanges": 5, "labelColors": map[string]string{"Work": "teal"}}, nil); err == nil {
+		t.Error("teal was saved")
+	}
+
+	if err := os.WriteFile(filepath.Join(exeDir, ".env"), []byte(config.EnvLabelColors+`={"Travel":"red"}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var locked Settings // a fresh one: decoding into s would merge the maps
+	if err := f.call(t, "getSettings", nil, &locked); err != nil || locked.Locked["labelColors"] != ".env" || len(locked.LabelColors) != 1 || locked.LabelColors["Travel"] != "red" {
+		t.Errorf("locked by .env: %v %v, %v", locked.Locked, locked.LabelColors, err)
+	}
+	if err := f.call(t, "saveSettings", map[string]any{"maxChanges": 5, "labelColors": map[string]string{}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := config.ReadSettings(file); len(got.LabelColors) != 2 {
+		t.Errorf("a locked option was changed: %v", got.LabelColors)
+	}
+}

@@ -920,6 +920,10 @@
           "items": {
             "additionalProperties": false,
             "properties": {
+              "color": {
+                "description": "for a label: the color the owner picked, as an emoji to show before its name",
+                "type": "string"
+              },
               "messages": {
                 "maximum": 4294967295,
                 "minimum": 0,
@@ -1000,6 +1004,13 @@
       "properties": {
         "folder": {
           "type": "string"
+        },
+        "label_colors": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "the color the owner picked for each label on these messages that has one, as an emoji, by label name",
+          "type": "object"
         },
         "messages": {
           "items": {
@@ -1804,6 +1815,13 @@
       "properties": {
         "folder": {
           "type": "string"
+        },
+        "label_colors": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "the color the owner picked for each label on these messages that has one, as an emoji, by label name",
+          "type": "object"
         },
         "messages": {
           "items": {

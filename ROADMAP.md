@@ -91,6 +91,10 @@ Before sending, so that organizing and drafts have been in daily use for a while
   - Bridge removes the sent draft.
   - The README says how to make Claude Desktop and Claude Code always ask; other clients come with #128.
 
+## 0.7 — More for daily mail
+
+- Label colors: the owner picks a color per label (the Settings page, `settings set label_color`, `PROTON_LABEL_COLORS`), and `list_folders`, `list_messages` and `search_messages` give it as an emoji for Claude to show before the label's name; Bridge doesn't send Proton's colors (#209).
+
 ## macOS and Linux (milestone *macOS and Linux*)
 
 First the functions, then the platforms. The owner decided this on 2026-11-17. Installation on macOS and Linux waits until the tools are complete and have been stable on Windows for a while. The program already builds and runs there; what is missing is setup that has been tried there, and the packages.

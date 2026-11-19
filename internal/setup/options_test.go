@@ -123,3 +123,41 @@ func TestSettingsCommandLocked(t *testing.T) {
 		t.Error("no usage error")
 	}
 }
+
+// label_color gives one label a color, or takes it away, keeping the
+// others (issue #209).
+func TestSettingsCommandLabelColor(t *testing.T) {
+	t.Parallel()
+	c, out := settingsCmd(t, "")
+	for _, args := range [][]string{
+		{"set", "label_color", "Work", "blue"},
+		{"set", "label_color", "Family", "Green"},
+		{"set", "label_color", "work", "red"}, // the same label, whatever its case
+	} {
+		if err := c.Run(args); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	if got := saved(t, c).LabelColors; len(got) != 2 || got["work"] != "red" || got["Family"] != "green" {
+		t.Errorf("saved %v", got)
+	}
+	out.Reset()
+	if err := c.Run(nil); err != nil || !strings.Contains(out.String(), "Family=green, work=red") {
+		t.Errorf("show: %v\n%s", err, out)
+	}
+	for _, args := range [][]string{
+		{"set", "label_color", "Work", "pink"},
+		{"set", "label_color", "Work"},
+		{"set", "label_color", "", "blue"},
+	} {
+		if err := c.Run(args); err == nil {
+			t.Errorf("%v: accepted", args)
+		}
+	}
+	if err := c.Run([]string{"set", "label_color", "WORK", "none"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := saved(t, c).LabelColors; len(got) != 1 || got["Family"] != "green" {
+		t.Errorf("after none: %v", got)
+	}
+}

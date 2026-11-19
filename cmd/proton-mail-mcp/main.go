@@ -187,7 +187,7 @@ func connect(logger *slog.Logger) (*mail.Client, server.Folders, server.ImageFet
 			return mail.New(mail.Options{
 					Addr: cfg.IMAPAddr(), User: cfg.User, Password: cfg.Password,
 					TLSConfig: tlsCfg, MaxChanges: cfg.MaxChanges, Logger: logger,
-				}), server.Folders{Attachments: cfg.AttachmentDir, Outbox: cfg.OutboxDir}, images,
+				}), server.Folders{Attachments: cfg.AttachmentDir, Outbox: cfg.OutboxDir, LabelColors: cfg.LabelColors}, images,
 				send.New(send.Options{
 					Allowed: cfg.AllowSend, Addr: cfg.SMTPAddr(), TLSConfig: tlsCfg, // Bridge uses one certificate for IMAP and SMTP
 					User: cfg.User, Password: cfg.Password,

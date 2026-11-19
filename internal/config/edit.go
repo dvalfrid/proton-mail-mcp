@@ -23,12 +23,14 @@ type OptionValues struct {
 	OutboxDir         string
 	MaxChanges        int
 	AllowSend         bool
+	// LabelColors maps label names to colors; nil for none.
+	LabelColors map[string]string
 }
 
 // OptionValues returns the options s holds, with the defaults where it
 // holds none.
 func (s Settings) OptionValues() OptionValues {
-	v := OptionValues{AttachmentDir: s.AttachmentDir, OutboxDir: s.OutboxDir, MaxChanges: DefaultMaxChanges}
+	v := OptionValues{AttachmentDir: s.AttachmentDir, OutboxDir: s.OutboxDir, MaxChanges: DefaultMaxChanges, LabelColors: s.LabelColors}
 	if s.AllowRemoteImages != nil {
 		v.AllowRemoteImages = *s.AllowRemoteImages
 	}
@@ -58,6 +60,10 @@ func ApplyOptions(saved Settings, v OptionValues, locked map[string]bool, confir
 	case v.OutboxDir != "" && !filepath.IsAbs(v.OutboxDir):
 		return Settings{}, errors.New("the outbox folder must be a full path, like D:\\Mail to send")
 	}
+	colors, err := CheckLabelColors(v.LabelColors)
+	if err != nil {
+		return Settings{}, err
+	}
 	if saved.User == "" {
 		return Settings{}, errors.New("set up Proton Mail MCP first: the options are saved with its settings")
 	}
@@ -85,6 +91,9 @@ func ApplyOptions(saved Settings, v OptionValues, locked map[string]bool, confir
 		on := v.AllowSend
 		saved.AllowSend = &on
 	}
+	if !locked[EnvLabelColors] {
+		saved.LabelColors = colors
+	}
 	if !locked[EnvMaxChanges] {
 		saved.MaxChanges = 0
 		if v.MaxChanges != DefaultMaxChanges {
@@ -98,7 +107,7 @@ func ApplyOptions(saved Settings, v OptionValues, locked map[string]bool, confir
 // which override config.json.
 func Locked(dotenv map[string]string, saved Settings) map[string]bool {
 	out := map[string]bool{}
-	for _, key := range []string{EnvAllowRemoteImages, EnvAttachmentDir, EnvOutboxDir, EnvMaxChanges, EnvAllowSend} {
+	for _, key := range []string{EnvAllowRemoteImages, EnvAttachmentDir, EnvOutboxDir, EnvMaxChanges, EnvAllowSend, EnvLabelColors} {
 		switch Origin(key, dotenv, saved) {
 		case FromEnvironment, FromDotEnv:
 			out[key] = true
