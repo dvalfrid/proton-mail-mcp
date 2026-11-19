@@ -94,6 +94,7 @@ Before sending, so that organizing and drafts have been in daily use for a while
 ## 0.7 — More for daily mail
 
 - Label colors: the owner picks a color per label (the Settings page, `settings set label_color`, `PROTON_LABEL_COLORS`), and `list_folders`, `list_messages` and `search_messages` give it as an emoji for Claude to show before the label's name; Bridge doesn't send Proton's colors (#209).
+- An update channel for testers: with `update_channel` set to `test` (the Settings page, `settings set`, `PROTON_UPDATE_CHANNEL`), the update check offers release candidates too (#213).
 
 ## macOS and Linux (milestone *macOS and Linux*)
 

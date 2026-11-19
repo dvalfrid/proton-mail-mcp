@@ -62,7 +62,7 @@ type Backend struct {
 	settingsOnly bool                               // open on the Settings page, without checking first
 	pickFolder   func(start string) (string, error) // the native folder picker; nil in tests
 
-	updates    update.Source // GitHub's latest release, asked only on the owner's click
+	updates    update.Lister // GitHub's latest release, or the list for the test channel, asked only on the owner's click
 	releaseURL string        // the release page the last update check found
 }
 

@@ -34,6 +34,7 @@ var settingsOptions = []option{
 	{"outbox_dir", config.EnvOutboxDir, "a full path, or default: the only folder drafts attach files from"},
 	{"max_changes", config.EnvMaxChanges, fmt.Sprintf("1 to %d: messages changed and drafts written per run", config.MaxMaxChanges)},
 	{"allow_send", config.EnvAllowSend, "on or off: send_draft sends a draft you have seen, after asking you"},
+	{"update_channel", config.EnvUpdateChannel, "stable or test: test also offers release candidates when you check for updates"},
 	{"label_color", config.EnvLabelColors, "<label> <color>, or <label> none: the color Claude shows the label in (" + colorList() + ")"},
 }
 
@@ -82,7 +83,7 @@ func (c SettingsCommand) show(dotenv map[string]string, saved config.Settings) {
 	shown := map[string]string{
 		"allow_remote_images": onOff(v.AllowRemoteImages), "attachment_dir": orDefault(v.AttachmentDir),
 		"outbox_dir": orDefault(v.OutboxDir), "max_changes": strconv.Itoa(v.MaxChanges), "allow_send": onOff(v.AllowSend),
-		"label_color": config.FormatLabelColors(v.LabelColors),
+		"label_color": config.FormatLabelColors(v.LabelColors), "update_channel": channel(v.TestChannel),
 	}
 	lookup := config.Lookup(dotenv)
 	for _, o := range settingsOptions {
@@ -108,7 +109,7 @@ func (c SettingsCommand) set(file string, dotenv map[string]string, saved config
 		}
 	}
 	if opt == nil || opt.name == "label_color" {
-		return fmt.Errorf("no option %q; the options are allow_remote_images, attachment_dir, outbox_dir, max_changes, allow_send and label_color", name)
+		return fmt.Errorf("no option %q; the options are allow_remote_images, attachment_dir, outbox_dir, max_changes, allow_send, update_channel and label_color", name)
 	}
 	locked := config.Locked(dotenv, saved)
 	if locked[opt.key] {
@@ -125,6 +126,13 @@ func (c SettingsCommand) set(file string, dotenv map[string]string, saved config
 		v.AttachmentDir = folderValue(value)
 	case "outbox_dir":
 		v.OutboxDir = folderValue(value)
+	case "update_channel":
+		switch strings.ToLower(value) {
+		case config.ChannelStable, config.ChannelTest:
+			v.TestChannel = strings.EqualFold(value, config.ChannelTest)
+		default:
+			err = fmt.Errorf("%q: use stable or test", value)
+		}
 	case "max_changes":
 		if v.MaxChanges, err = strconv.Atoi(value); err != nil {
 			err = fmt.Errorf("max_changes must be a whole number from 1 to %d", config.MaxMaxChanges)
@@ -200,6 +208,13 @@ func folderValue(s string) string {
 		return ""
 	}
 	return s
+}
+
+func channel(test bool) string {
+	if test {
+		return config.ChannelTest
+	}
+	return config.ChannelStable
 }
 
 func onOff(b bool) string {

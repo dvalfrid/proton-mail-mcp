@@ -115,7 +115,7 @@ These are hard rules. A change that breaks one is not merged, whatever it adds. 
 |---|---|---|
 | Read | list folders, list/search messages, read a message, view an image | Allowed |
 | Fetch | `fetch_image`: an image a message links to on the internet, when the owner asks | Gated: off unless `PROTON_ALLOW_REMOTE_IMAGES=1`, see [Remote images](#remote-images) |
-| Update check | `proton_mail_mcp_update`: ask GitHub whether a newer release exists, when the owner asks | Allowed: one fixed address, nothing downloaded, see [Update check](#update-check) |
+| Update check | `proton_mail_mcp_update`: ask GitHub whether a newer release exists, when the owner asks | Allowed: fixed addresses, nothing downloaded, see [Update check](#update-check) |
 | Save | save an attachment into the owner's attachment folder | Allowed: never replaces a file, never opens one |
 | Organize | move, mark read/unread, flag, label, move to Trash, mark as spam | Allowed (undoable), at most `PROTON_MAX_CHANGES` messages (200 by default) per server run. Spam has its own rules, see [Spam](#spam) |
 | Draft | create, update draft in `Drafts`, with files from the owner's outbox folder attached | Allowed; files only from the outbox, see [Attaching files](#attaching-files) |
@@ -204,9 +204,11 @@ The program contacts GitHub only when the owner asks whether there is an update.
   - the *Check for updates* button on the About page of the window, when the owner clicks it.
 
   Nothing checks in the background or at start-up. `about` gives the version and how to update without the internet.
-- **One fixed address.** `https://api.github.com/repos/dvalfrid/proton-mail-mcp/releases/latest`. The tool takes no input, so nothing from a message or from Claude goes into the request.
+- **Two fixed addresses, the second only for testers.** The tool takes no input, so nothing from a message or from Claude goes into the request.
+  - `https://api.github.com/repos/dvalfrid/proton-mail-mcp/releases/latest`, in the stable channel (the default).
+  - `https://api.github.com/repos/dvalfrid/proton-mail-mcp/releases?per_page=20`, only in the test channel, which the owner switches on outside Claude (the Settings page, `settings set update_channel test` or `PROTON_UPDATE_CHANNEL=test`). No tool can change the channel (`TestNoToolWritesSettings`). Approved by the owner on 2026-11-19 (issue #213).
 - **Nothing extra goes out.** No cookies or tokens, and a neutral User-Agent. GitHub sees the request and the IP address, nothing else.
-- **Only the tag is read.** It must be `vX.Y.Z`. Drafts and pre-releases are never offered. The release-page link is built from the tag, never taken from the answer.
+- **Only the tag is read.** It must be `vX.Y.Z`, or in the test channel `vX.Y.Z-rc.N`. Drafts are never offered, and release candidates only in the test channel. The release-page link is built from the tag, never taken from the answer.
 - **Bounded.**
   - At most 1 MiB and 15 seconds.
   - The same dial check as `fetch_image`: https on port 443, public addresses only, no proxy.

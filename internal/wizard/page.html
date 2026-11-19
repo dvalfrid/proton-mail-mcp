@@ -451,6 +451,9 @@ function viewSettings() {
       ${folder('outboxDir', s.defaultOutboxDir, G.outbox, 'Files to send')}
     </div>
     ${labelColorsCard(s, locked, busy)}
+    <h3>Updates</h3><div class="card">
+      ${srow(G.outbox, 'Release candidates', 'Check for updates also offers test versions of the next release, for trying it before it is released.', toggle('opt-test', s.testChannel, s.locked.testChannel || busy), locked('testChannel'))}
+    </div>
     <p class="small" style="margin-top:10px">${busy ? 'Saving…' : S.settingsSaved ? 'Saved. Restart Claude to use the change.' : 'Changes are saved at once. Restart Claude to use them.'}</p>`;
 }
 
@@ -549,6 +552,7 @@ function wireSettings() {
   const s = S.settings;
   const im = $('#opt-images'), snd = $('#opt-send'), max = $('#opt-max');
   if (im) im.onchange = e => saveSettings({ allowRemoteImages: e.target.checked });
+  const test = $('#opt-test'); if (test) test.onchange = e => saveSettings({ testChannel: e.target.checked });
   if (snd) snd.onchange = e => {
     if (e.target.checked && !s.allowSend) { S.askSend = true; renderApp(); return; }
     S.askSend = false; saveSettings({ allowSend: e.target.checked });
@@ -589,7 +593,7 @@ async function saveSettings(change, confirmSend = false) {
   S.savingSettings = true; S.settingsError = ''; S.settingsSaved = false; renderApp();
   try {
     S.settings = await call('saveSettings', { allowRemoteImages: !!s.allowRemoteImages, attachmentDir: s.attachmentDir || '', outboxDir: s.outboxDir || '',
-      maxChanges: Number(s.maxChanges), allowSend: !!s.allowSend, labelColors: s.labelColors || {}, confirmSend });
+      maxChanges: Number(s.maxChanges), allowSend: !!s.allowSend, labelColors: s.labelColors || {}, testChannel: !!s.testChannel, confirmSend });
     S.settingsSaved = true;
   } catch (e) { S.settingsError = e.message; }
   S.savingSettings = false; renderApp();

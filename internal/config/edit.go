@@ -25,12 +25,14 @@ type OptionValues struct {
 	AllowSend         bool
 	// LabelColors maps label names to colors; nil for none.
 	LabelColors map[string]string
+	// TestChannel makes the update check offer release candidates.
+	TestChannel bool
 }
 
 // OptionValues returns the options s holds, with the defaults where it
 // holds none.
 func (s Settings) OptionValues() OptionValues {
-	v := OptionValues{AttachmentDir: s.AttachmentDir, OutboxDir: s.OutboxDir, MaxChanges: DefaultMaxChanges, LabelColors: s.LabelColors}
+	v := OptionValues{AttachmentDir: s.AttachmentDir, OutboxDir: s.OutboxDir, MaxChanges: DefaultMaxChanges, LabelColors: s.LabelColors, TestChannel: s.UpdateChannel == ChannelTest}
 	if s.AllowRemoteImages != nil {
 		v.AllowRemoteImages = *s.AllowRemoteImages
 	}
@@ -91,6 +93,12 @@ func ApplyOptions(saved Settings, v OptionValues, locked map[string]bool, confir
 		on := v.AllowSend
 		saved.AllowSend = &on
 	}
+	if !locked[EnvUpdateChannel] {
+		saved.UpdateChannel = ""
+		if v.TestChannel {
+			saved.UpdateChannel = ChannelTest
+		}
+	}
 	if !locked[EnvLabelColors] {
 		saved.LabelColors = colors
 	}
@@ -107,7 +115,7 @@ func ApplyOptions(saved Settings, v OptionValues, locked map[string]bool, confir
 // which override config.json.
 func Locked(dotenv map[string]string, saved Settings) map[string]bool {
 	out := map[string]bool{}
-	for _, key := range []string{EnvAllowRemoteImages, EnvAttachmentDir, EnvOutboxDir, EnvMaxChanges, EnvAllowSend, EnvLabelColors} {
+	for _, key := range []string{EnvAllowRemoteImages, EnvAttachmentDir, EnvOutboxDir, EnvMaxChanges, EnvAllowSend, EnvLabelColors, EnvUpdateChannel} {
 		switch Origin(key, dotenv, saved) {
 		case FromEnvironment, FromDotEnv:
 			out[key] = true

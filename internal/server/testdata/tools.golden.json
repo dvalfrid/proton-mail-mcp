@@ -1346,7 +1346,7 @@
       "readOnlyHint": true,
       "title": "Check for a Proton Mail MCP update"
     },
-    "description": "Proton Mail connector (proton-mail-mcp): is there a newer version of this program? Also called the Proton Mail connector, the connection to Proton Mail, Mail MCP or the mail connection (in Swedish: kopplingen till Proton Mail, mejlkopplingen). Use it only when the owner asks whether there is an update. It asks GitHub once for the latest release (https://github.com/dvalfrid/proton-mail-mcp/releases; pre-releases are never offered), sending nothing but the program's name, and says whether it is newer than the running version, with how to update. Never downloads or installs anything. Does not touch the mailbox. For the installed version alone, use about, which needs no internet.",
+    "description": "Proton Mail connector (proton-mail-mcp): is there a newer version of this program? Also called the Proton Mail connector, the connection to Proton Mail, Mail MCP or the mail connection (in Swedish: kopplingen till Proton Mail, mejlkopplingen). Use it only when the owner asks whether there is an update. It asks GitHub once for the latest release (https://github.com/dvalfrid/proton-mail-mcp/releases; release candidates only if the owner chose the test channel), sending nothing but the program's name, and says whether it is newer than the running version, with how to update. Never downloads or installs anything. Does not touch the mailbox. For the installed version alone, use about, which needs no internet.",
     "inputSchema": {
       "additionalProperties": false,
       "type": "object"
@@ -1359,7 +1359,7 @@
           "type": "string"
         },
         "latest": {
-          "description": "the latest release; pre-releases are never offered",
+          "description": "the latest release; a release candidate only in the test channel the owner chose",
           "type": "string"
         },
         "message": {
@@ -1368,6 +1368,10 @@
         },
         "note": {
           "type": "string"
+        },
+        "release_candidate": {
+          "description": "latest is a release candidate, for testing: offered only because the owner chose the test channel",
+          "type": "boolean"
         },
         "release_url": {
           "description": "the latest release's page, where its files are downloaded",
